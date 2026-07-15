@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>MANI Magic — карта цвета</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b5203a">
+
+<!-- iOS: превращает страницу в приложение на весь экран без адресной строки -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MANI Magic">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <img class="topbar-logo" src="assets/logo-mani-magic.png" alt="MANI Magic">
+    </header>
+
+    <main class="stage">
+      <div class="card-wrap">
+        <div id="card" class="card">
+          <div id="cardFront" class="card-face card-front empty">
+            <img id="frontImg" alt="Цвет маникюра">
+          </div>
+          <div class="card-face card-back">
+            <img class="back-logo" src="assets/logo-mani-magic.png" alt="MANI Magic">
+            <p id="phrase" class="phrase"></p>
+          </div>
+        </div>
+      </div>
+
+      <p id="hint" class="hint">Потрясите телефон, чтобы вытянуть карту</p>
+    </main>
+
+    <footer class="controls">
+      <button id="permBtn" class="btn btn-secondary hidden">Разрешить датчики движения</button>
+      <button id="shakeBtn" class="btn btn-primary">Тряхнуть колоду</button>
+      <button id="flipBtn" class="btn btn-ghost" disabled>Перевернуть карту</button>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

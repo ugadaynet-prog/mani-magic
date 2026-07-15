@@ -1,0 +1,208 @@
+* { box-sizing: border-box; }
+
+:root {
+  --ink: #23242e;
+  --bg: #0d0d10;
+  --paper: #f4efe9;
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--paper);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.topbar {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 18px 0 6px;
+}
+
+.topbar-logo {
+  height: 46px;
+  width: auto;
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
+.stage {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 10px 24px;
+}
+
+.card-wrap {
+  perspective: 1600px;
+  width: min(78vw, 320px);
+  aspect-ratio: 70 / 120;
+  touch-action: manipulation;
+}
+
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(.2,.8,.25,1);
+  cursor: pointer;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.55);
+}
+
+.card.flipped {
+  transform: rotateY(180deg);
+}
+
+.card.drawing {
+  animation: shakeCard 0.5s ease;
+}
+
+@keyframes shakeCard {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  20% { transform: rotate(-6deg) translateX(-6px); }
+  40% { transform: rotate(5deg) translateX(5px); }
+  60% { transform: rotate(-4deg) translateX(-4px); }
+  80% { transform: rotate(3deg) translateX(3px); }
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-front img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-front.empty {
+  background: linear-gradient(160deg, #2a2a33, #16161b);
+}
+
+.card-front.empty img {
+  display: none;
+}
+
+.card-front.empty::after {
+  content: "Потрясите\A телефон";
+  white-space: pre-line;
+  text-align: center;
+  color: rgba(255,255,255,0.35);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.card-back {
+  transform: rotateY(180deg);
+  background-image: url("assets/back-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  flex-direction: column;
+  padding: 10% 8%;
+  text-align: center;
+}
+
+.back-logo {
+  width: 46%;
+  max-width: 140px;
+  height: auto;
+  margin-bottom: auto;
+  margin-top: 4%;
+  filter: brightness(0) invert(1) drop-shadow(0 2px 6px rgba(0,0,0,0.45));
+}
+
+.phrase {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(19px, 6.4vw, 26px);
+  line-height: 1.32;
+  color: #fdf6f0;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+  margin: 0 0 6% 0;
+}
+
+.hint {
+  font-size: 15px;
+  opacity: 0.7;
+  text-align: center;
+  margin: 0;
+  min-height: 20px;
+  transition: opacity 0.3s;
+}
+
+.controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px calc(24px + env(safe-area-inset-bottom));
+}
+
+.btn {
+  width: min(100%, 320px);
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #e63950, #b5203a);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #fff;
+  color: #111;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--paper);
+  border: 1px solid rgba(255,255,255,0.35);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.hidden {
+  display: none !important;
+}
