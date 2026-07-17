@@ -54,11 +54,11 @@ if ('serviceWorker' in navigator) {
     return idx;
   }
 
-  function drawCard() {
+  function drawCard(forcedIndex) {
     if (isAnimating) return;
     isAnimating = true;
 
-    currentIndex = pickNewIndex();
+    currentIndex = (typeof forcedIndex === 'number') ? forcedIndex : pickNewIndex();
     const data = CARDS[currentIndex];
 
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
@@ -226,5 +226,11 @@ if ('serviceWorker' in navigator) {
     enableMotionListener();
   } else {
     setHint('Датчики недоступны — используйте кнопку «Тряхнуть колоду»');
+  }
+
+  // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра)
+  const cardParam = parseInt(new URLSearchParams(window.location.search).get('card'), 10);
+  if (cardParam >= 1 && cardParam <= CARDS.length) {
+    drawCard(cardParam - 1);
   }
 })();
