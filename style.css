@@ -207,18 +207,18 @@ html, body {
   display: none !important;
 }
 
-/* Всплывающее фото готовой работы */
+/* Галерея фото готовых работ */
 .work-overlay {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+  gap: 14px;
+  padding: calc(20px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));
   animation: fadeIn 0.25s ease;
 }
 
@@ -227,26 +227,73 @@ html, body {
   to { opacity: 1; }
 }
 
+.work-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 .work-img {
   max-width: 100%;
-  max-height: 78vh;
+  max-height: 100%;
   width: auto;
   height: auto;
   border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  animation: fadeIn 0.2s ease;
+}
+
+.work-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
 }
 
 .work-caption {
-  color: rgba(255, 255, 255, 0.75);
+  color: #fff;
   font-size: 15px;
+  font-weight: 600;
   text-align: center;
   margin: 0;
 }
 
+.work-caption .work-counter {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.work-dots {
+  display: flex;
+  gap: 9px;
+  justify-content: center;
+}
+
+.work-dots button {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.work-dots button.active {
+  background: #fff;
+  transform: scale(1.25);
+}
+
 .work-close {
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top));
-  right: 18px;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 16px;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -256,4 +303,28 @@ html, body {
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
+  z-index: 2;
 }
+
+.work-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.work-prev { left: 10px; }
+.work-next { right: 10px; }
+.work-nav:disabled { opacity: 0.25; cursor: default; }

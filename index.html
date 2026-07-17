@@ -43,14 +43,21 @@
       <button id="permBtn" class="btn btn-secondary hidden">Разрешить датчики движения</button>
       <button id="shakeBtn" class="btn btn-primary">Тряхнуть колоду</button>
       <button id="flipBtn" class="btn btn-ghost" disabled>Перевернуть карту</button>
-      <button id="workBtn" class="btn btn-ghost hidden">Пример работы</button>
+      <button id="workBtn" class="btn btn-ghost hidden">Примеры работ</button>
     </footer>
   </div>
 
   <div id="workOverlay" class="work-overlay hidden">
     <button id="workClose" class="work-close" aria-label="Закрыть">&times;</button>
-    <img id="workImg" class="work-img" src="" alt="Пример готовой работы">
-    <p class="work-caption">Пример маникюра в палитре этой карты</p>
+    <button id="workPrev" class="work-nav work-prev" aria-label="Предыдущее">&#8249;</button>
+    <div class="work-stage">
+      <img id="workImg" class="work-img" src="" alt="Пример готовой работы">
+    </div>
+    <button id="workNext" class="work-nav work-next" aria-label="Следующее">&#8250;</button>
+    <div class="work-meta">
+      <p id="workCaption" class="work-caption"></p>
+      <div id="workDots" class="work-dots"></div>
+    </div>
   </div>
 
   <script src="data.js"></script>

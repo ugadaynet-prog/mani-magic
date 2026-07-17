@@ -26,11 +26,20 @@ if ('serviceWorker' in navigator) {
   const workOverlay = document.getElementById('workOverlay');
   const workImg = document.getElementById('workImg');
   const workClose = document.getElementById('workClose');
+  const workPrev = document.getElementById('workPrev');
+  const workNext = document.getElementById('workNext');
+  const workCaption = document.getElementById('workCaption');
+  const workDots = document.getElementById('workDots');
+
+  // Названия 5 дизайнов — в том же порядке, что и фото в works[]
+  const DESIGN_LABELS = ['Цветной френч', 'Омбре', 'Мрамор', 'Минимализм', 'Хром + глиттер'];
 
   let currentIndex = -1;
   let hasCard = false;
   let isFlipped = false;
   let isAnimating = false;
+  let currentWorks = [];
+  let workPos = 0;
 
   function setHint(text) {
     hintEl.textContent = text;
@@ -69,12 +78,11 @@ if ('serviceWorker' in navigator) {
     preload.src = data.front;
     phraseEl.textContent = data.phrase;
 
-    // Кнопка «Пример работы» — только если у карты есть фото работы
-    if (data.work) {
-      workImg.src = data.work;
+    // Кнопка «Примеры работ» — только если у карты есть фото работ
+    currentWorks = Array.isArray(data.works) ? data.works : [];
+    if (currentWorks.length > 0) {
       workBtn.classList.remove('hidden');
     } else {
-      workImg.removeAttribute('src');
       workBtn.classList.add('hidden');
     }
 
@@ -98,18 +106,70 @@ if ('serviceWorker' in navigator) {
   flipBtn.addEventListener('click', flipCard);
   shakeBtn.addEventListener('click', drawCard);
 
+  function renderDots() {
+    workDots.innerHTML = '';
+    currentWorks.forEach((_, i) => {
+      const d = document.createElement('button');
+      d.type = 'button';
+      d.setAttribute('aria-label', 'Дизайн ' + (i + 1));
+      if (i === workPos) d.classList.add('active');
+      d.addEventListener('click', () => showWork(i));
+      workDots.appendChild(d);
+    });
+  }
+
+  function showWork(i) {
+    if (i < 0 || i >= currentWorks.length) return;
+    workPos = i;
+    workImg.src = currentWorks[i];
+    const label = DESIGN_LABELS[i] || ('Дизайн ' + (i + 1));
+    workCaption.innerHTML = label +
+      '<span class="work-counter">' + (i + 1) + ' / ' + currentWorks.length + '</span>';
+    workPrev.disabled = (i === 0);
+    workNext.disabled = (i === currentWorks.length - 1);
+    Array.prototype.forEach.call(workDots.children, (d, di) => {
+      d.classList.toggle('active', di === workPos);
+    });
+  }
+
   function openWork() {
-    if (workBtn.classList.contains('hidden')) return;
+    if (workBtn.classList.contains('hidden') || currentWorks.length === 0) return;
+    workPos = 0;
+    renderDots();
+    showWork(0);
     workOverlay.classList.remove('hidden');
   }
   function closeWork() {
     workOverlay.classList.add('hidden');
   }
+  function nextWork() { showWork(Math.min(workPos + 1, currentWorks.length - 1)); }
+  function prevWork() { showWork(Math.max(workPos - 1, 0)); }
+
   workBtn.addEventListener('click', openWork);
   workClose.addEventListener('click', closeWork);
+  workNext.addEventListener('click', nextWork);
+  workPrev.addEventListener('click', prevWork);
   workOverlay.addEventListener('click', (e) => {
-    if (e.target === workOverlay || e.target === workImg) closeWork();
+    if (e.target === workOverlay) closeWork();
   });
+  document.addEventListener('keydown', (e) => {
+    if (workOverlay.classList.contains('hidden')) return;
+    if (e.key === 'Escape') closeWork();
+    else if (e.key === 'ArrowRight') nextWork();
+    else if (e.key === 'ArrowLeft') prevWork();
+  });
+
+  // Свайп пальцем по галерее
+  let touchX = null;
+  workOverlay.addEventListener('touchstart', (e) => {
+    touchX = e.changedTouches[0].clientX;
+  }, { passive: true });
+  workOverlay.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) { if (dx < 0) nextWork(); else prevWork(); }
+    touchX = null;
+  }, { passive: true });
 
   // --- Shake detection ---
   const SHAKE_THRESHOLD = 16; // m/s^2 суммарное изменение ускорения
