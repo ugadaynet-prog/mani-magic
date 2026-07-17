@@ -20,7 +20,6 @@ if ('serviceWorker' in navigator) {
   const phraseEl = document.getElementById('phrase');
   const hintEl = document.getElementById('hint');
   const shakeBtn = document.getElementById('shakeBtn');
-  const flipBtn = document.getElementById('flipBtn');
   const permBtn = document.getElementById('permBtn');
   const workBtn = document.getElementById('workBtn');
   const workOverlay = document.getElementById('workOverlay');
@@ -87,7 +86,6 @@ if ('serviceWorker' in navigator) {
     }
 
     hasCard = true;
-    flipBtn.disabled = false;
     setHint('Нажмите на карту, чтобы увидеть послание');
 
     window.setTimeout(() => {
@@ -103,7 +101,6 @@ if ('serviceWorker' in navigator) {
   }
 
   cardEl.addEventListener('click', flipCard);
-  flipBtn.addEventListener('click', flipCard);
   shakeBtn.addEventListener('click', drawCard);
 
   function renderDots() {
