@@ -18,7 +18,7 @@ html, body {
 }
 
 .app {
-  height: 100dvh;
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -57,8 +57,9 @@ html, body {
 .card-wrap {
   perspective: 1600px;
   /* Ширина карты = наименьшее из: ширины экрана, потолка и того,
-     что помещается по высоте (оставляем ~230px на шапку, подсказку и кнопки). */
-  width: min(80vw, 330px, calc((100dvh - 230px) * 7 / 12));
+     что помещается по высоте (оставляем ~232px на шапку, подсказку и кнопки).
+     Если места впритык — лишнее по краю карты обрежет .stage, кнопки не тронет. */
+  width: min(80vw, 330px, calc((100vh - 232px) * 7 / 12));
   aspect-ratio: 70 / 120;
   touch-action: manipulation;
   flex: 0 0 auto;

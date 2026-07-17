@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mani-magic-v10';
+const CACHE_NAME = 'mani-magic-v11';
 
 const SHELL_FILES = [
   './',
@@ -33,14 +33,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Страница/код/стили — «сначала сеть» (всегда свежая версия при наличии интернета),
+// картинки — «сначала кэш» (быстро и работают офлайн).
+function isFreshFirst(url) {
+  return url.pathname.endsWith('/') ||
+    /\.(html|css|js|json)$/i.test(url.pathname);
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req)
+  const url = new URL(req.url);
+
+  if (isFreshFirst(url)) {
+    event.respondWith(
+      fetch(req)
         .then((res) => {
           if (res && res.status === 200) {
             const copy = res.clone();
@@ -48,7 +56,21 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => cached);
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        }
+        return res;
+      });
     })
   );
 });
