@@ -31,8 +31,8 @@ if ('serviceWorker' in navigator) {
   const workCaption = document.getElementById('workCaption');
   const workDots = document.getElementById('workDots');
 
-  // Названия 5 дизайнов — в том же порядке, что и фото в works[]
-  const DESIGN_LABELS = ['Цветной френч', 'Омбре', 'Мрамор', 'Минимализм', 'Хром + глиттер'];
+  // Названия 5 дизайнов (форма + стиль) — в том же порядке, что и фото в works[]
+  const DESIGN_LABELS = ['Френч · миндаль', 'Омбре · квадрат', 'Мрамор · балерина', 'Минимал · овал', 'Хром+глиттер · стилет'];
 
   let currentIndex = -1;
   let hasCard = false;
