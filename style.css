@@ -14,10 +14,12 @@ html, body {
   color: var(--paper);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overscroll-behavior: none;
+  overflow: hidden;
 }
 
 .app {
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28,32 +30,38 @@ html, body {
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 18px 0 6px;
+  flex: 0 0 auto;
+  padding: clamp(6px, 1.6vh, 16px) 0 4px;
 }
 
 .topbar-logo {
-  height: 46px;
+  height: clamp(32px, 5vh, 44px);
   width: auto;
   filter: brightness(0) invert(1);
   opacity: 0.92;
 }
 
 .stage {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  padding: 10px 24px;
+  gap: clamp(8px, 2vh, 20px);
+  padding: 6px 20px;
+  overflow: hidden;
 }
 
 .card-wrap {
   perspective: 1600px;
-  width: min(78vw, 320px);
+  /* Ширина карты = наименьшее из: ширины экрана, потолка и того,
+     что помещается по высоте (оставляем ~230px на шапку, подсказку и кнопки). */
+  width: min(80vw, 330px, calc((100dvh - 230px) * 7 / 12));
   aspect-ratio: 70 / 120;
   touch-action: manipulation;
+  flex: 0 0 auto;
 }
 
 .card {
@@ -150,11 +158,11 @@ html, body {
 }
 
 .hint {
-  font-size: 15px;
+  font-size: clamp(12px, 3.3vw, 15px);
   opacity: 0.7;
   text-align: center;
   margin: 0;
-  min-height: 20px;
+  min-height: 18px;
   transition: opacity 0.3s;
 }
 
@@ -163,16 +171,17 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 14px 24px calc(24px + env(safe-area-inset-bottom));
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 8px 20px calc(10px + env(safe-area-inset-bottom));
 }
 
 .btn {
-  width: min(100%, 320px);
-  padding: 14px 18px;
+  width: min(100%, 330px);
+  padding: clamp(10px, 1.5vh, 14px) 18px;
   border-radius: 14px;
   border: none;
-  font-size: 16px;
+  font-size: clamp(15px, 4vw, 16px);
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.2s ease;
