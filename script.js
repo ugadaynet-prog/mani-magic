@@ -22,6 +22,10 @@ if ('serviceWorker' in navigator) {
   const shakeBtn = document.getElementById('shakeBtn');
   const flipBtn = document.getElementById('flipBtn');
   const permBtn = document.getElementById('permBtn');
+  const workBtn = document.getElementById('workBtn');
+  const workOverlay = document.getElementById('workOverlay');
+  const workImg = document.getElementById('workImg');
+  const workClose = document.getElementById('workClose');
 
   let currentIndex = -1;
   let hasCard = false;
@@ -65,6 +69,15 @@ if ('serviceWorker' in navigator) {
     preload.src = data.front;
     phraseEl.textContent = data.phrase;
 
+    // Кнопка «Пример работы» — только если у карты есть фото работы
+    if (data.work) {
+      workImg.src = data.work;
+      workBtn.classList.remove('hidden');
+    } else {
+      workImg.removeAttribute('src');
+      workBtn.classList.add('hidden');
+    }
+
     hasCard = true;
     flipBtn.disabled = false;
     setHint('Нажмите на карту, чтобы увидеть послание');
@@ -84,6 +97,19 @@ if ('serviceWorker' in navigator) {
   cardEl.addEventListener('click', flipCard);
   flipBtn.addEventListener('click', flipCard);
   shakeBtn.addEventListener('click', drawCard);
+
+  function openWork() {
+    if (workBtn.classList.contains('hidden')) return;
+    workOverlay.classList.remove('hidden');
+  }
+  function closeWork() {
+    workOverlay.classList.add('hidden');
+  }
+  workBtn.addEventListener('click', openWork);
+  workClose.addEventListener('click', closeWork);
+  workOverlay.addEventListener('click', (e) => {
+    if (e.target === workOverlay || e.target === workImg) closeWork();
+  });
 
   // --- Shake detection ---
   const SHAKE_THRESHOLD = 16; // m/s^2 суммарное изменение ускорения

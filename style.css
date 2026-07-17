@@ -206,3 +206,54 @@ html, body {
 .hidden {
   display: none !important;
 }
+
+/* Всплывающее фото готовой работы */
+.work-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.work-img {
+  max-width: 100%;
+  max-height: 78vh;
+  width: auto;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.work-caption {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 15px;
+  text-align: center;
+  margin: 0;
+}
+
+.work-close {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  right: 18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
