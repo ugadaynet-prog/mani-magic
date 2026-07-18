@@ -1,10 +1,16 @@
 // Данные колоды: 49 карт. Лицо — картинка с цветом (assets/cards/front-XX.jpg),
 // рубашка — общий фон assets/back-bg.jpg + логотип + фраза.
-// Необязательное поле works — массив фото готовых работ (маникюр в палитре карты),
-// 5 трендовых дизайнов. Пока заполнено только у карты 1; позже добавим остальным.
+// Необязательные поля works / workLabels — фото готовых работ (5 дизайнов карты)
+// и их подписи для галереи. Заполняются по мере готовности фото.
 const CARDS = [
-  { front: "assets/cards/front-01.jpg", works: ["assets/works/card-01/1.jpg","assets/works/card-01/2.jpg","assets/works/card-01/3.jpg","assets/works/card-01/4.jpg","assets/works/card-01/5.jpg"], phrase: "Твой маникюр – это способ выразить свой стиль, не произнося ни слова." },
-  { front: "assets/cards/front-02.jpg", phrase: "Маникюр – это отражение личности." },
+  { front: "assets/cards/front-01.jpg",
+    works: ["assets/works/card-01/1.jpg","assets/works/card-01/2.jpg","assets/works/card-01/3.jpg","assets/works/card-01/4.jpg","assets/works/card-01/5.jpg"],
+    workLabels: ["Глазурь-хром · однотон, глянец","Аура · френч (2 цв.)","Бархат cat-eye · однотон, матовый","Желе-стекло · омбре (2 цв.)","Жемчуг · однотон + блёстки"],
+    phrase: "Твой маникюр – это способ выразить свой стиль, не произнося ни слова." },
+  { front: "assets/cards/front-02.jpg",
+    works: ["assets/works/card-02/1.jpg","assets/works/card-02/2.jpg","assets/works/card-02/3.jpg","assets/works/card-02/4.jpg","assets/works/card-02/5.jpg"],
+    workLabels: ["Голография · акцентный ноготь (2 цв.)","Матовый бархат · тон-в-тон микрофренч","Фольга · мрамор (3 цв.)","Дуохром · однотон + негатив-полоса","Матовое стекло · леопард-акцент (2 цв.)"],
+    phrase: "Маникюр – это отражение личности." },
   { front: "assets/cards/front-03.jpg", phrase: "Идеальный маникюр – тот, с которым ты чувствуешь себя собой." },
   { front: "assets/cards/front-04.jpg", phrase: "В дизайне ногтей границы устанавливает только твое воображение." },
   { front: "assets/cards/front-05.jpg", phrase: "Жизнь не может быть идеальной. А вот твои ногти – вполне." },

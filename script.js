@@ -30,8 +30,8 @@ if ('serviceWorker' in navigator) {
   const workCaption = document.getElementById('workCaption');
   const workDots = document.getElementById('workDots');
 
-  // Названия 5 дизайнов (форма + стиль) — в том же порядке, что и фото в works[]
-  const DESIGN_LABELS = ['Френч · миндаль', 'Омбре · квадрат', 'Мрамор · балерина', 'Минимал · овал', 'Хром+глиттер · стилет'];
+  // Подписи дизайнов берутся из карты (workLabels). Если их нет — просто «Дизайн N».
+  let currentLabels = [];
 
   let currentIndex = -1;
   let hasCard = false;
@@ -79,6 +79,7 @@ if ('serviceWorker' in navigator) {
 
     // Кнопка «Примеры работ» — только если у карты есть фото работ
     currentWorks = Array.isArray(data.works) ? data.works : [];
+    currentLabels = Array.isArray(data.workLabels) ? data.workLabels : [];
     if (currentWorks.length > 0) {
       workBtn.classList.remove('hidden');
     } else {
@@ -119,7 +120,7 @@ if ('serviceWorker' in navigator) {
     if (i < 0 || i >= currentWorks.length) return;
     workPos = i;
     workImg.src = currentWorks[i];
-    const label = DESIGN_LABELS[i] || ('Дизайн ' + (i + 1));
+    const label = currentLabels[i] || ('Дизайн ' + (i + 1));
     workCaption.innerHTML = label +
       '<span class="work-counter">' + (i + 1) + ' / ' + currentWorks.length + '</span>';
     workPrev.disabled = (i === 0);
