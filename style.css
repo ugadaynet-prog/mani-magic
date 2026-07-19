@@ -215,6 +215,7 @@ html, body {
   gap: 14px;
   padding: calc(20px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));
   animation: fadeIn 0.25s ease;
+  touch-action: none;
 }
 
 @keyframes fadeIn {
@@ -244,6 +245,12 @@ html, body {
   transform-origin: center center;
   transition: transform 0.18s ease;
   will-change: transform;
+  /* touch-action не наследуется — задаём и самому фото, иначе жест перехватит браузер */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 /* во время щипка/перетаскивания — без сглаживания, чтобы шло за пальцем */

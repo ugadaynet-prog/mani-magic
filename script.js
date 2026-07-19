@@ -188,6 +188,42 @@ if ('serviceWorker' in navigator) {
     }
   }, { passive: true });
 
+  // Safari на iPhone шлёт пинч отдельными событиями gesture*
+  let gestureScale0 = 1;
+  workStage.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+    gestureScale0 = zScale;
+    workImg.classList.add('gesture');
+  });
+  workStage.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+    zScale = Math.max(1, Math.min(4, gestureScale0 * e.scale));
+    if (!isZoomed()) { zX = 0; zY = 0; }
+    clampPan(); applyZoom();
+  });
+  workStage.addEventListener('gestureend', (e) => {
+    e.preventDefault();
+    workImg.classList.remove('gesture');
+    if (!isZoomed()) resetZoom();
+  });
+
+  // Колесо мыши / трекпад — для проверки на компьютере
+  workStage.addEventListener('wheel', (e) => {
+    if (workOverlay.classList.contains('hidden')) return;
+    e.preventDefault();
+    zScale = Math.max(1, Math.min(4, zScale * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+    if (!isZoomed()) { zX = 0; zY = 0; }
+    clampPan(); applyZoom();
+  }, { passive: false });
+
+  // Двойной клик мышью
+  workStage.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    zScale = isZoomed() ? 1 : 2.5;
+    zX = 0; zY = 0;
+    applyZoom();
+  });
+
   function showWork(i) {
     if (i < 0 || i >= currentWorks.length) return;
     workPos = i;
