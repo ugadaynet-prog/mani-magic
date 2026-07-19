@@ -116,9 +116,82 @@ if ('serviceWorker' in navigator) {
     });
   }
 
+  // --- Зум фото: щипок двумя пальцами, двойной тап, перетаскивание ---
+  const workStage = document.querySelector('.work-stage');
+  let zScale = 1, zX = 0, zY = 0;
+  let pinchDist0 = 0, pinchScale0 = 1;
+  let panX0 = 0, panY0 = 0, panBaseX = 0, panBaseY = 0;
+  let isPinching = false, isPanning = false, lastTap = 0;
+
+  const isZoomed = () => zScale > 1.01;
+
+  function applyZoom() {
+    workImg.style.transform =
+      'translate(' + zX + 'px,' + zY + 'px) scale(' + zScale + ')';
+  }
+  function resetZoom() {
+    zScale = 1; zX = 0; zY = 0;
+    workImg.classList.remove('gesture');
+    applyZoom();
+  }
+  function clampPan() {
+    const maxX = Math.max(0, (workImg.clientWidth * zScale - workStage.clientWidth) / 2);
+    const maxY = Math.max(0, (workImg.clientHeight * zScale - workStage.clientHeight) / 2);
+    zX = Math.max(-maxX, Math.min(maxX, zX));
+    zY = Math.max(-maxY, Math.min(maxY, zY));
+  }
+  const fingerDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+  workStage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      isPinching = true; isPanning = false;
+      pinchDist0 = fingerDist(e.touches[0], e.touches[1]);
+      pinchScale0 = zScale;
+      workImg.classList.add('gesture');
+    } else if (e.touches.length === 1) {
+      panX0 = e.touches[0].clientX; panY0 = e.touches[0].clientY;
+      panBaseX = zX; panBaseY = zY;
+      isPanning = isZoomed();
+      const now = Date.now();
+      if (now - lastTap < 300) {            // двойной тап — увеличить/вернуть
+        zScale = isZoomed() ? 1 : 2.5;
+        zX = 0; zY = 0;
+        workImg.classList.remove('gesture');
+        applyZoom();
+        lastTap = 0;
+      } else { lastTap = now; }
+    }
+  }, { passive: true });
+
+  workStage.addEventListener('touchmove', (e) => {
+    if (isPinching && e.touches.length === 2) {
+      e.preventDefault();
+      const d = fingerDist(e.touches[0], e.touches[1]);
+      zScale = Math.max(1, Math.min(4, pinchScale0 * (d / pinchDist0)));
+      if (!isZoomed()) { zX = 0; zY = 0; }
+      clampPan(); applyZoom();
+    } else if (isPanning && e.touches.length === 1) {
+      e.preventDefault();
+      workImg.classList.add('gesture');
+      zX = panBaseX + (e.touches[0].clientX - panX0);
+      zY = panBaseY + (e.touches[0].clientY - panY0);
+      clampPan(); applyZoom();
+    }
+  }, { passive: false });
+
+  workStage.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) isPinching = false;
+    if (e.touches.length === 0) {
+      isPanning = false;
+      workImg.classList.remove('gesture');
+      if (!isZoomed()) resetZoom();
+    }
+  }, { passive: true });
+
   function showWork(i) {
     if (i < 0 || i >= currentWorks.length) return;
     workPos = i;
+    resetZoom();
     workImg.src = currentWorks[i];
     const label = currentLabels[i] || ('Дизайн ' + (i + 1));
     workCaption.innerHTML = label +
@@ -139,6 +212,7 @@ if ('serviceWorker' in navigator) {
   }
   function closeWork() {
     workOverlay.classList.add('hidden');
+    resetZoom();
   }
   function nextWork() { showWork(Math.min(workPos + 1, currentWorks.length - 1)); }
   function prevWork() { showWork(Math.max(workPos - 1, 0)); }
@@ -157,13 +231,13 @@ if ('serviceWorker' in navigator) {
     else if (e.key === 'ArrowLeft') prevWork();
   });
 
-  // Свайп пальцем по галерее
+  // Свайп для листания — только когда фото не увеличено
   let touchX = null;
   workOverlay.addEventListener('touchstart', (e) => {
-    touchX = e.changedTouches[0].clientX;
+    touchX = (e.touches.length === 1 && !isZoomed()) ? e.changedTouches[0].clientX : null;
   }, { passive: true });
   workOverlay.addEventListener('touchend', (e) => {
-    if (touchX === null) return;
+    if (touchX === null || isZoomed() || isPinching) { touchX = null; return; }
     const dx = e.changedTouches[0].clientX - touchX;
     if (Math.abs(dx) > 40) { if (dx < 0) nextWork(); else prevWork(); }
     touchX = null;
