@@ -26,21 +26,6 @@ html, body {
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
-.topbar {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  flex: 0 0 auto;
-  padding: clamp(6px, 1.6vh, 16px) 0 4px;
-}
-
-.topbar-logo {
-  height: clamp(32px, 5vh, 44px);
-  width: auto;
-  filter: brightness(0) invert(1);
-  opacity: 0.92;
-}
-
 .stage {
   flex: 1 1 auto;
   min-height: 0;
@@ -57,9 +42,9 @@ html, body {
 .card-wrap {
   perspective: 1600px;
   /* Ширина карты = наименьшее из: ширины экрана, потолка и того,
-     что помещается по высоте (оставляем ~232px на шапку, подсказку и кнопки).
+     что помещается по высоте (оставляем ~185px на подсказку и кнопки).
      Если места впритык — лишнее по краю карты обрежет .stage, кнопки не тронет. */
-  width: min(80vw, 330px, calc((100vh - 232px) * 7 / 12));
+  width: min(86vw, 360px, calc((100vh - 185px) * 7 / 12));
   aspect-ratio: 70 / 120;
   touch-action: manipulation;
   flex: 0 0 auto;
