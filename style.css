@@ -41,8 +41,7 @@ html, body {
 
 /* --- Верхний ряд управления: избранное | стрелки | фильтр --- */
 .controls-top {
-  /* та же ширина, что у кнопок ниже, — ряд с ними вровень */
-  width: min(100%, 330px);
+  width: min(100%, 300px);
   display: flex;
   align-items: stretch;
   gap: 8px;
@@ -54,7 +53,7 @@ html, body {
 .filter-btn {
   flex: 1 1 0;
   min-width: 0;
-  height: 38px;
+  height: 32px;
   padding: 0;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -68,12 +67,12 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: 5px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
-.fav-btn .fav-heart { color: #e63950; font-size: 15px; }
+.fav-btn .fav-heart { color: #e63950; font-size: 14px; }
 
 /* --- История просмотра: назад / вперёд --- */
 .hist-nav {
@@ -89,7 +88,7 @@ html, body {
   border: none;
   background: transparent;
   color: var(--paper);
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   transition: opacity 0.15s ease, background 0.15s ease;
@@ -103,7 +102,7 @@ html, body {
 }
 
 .filter-btn {
-  font-size: 13px;
+  font-size: 12px;
   overflow: hidden;
 }
 
@@ -262,12 +261,21 @@ html, body {
   position: relative;
   perspective: 1600px;
   /* Ширина карты = наименьшее из: ширины экрана, потолка и того,
-     что помещается по высоте (оставляем ~225px на подсказку, фильтр и кнопки).
+     что помещается по высоте (оставляем место на подсказку и кнопки).
      Если места впритык — лишнее по краю карты обрежет .stage, кнопки не тронет. */
   width: min(86vw, 360px, calc((100vh - 225px) * 7 / 12));
   aspect-ratio: 70 / 120;
   touch-action: manipulation;
   flex: 0 0 auto;
+}
+
+/* 100vh на телефоне не учитывает адресную строку браузера — карта считалась
+   выше, чем есть место, и подсказка уезжала под обрез. svh — это высота при
+   ВИДИМОЙ адресной строке, то есть гарантированно помещается в любом случае. */
+@supports (height: 100svh) {
+  .card-wrap {
+    width: min(86vw, 360px, calc((100svh - 218px) * 7 / 12));
+  }
 }
 
 .card {
