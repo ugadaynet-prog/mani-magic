@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Проверка вибрации — MANI Magic</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 40px;
+    background: #0d0d10; color: #f4efe9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px; line-height: 1.5;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: rgba(255,255,255,.6); font-size: 14px; margin: 0 0 20px; }
+  .box { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+         border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 14px; }
+  .row span:last-child { text-align: right; font-weight: 600; }
+  .yes { color: #6ee7a0; } .no { color: #ff6b7f; }
+  button {
+    display: block; width: 100%; margin: 0 0 10px;
+    padding: 18px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, #e63950, #b5203a); color: #fff;
+    font-size: 17px; font-weight: 600; cursor: pointer;
+  }
+  button.alt { background: rgba(255,255,255,.12); }
+  button:active { transform: scale(.98); }
+  #log { font-size: 13px; color: rgba(255,255,255,.75); white-space: pre-wrap;
+         word-break: break-word; min-height: 40px; }
+  .hint { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 18px; }
+</style>
+</head>
+<body>
+  <h1>Проверка вибрации</h1>
+  <p class="sub">Нажимайте кнопки по очереди и запоминайте, на какой телефон завибрировал.</p>
+
+  <div class="box" id="info"></div>
+
+  <button id="b1">1. Как в приложении (60-55-110)</button>
+  <button id="b2">2. Один длинный толчок (200 мс)</button>
+  <button id="b3">3. Очень длинный (600 мс)</button>
+  <button id="b4" class="alt">4. Тройной сигнал</button>
+  <button id="b5" class="alt">5. Прежний слабый (15-40-30)</button>
+
+  <div class="box"><div id="log">Пока ничего не нажимали.</div></div>
+
+  <p class="hint">Если не работает ни одна кнопка — вибрация выключена в настройках
+  телефона либо этот браузер её не умеет. Проверьте: настройки телефона →
+  «Звуки и вибрация» → интенсивность вибрации, и не включён ли беззвучный режим.</p>
+
+<script>
+  var has = typeof navigator.vibrate === 'function';
+  var ua = navigator.userAgent;
+  var browser = /SamsungBrowser/i.test(ua) ? 'Samsung Internet'
+              : /EdgA/i.test(ua) ? 'Edge'
+              : /YaBrowser/i.test(ua) ? 'Яндекс'
+              : /Firefox/i.test(ua) ? 'Firefox'
+              : /Chrome/i.test(ua) ? 'Chrome'
+              : /Safari/i.test(ua) ? 'Safari' : 'неизвестен';
+  var os = /Android/i.test(ua) ? 'Android'
+         : /iPhone|iPad|iPod/i.test(ua) ? 'iPhone / iPad' : 'другая';
+  var standalone = window.matchMedia('(display-mode: standalone)').matches;
+
+  function yn(v) { return '<span class="' + (v ? 'yes' : 'no') + '">' + (v ? 'да' : 'нет') + '</span>'; }
+  document.getElementById('info').innerHTML =
+    '<div class="row"><span>Система</span><span>' + os + '</span></div>' +
+    '<div class="row"><span>Браузер</span><span>' + browser + '</span></div>' +
+    '<div class="row"><span>Открыто как приложение</span><span>' + yn(standalone) + '</span></div>' +
+    '<div class="row"><span>Браузер умеет вибрацию</span><span>' + yn(has) + '</span></div>';
+
+  function test(name, pattern) {
+    var log = document.getElementById('log');
+    if (!has) { log.textContent = name + ': этот браузер вибрацию не поддерживает.'; return; }
+    var res;
+    try { res = navigator.vibrate(pattern); }
+    catch (e) { log.textContent = name + ': ошибка — ' + e.message; return; }
+    log.textContent = name + ': команда отправлена, браузер ответил "' +
+      (res === false ? 'отклонено' : 'принято') + '".\n' +
+      'Узор: ' + JSON.stringify(pattern) + '\n\n' +
+      (res === false
+        ? 'Браузер отклонил вызов — обычно так бывает при выключенной вибрации в настройках телефона.'
+        : 'Если при этом не завибрировало — вибрация выключена в настройках телефона или мотор игнорирует такой узор.');
+  }
+
+  document.getElementById('b1').onclick = function () { test('1. Как в приложении', [60, 55, 110]); };
+  document.getElementById('b2').onclick = function () { test('2. Один длинный', 200); };
+  document.getElementById('b3').onclick = function () { test('3. Очень длинный', 600); };
+  document.getElementById('b4').onclick = function () { test('4. Тройной', [100, 80, 100, 80, 100]); };
+  document.getElementById('b5').onclick = function () { test('5. Прежний слабый', [15, 40, 30]); };
+</script>
+</body>
+</html>

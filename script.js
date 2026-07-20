@@ -127,10 +127,24 @@ if ('serviceWorker' in navigator) {
   // --- Отклик вибрацией, когда выпала карта ---
   // Есть в Chrome на Android. Safari на iPhone вибрацию из браузера не умеет —
   // там просто ничего не произойдёт, на работу приложения это не влияет.
+  //
+  // Импульсы намеренно длинные: короче ~40мс моторчик телефона часто не успевает
+  // раскрутиться, и вибрация не чувствуется, хотя браузер вызов принял.
+  const BUZZ_PATTERN = [60, 55, 110];
   let canBuzz = false;   // на самой загрузке страницы не жужжим
+
+  // Браузер блокирует вибрацию, пока по странице ни разу не коснулись пальцем.
+  // Карту чаще вытягивают тряской, то есть без касания, поэтому запоминаем
+  // первое же касание и до него не пытаемся жужжать.
+  let hasTouched = false;
+  const markTouched = () => { hasTouched = true; };
+  window.addEventListener('pointerdown', markTouched, { once: true, capture: true });
+  window.addEventListener('touchstart', markTouched, { once: true, capture: true });
+  window.addEventListener('click', markTouched, { once: true, capture: true });
+
   function buzz() {
-    if (!canBuzz || typeof navigator.vibrate !== 'function') return;
-    try { navigator.vibrate([15, 40, 30]); } catch (e) {}
+    if (!canBuzz || !hasTouched || typeof navigator.vibrate !== 'function') return;
+    try { navigator.vibrate(BUZZ_PATTERN); } catch (e) {}
   }
 
   // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---
