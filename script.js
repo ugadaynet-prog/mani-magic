@@ -37,6 +37,9 @@ if ('serviceWorker' in navigator) {
   const favClose = document.getElementById('favClose');
   const favGrid = document.getElementById('favGrid');
   const favEmpty = document.getElementById('favEmpty');
+  const histNav = document.getElementById('histNav');
+  const backBtn = document.getElementById('backBtn');
+  const fwdBtn = document.getElementById('fwdBtn');
   const filterBtn = document.getElementById('filterBtn');
   const filterLabel = document.getElementById('filterLabel');
   const filterOverlay = document.getElementById('filterOverlay');
@@ -121,6 +124,30 @@ if ('serviceWorker' in navigator) {
   let isAnimating = false;
   let currentWorks = [];
   let workPos = 0;
+
+  // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---
+  const HIST_MAX = 50;
+  let history = [];
+  let histPos = -1;
+
+  function updateHistoryUI() {
+    // пока карта всего одна — возвращаться некуда, прячем целиком
+    histNav.classList.toggle('hidden', history.length < 2);
+    backBtn.disabled = (histPos <= 0);
+    fwdBtn.disabled = (histPos >= history.length - 1);
+  }
+
+  function goBack() {
+    if (histPos <= 0) return;
+    histPos--;
+    drawCard(history[histPos], true);
+  }
+
+  function goForward() {
+    if (histPos >= history.length - 1) return;
+    histPos++;
+    drawCard(history[histPos], true);
+  }
 
   function setHint(text) {
     hintEl.textContent = text;
@@ -208,7 +235,7 @@ if ('serviceWorker' in navigator) {
     return idx;
   }
 
-  function drawCard(forcedIndex) {
+  function drawCard(forcedIndex, fromHistory) {
     const forced = (typeof forcedIndex === 'number');
     // защита от «дребезга» нужна только для случайной тряски;
     // явный выбор (избранное, ссылка ?card=N) должен срабатывать всегда
@@ -217,6 +244,15 @@ if ('serviceWorker' in navigator) {
 
     currentIndex = forced ? forcedIndex : pickNewIndex();
     const data = CARDS[currentIndex];
+
+    if (!fromHistory) {
+      // новая карта: всё, что было «впереди», отбрасываем и дописываем в конец
+      history = history.slice(0, histPos + 1);
+      history.push(currentIndex);
+      if (history.length > HIST_MAX) history = history.slice(-HIST_MAX);
+      histPos = history.length - 1;
+    }
+    updateHistoryUI();
 
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
     isFlipped = false;
@@ -262,7 +298,9 @@ if ('serviceWorker' in navigator) {
   }
 
   cardEl.addEventListener('click', flipCard);
-  shakeBtn.addEventListener('click', drawCard);
+  shakeBtn.addEventListener('click', () => drawCard());
+  backBtn.addEventListener('click', goBack);
+  fwdBtn.addEventListener('click', goForward);
 
   function renderDots() {
     workDots.innerHTML = '';

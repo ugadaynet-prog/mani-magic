@@ -65,9 +65,44 @@ html, body {
 
 .fav-btn .fav-heart { color: #e63950; font-size: 15px; }
 
-.filter-btn {
-  margin-left: auto;   /* напротив избранного: избранное слева, фильтр справа */
+/* --- История просмотра: назад / вперёд --- */
+.hist-nav {
+  margin: 0 auto;          /* по центру между избранным и фильтром */
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.hist-btn {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--paper);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.hist-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
+
+.hist-btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.filter-btn {
+  /* сжимается с многоточием, если название цвета длинное — чтобы не толкать соседей */
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 70vw;
   padding: 7px 13px;
   border-radius: 999px;
