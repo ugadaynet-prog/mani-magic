@@ -43,7 +43,7 @@ html, body {
 .fav-btn {
   position: fixed;
   top: calc(10px + env(safe-area-inset-top));
-  right: calc(12px + env(safe-area-inset-right));
+  left: calc(12px + env(safe-area-inset-left));
   z-index: 30;
   display: flex;
   align-items: center;
