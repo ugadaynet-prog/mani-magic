@@ -39,51 +39,54 @@ html, body {
   overflow: hidden;
 }
 
-/* --- Избранное --- */
+/* --- Верхний ряд управления: избранное | стрелки | фильтр --- */
 .controls-top {
-  width: 100%;
+  /* та же ширина, что у кнопок ниже, — ряд с ними вровень */
+  width: min(100%, 330px);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
 }
 
-.fav-btn {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
+/* три равные доли: слева избранное, по центру стрелки, справа фильтр */
+.fav-btn,
+.hist-nav,
+.filter-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.10);
   color: var(--paper);
-  font-size: 14px;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
   cursor: pointer;
+}
+
+.fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
 }
 
 .fav-btn .fav-heart { color: #e63950; font-size: 15px; }
 
 /* --- История просмотра: назад / вперёд --- */
 .hist-nav {
-  margin: 0 auto;          /* по центру между избранным и фильтром */
-  flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.10);
+  align-items: stretch;
+  overflow: hidden;        /* половинки не вылезают за скругление */
 }
 
 .hist-btn {
-  width: 36px;
-  height: 30px;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 0;
   border: none;
-  border-radius: 999px;
   background: transparent;
   color: var(--paper);
   font-size: 17px;
@@ -100,18 +103,15 @@ html, body {
 }
 
 .filter-btn {
-  /* сжимается с многоточием, если название цвета длинное — чтобы не толкать соседей */
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 70vw;
-  padding: 7px 13px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.10);
-  color: var(--paper);
   font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  overflow: hidden;
+}
+
+/* Отступ задан внутреннему тексту, а не самой кнопке: у <button> отступ
+   прибавляется к доле flex поверх border-box и ломает равные ширины. */
+.filter-btn span {
+  display: block;
+  padding: 0 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -64,7 +64,6 @@ if ('serviceWorker' in navigator) {
   }
   function updateFavUI() {
     favCount.textContent = favorites.length;
-    favBtn.classList.toggle('hidden', favorites.length === 0);
     likeBtn.classList.toggle('liked', favorites.indexOf(currentIndex) !== -1);
     likeBtn.setAttribute('aria-label',
       favorites.indexOf(currentIndex) !== -1 ? 'Убрать из избранного' : 'Добавить в избранное');
@@ -131,8 +130,7 @@ if ('serviceWorker' in navigator) {
   let histPos = -1;
 
   function updateHistoryUI() {
-    // пока карта всего одна — возвращаться некуда, прячем целиком
-    histNav.classList.toggle('hidden', history.length < 2);
+    // стрелки всегда на месте; пока идти некуда — просто гаснут
     backBtn.disabled = (histPos <= 0);
     fwdBtn.disabled = (histPos >= history.length - 1);
   }
@@ -536,6 +534,7 @@ if ('serviceWorker' in navigator) {
 
   // Показать счётчик избранного, если что-то сохранено с прошлого раза
   updateFavUI();
+  updateHistoryUI();   // на старте обе стрелки погашены — истории ещё нет
 
   // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра)
   const cardParam = parseInt(new URLSearchParams(window.location.search).get('card'), 10);
