@@ -124,6 +124,15 @@ if ('serviceWorker' in navigator) {
   let currentWorks = [];
   let workPos = 0;
 
+  // --- Отклик вибрацией, когда выпала карта ---
+  // Есть в Chrome на Android. Safari на iPhone вибрацию из браузера не умеет —
+  // там просто ничего не произойдёт, на работу приложения это не влияет.
+  let canBuzz = false;   // на самой загрузке страницы не жужжим
+  function buzz() {
+    if (!canBuzz || typeof navigator.vibrate !== 'function') return;
+    try { navigator.vibrate([15, 40, 30]); } catch (e) {}
+  }
+
   // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---
   const HIST_MAX = 50;
   let history = [];
@@ -251,6 +260,9 @@ if ('serviceWorker' in navigator) {
       histPos = history.length - 1;
     }
     updateHistoryUI();
+
+    // жужжим только когда карта именно выпала; шаги назад/вперёд — молча
+    if (!fromHistory) buzz();
 
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
     isFlipped = false;
@@ -541,4 +553,6 @@ if ('serviceWorker' in navigator) {
   if (cardParam >= 1 && cardParam <= CARDS.length) {
     drawCard(cardParam - 1);
   }
+
+  canBuzz = true;   // дальше уже настоящие вытягивания — можно жужжать
 })();
