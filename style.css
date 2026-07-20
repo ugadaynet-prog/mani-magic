@@ -343,7 +343,7 @@ html, body {
 
 .card-back {
   transform: rotateY(180deg);
-  background-image: url("assets/back-bg.jpg");
+  background-image: url("assets/back-bg.webp");
   background-size: cover;
   background-position: center;
   flex-direction: column;
