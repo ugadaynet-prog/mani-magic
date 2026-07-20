@@ -38,10 +38,10 @@
 
   <div class="box" id="info"></div>
 
-  <button id="b1">1. Как в приложении (60-55-110)</button>
+  <button id="b1">1. Как в приложении (600-100-400)</button>
   <button id="b2">2. Один длинный толчок (200 мс)</button>
   <button id="b3">3. Очень длинный (600 мс)</button>
-  <button id="b4" class="alt">4. Тройной сигнал</button>
+  <button id="b4" class="alt">4. Ещё мощнее (900-120-600)</button>
   <button id="b5" class="alt">5. Прежний слабый (15-40-30)</button>
 
   <div class="box"><div id="log">Пока ничего не нажимали.</div></div>
@@ -84,10 +84,10 @@
         : 'Если при этом не завибрировало — вибрация выключена в настройках телефона или мотор игнорирует такой узор.');
   }
 
-  document.getElementById('b1').onclick = function () { test('1. Как в приложении', [60, 55, 110]); };
+  document.getElementById('b1').onclick = function () { test('1. Как в приложении', [600, 100, 400]); };
   document.getElementById('b2').onclick = function () { test('2. Один длинный', 200); };
   document.getElementById('b3').onclick = function () { test('3. Очень длинный', 600); };
-  document.getElementById('b4').onclick = function () { test('4. Тройной', [100, 80, 100, 80, 100]); };
+  document.getElementById('b4').onclick = function () { test('4. Ещё мощнее', [900, 120, 600]); };
   document.getElementById('b5').onclick = function () { test('5. Прежний слабый', [15, 40, 30]); };
 </script>
 </body>
