@@ -430,6 +430,36 @@ html, body {
   display: none !important;
 }
 
+/* Подсказка «коснитесь экрана» — появляется, только если браузер отказал
+   в вибрации из-за того, что по странице ещё ни разу не касались. */
+.touch-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 70;
+  max-width: 86vw;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(230, 57, 80, 0.94);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  animation: hintIn 0.3s ease;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.touch-hint.fading { opacity: 0; }
+
+@keyframes hintIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* Галерея фото готовых работ */
 .work-overlay {
   position: fixed;

@@ -160,13 +160,35 @@ if ('serviceWorker' in navigator) {
   // Своей проверки «было ли касание» здесь намеренно нет: если браузер
   // вибрацию не разрешит, вызов просто вернёт false и ничего не случится.
   // Лишний собственный запрет умеет только ошибочно глушить рабочую вибрацию.
+  // Браузер разрешает вибрацию только если по странице хоть раз коснулись
+  // пальцем. Тряска за касание не считается — это защита от сайтов, которые
+  // дёргали бы телефон сами по себе. Одного касания хватает до перезагрузки.
+  let touchHintShown = false;
+
+  function showTouchHint() {
+    if (touchHintShown) return;
+    touchHintShown = true;
+    const el = document.createElement('div');
+    el.className = 'touch-hint';
+    el.textContent = 'Коснитесь экрана — включится вибрация';
+    document.body.appendChild(el);
+    const kill = () => { el.classList.add('fading'); setTimeout(() => el.remove(), 400); };
+    window.addEventListener('pointerdown', kill, { once: true });
+    window.addEventListener('touchstart', kill, { once: true });
+    setTimeout(kill, 7000);
+  }
+
   function buzz() {
     if (!canBuzz || typeof navigator.vibrate !== 'function') { dbg('вибро: нет API'); return; }
+    const ua = navigator.userActivation;
+    const touched = ua ? ua.hasBeenActive : null;
     let res;
     try { res = navigator.vibrate(BUZZ_PATTERN); }
     catch (e) { dbg('вибро: ошибка ' + e.message); return; }
     buzzUntil = Date.now() + BUZZ_MS;
-    dbg('вибро: ' + (res === false ? 'ОТКЛОНЕНО браузером' : 'принято'));
+    dbg('вибро: ' + (res === false ? 'ОТКЛОНЕНО' : 'принято') +
+        ' | касание страницы было: ' + (touched === null ? 'н/д' : (touched ? 'да' : 'НЕТ')));
+    if (res === false && touched === false) showTouchHint();
   }
 
   // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---
