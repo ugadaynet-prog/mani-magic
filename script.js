@@ -30,8 +30,85 @@ if ('serviceWorker' in navigator) {
   const workCaption = document.getElementById('workCaption');
   const workDots = document.getElementById('workDots');
 
+  const favBtn = document.getElementById('favBtn');
+  const favCount = document.getElementById('favCount');
+  const likeBtn = document.getElementById('likeBtn');
+  const favOverlay = document.getElementById('favOverlay');
+  const favClose = document.getElementById('favClose');
+  const favGrid = document.getElementById('favGrid');
+  const favEmpty = document.getElementById('favEmpty');
+
   // Подписи дизайнов берутся из карты (workLabels). Если их нет — просто «Дизайн N».
   let currentLabels = [];
+
+  // --- Избранное (сохраняется в памяти телефона) ---
+  const FAV_KEY = 'maniMagicFavorites';
+  let favorites = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+    if (Array.isArray(saved)) {
+      favorites = saved.filter((i) => Number.isInteger(i) && i >= 0 && i < CARDS.length);
+    }
+  } catch (e) { favorites = []; }
+
+  function saveFavorites() {
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); } catch (e) {}
+  }
+  function updateFavUI() {
+    favCount.textContent = favorites.length;
+    favBtn.classList.toggle('hidden', favorites.length === 0);
+    likeBtn.classList.toggle('liked', favorites.indexOf(currentIndex) !== -1);
+    likeBtn.setAttribute('aria-label',
+      favorites.indexOf(currentIndex) !== -1 ? 'Убрать из избранного' : 'Добавить в избранное');
+  }
+  function toggleFavorite() {
+    if (!hasCard) return;
+    const at = favorites.indexOf(currentIndex);
+    if (at === -1) favorites.push(currentIndex); else favorites.splice(at, 1);
+    saveFavorites();
+    updateFavUI();
+  }
+
+  function renderFavorites() {
+    favGrid.innerHTML = '';
+    favEmpty.classList.toggle('hidden', favorites.length > 0);
+    favorites.forEach((idx) => {
+      const item = document.createElement('div');
+      item.className = 'fav-item';
+
+      const img = document.createElement('img');
+      img.src = CARDS[idx].front;
+      img.alt = 'Карта ' + (idx + 1);
+      img.addEventListener('click', () => {
+        favOverlay.classList.add('hidden');
+        drawCard(idx);
+      });
+
+      const rm = document.createElement('button');
+      rm.className = 'fav-remove';
+      rm.type = 'button';
+      rm.setAttribute('aria-label', 'Убрать из избранного');
+      rm.innerHTML = '&times;';
+      rm.addEventListener('click', () => {
+        const at = favorites.indexOf(idx);
+        if (at !== -1) favorites.splice(at, 1);
+        saveFavorites();
+        updateFavUI();
+        renderFavorites();
+      });
+
+      item.appendChild(img);
+      item.appendChild(rm);
+      favGrid.appendChild(item);
+    });
+  }
+
+  likeBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(); });
+  favBtn.addEventListener('click', () => { renderFavorites(); favOverlay.classList.remove('hidden'); });
+  favClose.addEventListener('click', () => favOverlay.classList.add('hidden'));
+  favOverlay.addEventListener('click', (e) => {
+    if (e.target === favOverlay) favOverlay.classList.add('hidden');
+  });
 
   let currentIndex = -1;
   let hasCard = false;
@@ -54,10 +131,13 @@ if ('serviceWorker' in navigator) {
   }
 
   function drawCard(forcedIndex) {
-    if (isAnimating) return;
+    const forced = (typeof forcedIndex === 'number');
+    // защита от «дребезга» нужна только для случайной тряски;
+    // явный выбор (избранное, ссылка ?card=N) должен срабатывать всегда
+    if (isAnimating && !forced) return;
     isAnimating = true;
 
-    currentIndex = (typeof forcedIndex === 'number') ? forcedIndex : pickNewIndex();
+    currentIndex = forced ? forcedIndex : pickNewIndex();
     const data = CARDS[currentIndex];
 
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
@@ -87,6 +167,8 @@ if ('serviceWorker' in navigator) {
     }
 
     hasCard = true;
+    likeBtn.classList.remove('hidden');
+    updateFavUI();
     setHint('Нажмите на карту, чтобы увидеть послание');
 
     window.setTimeout(() => {
@@ -335,6 +417,9 @@ if ('serviceWorker' in navigator) {
   } else {
     setHint('Датчики недоступны — используйте кнопку «Тряхнуть колоду»');
   }
+
+  // Показать счётчик избранного, если что-то сохранено с прошлого раза
+  updateFavUI();
 
   // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра)
   const cardParam = parseInt(new URLSearchParams(window.location.search).get('card'), 10);

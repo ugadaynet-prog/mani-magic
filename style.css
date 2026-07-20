@@ -39,7 +39,117 @@ html, body {
   overflow: hidden;
 }
 
+/* --- Избранное --- */
+.fav-btn {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.fav-btn .fav-heart { color: #e63950; font-size: 15px; }
+
+.like-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.38);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.like-btn.liked {
+  color: #ff4d67;
+  transform: scale(1.12);
+}
+
+.like-btn:active { transform: scale(0.92); }
+
+.fav-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(10, 8, 9, 0.96);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(54px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  animation: fadeIn 0.25s ease;
+}
+
+.fav-title {
+  color: var(--paper);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.fav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.fav-item { position: relative; }
+
+.fav-item img {
+  width: 100%;
+  aspect-ratio: 70 / 120;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+  cursor: pointer;
+}
+
+.fav-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fav-empty {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.5;
+  margin-top: 24px;
+}
+
 .card-wrap {
+  position: relative;
   perspective: 1600px;
   /* Ширина карты = наименьшее из: ширины экрана, потолка и того,
      что помещается по высоте (оставляем ~185px на подсказку и кнопки).

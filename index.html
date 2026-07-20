@@ -18,6 +18,10 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <button id="favBtn" class="fav-btn hidden" aria-label="Открыть избранное">
+    <span class="fav-heart">&#10084;</span><span id="favCount">0</span>
+  </button>
+
   <div class="app">
     <main class="stage">
       <div class="card-wrap">
@@ -30,6 +34,7 @@
             <p id="phrase" class="phrase"></p>
           </div>
         </div>
+        <button id="likeBtn" class="like-btn hidden" aria-label="Добавить в избранное">&#10084;</button>
       </div>
 
       <p id="hint" class="hint">Потрясите телефон, чтобы вытянуть карту</p>
@@ -40,6 +45,13 @@
       <button id="shakeBtn" class="btn btn-primary">Тряхнуть колоду</button>
       <button id="workBtn" class="btn btn-ghost hidden">Примеры работ</button>
     </footer>
+  </div>
+
+  <div id="favOverlay" class="fav-overlay hidden">
+    <button id="favClose" class="work-close" aria-label="Закрыть">&times;</button>
+    <h2 class="fav-title">Понравилось</h2>
+    <div id="favGrid" class="fav-grid"></div>
+    <p id="favEmpty" class="fav-empty hidden">Пока пусто.<br>Нажмите &#10084; на карте, которая понравилась.</p>
   </div>
 
   <div id="workOverlay" class="work-overlay hidden">
