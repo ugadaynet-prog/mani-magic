@@ -62,11 +62,9 @@ html, body {
 .fav-btn .fav-heart { color: #e63950; font-size: 15px; }
 
 .filter-btn {
-  position: fixed;
-  top: calc(10px + env(safe-area-inset-top));
-  right: calc(12px + env(safe-area-inset-right));
-  z-index: 30;
-  max-width: 45vw;
+  align-self: flex-end;   /* внизу справа, над основными кнопками */
+  flex: 0 0 auto;
+  max-width: 70vw;
   padding: 7px 13px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -225,9 +223,9 @@ html, body {
   position: relative;
   perspective: 1600px;
   /* Ширина карты = наименьшее из: ширины экрана, потолка и того,
-     что помещается по высоте (оставляем ~185px на подсказку и кнопки).
+     что помещается по высоте (оставляем ~225px на подсказку, фильтр и кнопки).
      Если места впритык — лишнее по краю карты обрежет .stage, кнопки не тронет. */
-  width: min(86vw, 360px, calc((100vh - 185px) * 7 / 12));
+  width: min(86vw, 360px, calc((100vh - 225px) * 7 / 12));
   aspect-ratio: 70 / 120;
   touch-action: manipulation;
   flex: 0 0 auto;
