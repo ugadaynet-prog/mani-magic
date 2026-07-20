@@ -124,6 +124,27 @@ if ('serviceWorker' in navigator) {
   let currentWorks = [];
   let workPos = 0;
 
+  // --- Отладочный экран: открыть приложение со ссылкой ?debug=1 ---
+  // Показывает прямо на телефоне, что происходит с тряской и вибрацией.
+  const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
+  let dbgBox = null, dbgLines = [];
+  if (DEBUG) {
+    dbgBox = document.createElement('div');
+    dbgBox.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:999;' +
+      'background:rgba(0,0,0,.82);color:#8f8;font:11px/1.35 monospace;' +
+      'padding:6px 8px;white-space:pre-wrap;max-height:42vh;overflow:auto;';
+    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(dbgBox));
+    if (document.body) document.body.appendChild(dbgBox);
+  }
+  function dbg(msg) {
+    if (!DEBUG) return;
+    const t = new Date().toTimeString().slice(3, 8) + ':' +
+      String(Date.now() % 1000).padStart(3, '0');
+    dbgLines.unshift(t + '  ' + msg);
+    if (dbgLines.length > 16) dbgLines.pop();
+    if (dbgBox) dbgBox.textContent = dbgLines.join('\n');
+  }
+
   // --- Отклик вибрацией, когда выпала карта ---
   // Есть в Chrome на Android. Safari на iPhone вибрацию из браузера не умеет —
   // там просто ничего не произойдёт, на работу приложения это не влияет.
@@ -131,20 +152,21 @@ if ('serviceWorker' in navigator) {
   // Силу вибрации из браузера задать нельзя — только длительность и ритм.
   // Поэтому «помощнее» = длинный основной толчок плюс добивка.
   const BUZZ_PATTERN = [600, 100, 400];
-  let canBuzz = false;   // на самой загрузке страницы не жужжим
+  const BUZZ_MS = BUZZ_PATTERN.reduce((a, b) => a + b, 0);
+  const BUZZ_SETTLE = 400;   // сколько ждать после вибрации, пока телефон «успокоится»
+  let canBuzz = false;       // на самой загрузке страницы не жужжим
+  let buzzUntil = 0;         // до какого момента мотор ещё работает
 
-  // Браузер блокирует вибрацию, пока по странице ни разу не коснулись пальцем.
-  // Карту чаще вытягивают тряской, то есть без касания, поэтому запоминаем
-  // первое же касание и до него не пытаемся жужжать.
-  let hasTouched = false;
-  const markTouched = () => { hasTouched = true; };
-  window.addEventListener('pointerdown', markTouched, { once: true, capture: true });
-  window.addEventListener('touchstart', markTouched, { once: true, capture: true });
-  window.addEventListener('click', markTouched, { once: true, capture: true });
-
+  // Своей проверки «было ли касание» здесь намеренно нет: если браузер
+  // вибрацию не разрешит, вызов просто вернёт false и ничего не случится.
+  // Лишний собственный запрет умеет только ошибочно глушить рабочую вибрацию.
   function buzz() {
-    if (!canBuzz || !hasTouched || typeof navigator.vibrate !== 'function') return;
-    try { navigator.vibrate(BUZZ_PATTERN); } catch (e) {}
+    if (!canBuzz || typeof navigator.vibrate !== 'function') { dbg('вибро: нет API'); return; }
+    let res;
+    try { res = navigator.vibrate(BUZZ_PATTERN); }
+    catch (e) { dbg('вибро: ошибка ' + e.message); return; }
+    buzzUntil = Date.now() + BUZZ_MS;
+    dbg('вибро: ' + (res === false ? 'ОТКЛОНЕНО браузером' : 'принято'));
   }
 
   // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---
@@ -511,15 +533,25 @@ if ('serviceWorker' in navigator) {
     const acc = event.accelerationIncludingGravity || event.acceleration;
     if (!acc || acc.x === null) return;
 
+    const now = Date.now();
+
+    // Пока работает вибромотор, телефон трясётся сам — датчик это видит и
+    // засчитывает за новую тряску. Получается петля: вибрация вызывает карту,
+    // карта вызывает вибрацию. На это время показания просто не считаем.
+    if (now < buzzUntil + BUZZ_SETTLE) {
+      lastAcc = { x: acc.x, y: acc.y, z: acc.z };
+      return;
+    }
+
     if (lastAcc) {
       const delta =
         Math.abs(acc.x - lastAcc.x) +
         Math.abs(acc.y - lastAcc.y) +
         Math.abs(acc.z - lastAcc.z);
 
-      const now = Date.now();
       if (delta > SHAKE_THRESHOLD && now - lastShakeTime > SHAKE_COOLDOWN) {
         lastShakeTime = now;
+        dbg('тряска: сила ' + delta.toFixed(1));
         drawCard();
       }
     }
@@ -569,4 +601,8 @@ if ('serviceWorker' in navigator) {
   }
 
   canBuzz = true;   // дальше уже настоящие вытягивания — можно жужжать
+
+  dbg('вибрация в браузере: ' + (typeof navigator.vibrate === 'function' ? 'есть' : 'НЕТ') +
+      ' | узор ' + BUZZ_PATTERN.join('-') + ' (' + BUZZ_MS + 'мс)' +
+      ' | датчик глушится на ' + (BUZZ_MS + BUZZ_SETTLE) + 'мс');
 })();
