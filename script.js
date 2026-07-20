@@ -37,6 +37,11 @@ if ('serviceWorker' in navigator) {
   const favClose = document.getElementById('favClose');
   const favGrid = document.getElementById('favGrid');
   const favEmpty = document.getElementById('favEmpty');
+  const filterBtn = document.getElementById('filterBtn');
+  const filterLabel = document.getElementById('filterLabel');
+  const filterOverlay = document.getElementById('filterOverlay');
+  const filterClose = document.getElementById('filterClose');
+  const filterList = document.getElementById('filterList');
 
   // Подписи дизайнов берутся из карты (workLabels). Если их нет — просто «Дизайн N».
   let currentLabels = [];
@@ -121,11 +126,84 @@ if ('serviceWorker' in navigator) {
     hintEl.textContent = text;
   }
 
+  // --- Фильтр по цвету ---
+  const COLOR_GROUPS = [
+    { name: 'Красные',             dots: ['#c92130', '#e53424', '#902421'] },
+    { name: 'Розовые',             dots: ['#e51859', '#df5a9b', '#f297a8'] },
+    { name: 'Оранжевые',           dots: ['#ed691f', '#f18b41', '#c4892d'] },
+    { name: 'Жёлтые',              dots: ['#f6df5b', '#ffce08', '#e4c46d'] },
+    { name: 'Зелёные и бирюзовые', dots: ['#0b7875', '#42bbc6', '#c0e0c9'] },
+    { name: 'Синие',               dots: ['#253d7b', '#2b76ba', '#9ec6e9'] },
+    { name: 'Фиолетовые',          dots: ['#4d3185', '#9e7fb8', '#cba2cc'] },
+    { name: 'Нюд и бежевые',       dots: ['#c8b99c', '#f6c88a', '#cbb59d'] },
+    { name: 'Тёмные',              dots: ['#1a2020', '#292139', '#3d2d1d'] },
+    { name: 'Светлые',             dots: ['#f7f7ef', '#e8f5fd', '#fbe5e7'] },
+  ];
+  let activeFilter = null;   // null = все цвета
+
+  const cardsInGroup = (g) =>
+    CARDS.reduce((n, c) => n + (c.colors && c.colors.indexOf(g) !== -1 ? 1 : 0), 0);
+
+  function filteredPool() {
+    if (!activeFilter) return CARDS.map((_, i) => i);
+    const pool = [];
+    CARDS.forEach((c, i) => {
+      if (c.colors && c.colors.indexOf(activeFilter) !== -1) pool.push(i);
+    });
+    return pool.length ? pool : CARDS.map((_, i) => i);
+  }
+
+  function updateFilterUI() {
+    filterLabel.textContent = activeFilter || 'Все цвета';
+    filterBtn.classList.toggle('active', !!activeFilter);
+  }
+
+  function renderFilter() {
+    filterList.innerHTML = '';
+    const rows = [{ name: 'Все цвета', dots: ['#e63950', '#2b76ba', '#c0e0c9'], all: true }]
+      .concat(COLOR_GROUPS);
+    rows.forEach((g) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'filter-row';
+      const chosen = g.all ? !activeFilter : activeFilter === g.name;
+      if (chosen) row.classList.add('chosen');
+
+      const sw = document.createElement('span');
+      sw.className = 'swatches';
+      g.dots.forEach((c) => { const i = document.createElement('i'); i.style.background = c; sw.appendChild(i); });
+
+      const nm = document.createElement('span');
+      nm.className = 'name';
+      nm.textContent = g.name;
+
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = g.all ? CARDS.length : cardsInGroup(g.name);
+
+      row.appendChild(sw); row.appendChild(nm); row.appendChild(num);
+      row.addEventListener('click', () => {
+        activeFilter = g.all ? null : g.name;
+        updateFilterUI();
+        filterOverlay.classList.add('hidden');
+        drawCard();               // сразу показываем карту из выбранной группы
+      });
+      filterList.appendChild(row);
+    });
+  }
+
+  filterBtn.addEventListener('click', () => { renderFilter(); filterOverlay.classList.remove('hidden'); });
+  filterClose.addEventListener('click', () => filterOverlay.classList.add('hidden'));
+  filterOverlay.addEventListener('click', (e) => {
+    if (e.target === filterOverlay) filterOverlay.classList.add('hidden');
+  });
+
   function pickNewIndex() {
-    if (CARDS.length === 1) return 0;
+    const pool = filteredPool();
+    if (pool.length === 1) return pool[0];
     let idx;
     do {
-      idx = Math.floor(Math.random() * CARDS.length);
+      idx = pool[Math.floor(Math.random() * pool.length)];
     } while (idx === currentIndex);
     return idx;
   }

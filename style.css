@@ -61,6 +61,79 @@ html, body {
 
 .fav-btn .fav-heart { color: #e63950; font-size: 15px; }
 
+.filter-btn {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  z-index: 30;
+  max-width: 45vw;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-btn.active {
+  background: rgba(230, 57, 80, 0.85);
+  border-color: transparent;
+}
+
+.filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--paper);
+  font-size: 15px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.filter-row.chosen {
+  border-color: #e63950;
+  background: rgba(230, 57, 80, 0.18);
+}
+
+.filter-row .swatches {
+  display: flex;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.filter-row .swatches i {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: block;
+}
+
+.filter-row .name { flex: 1; }
+
+.filter-row .num {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .like-btn {
   position: absolute;
   top: 10px;

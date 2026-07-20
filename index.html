@@ -22,6 +22,10 @@
     <span class="fav-heart">&#10084;</span><span id="favCount">0</span>
   </button>
 
+  <button id="filterBtn" class="filter-btn" aria-label="Фильтр по цвету">
+    <span id="filterLabel">Все цвета</span>
+  </button>
+
   <div class="app">
     <main class="stage">
       <div class="card-wrap">
@@ -45,6 +49,12 @@
       <button id="shakeBtn" class="btn btn-primary">Тряхнуть колоду</button>
       <button id="workBtn" class="btn btn-ghost hidden">Примеры работ</button>
     </footer>
+  </div>
+
+  <div id="filterOverlay" class="fav-overlay hidden">
+    <button id="filterClose" class="work-close" aria-label="Закрыть">&times;</button>
+    <h2 class="fav-title">Цвет маникюра</h2>
+    <div id="filterList" class="filter-list"></div>
   </div>
 
   <div id="favOverlay" class="fav-overlay hidden">
