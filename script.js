@@ -33,6 +33,7 @@ if ('serviceWorker' in navigator) {
   const favBtn = document.getElementById('favBtn');
   const favCount = document.getElementById('favCount');
   const likeBtn = document.getElementById('likeBtn');
+  const shareBtn = document.getElementById('shareBtn');
   const favOverlay = document.getElementById('favOverlay');
   const favClose = document.getElementById('favClose');
   const favGrid = document.getElementById('favGrid');
@@ -111,6 +112,46 @@ if ('serviceWorker' in navigator) {
   }
 
   likeBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(); });
+
+  // --- Короткое уведомление внизу экрана ---
+  let toastEl = null, toastTimer = 0;
+  function toast(msg) {
+    if (toastEl) toastEl.remove();
+    toastEl = document.createElement('div');
+    toastEl.className = 'toast';
+    toastEl.textContent = msg;
+    document.body.appendChild(toastEl);
+    const el = toastEl;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      el.classList.add('fading');
+      setTimeout(() => { if (el.parentNode) el.remove(); }, 400);
+    }, 2200);
+  }
+
+  // --- Поделиться текущей картой ---
+  // Ссылка ведёт прямо на эту карту (?card=N) — получатель откроет именно её.
+  function shareCard() {
+    if (!hasCard) return;
+    const url = location.origin + location.pathname + '?card=' + (currentIndex + 1);
+    const payload = { title: 'MANI Magic', text: 'Хочу такой маникюр 💅', url };
+
+    if (navigator.share) {
+      navigator.share(payload).catch(() => {});   // отмену пользователем не считаем ошибкой
+      return;
+    }
+    // старые браузеры без системного «Поделиться» — копируем ссылку
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => toast('Ссылка на карту скопирована'))
+        .catch(() => toast(url));
+      return;
+    }
+    toast(url);
+  }
+
+  shareBtn.addEventListener('click', (e) => { e.stopPropagation(); shareCard(); });
+
   favBtn.addEventListener('click', () => { renderFavorites(); favOverlay.classList.remove('hidden'); });
   favClose.addEventListener('click', () => favOverlay.classList.add('hidden'));
   favOverlay.addEventListener('click', (e) => {
@@ -350,6 +391,7 @@ if ('serviceWorker' in navigator) {
 
     hasCard = true;
     likeBtn.classList.remove('hidden');
+    shareBtn.classList.remove('hidden');
     updateFavUI();
     setHint('Нажмите на карту, чтобы увидеть послание');
 
