@@ -355,7 +355,7 @@ if ('serviceWorker' in navigator) {
     document.documentElement.setAttribute('data-theme', theme);
     themeBtn.querySelector('svg').innerHTML = (theme === 'dark') ? THEME_ICON_SUN : THEME_ICON_MOON;
     themeBtn.setAttribute('aria-label', theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
-    if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#f3ede7' : '#0d0d10');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#fafafa' : '#0d0d10');
   }
   applyTheme();
 

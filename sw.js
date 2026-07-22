@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mani-magic-v45';
+const CACHE_NAME = 'mani-magic-v46';
 
 const SHELL_FILES = [
   './',

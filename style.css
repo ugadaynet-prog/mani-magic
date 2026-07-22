@@ -17,17 +17,17 @@
   color-scheme: dark;
 }
 
-/* Светлая тема — тёплый кремовый под стиль колоды */
+/* Светлая тема — чистый, почти белый фон */
 :root[data-theme="light"] {
-  --bg: #f3ede7;
-  --paper: #2b2622;
+  --bg: #fafafa;
+  --paper: #1f2126;
   --surface: rgba(0, 0, 0, 0.05);
   --surface-press: rgba(0, 0, 0, 0.10);
   --surface-soft: rgba(0, 0, 0, 0.04);
   --border: rgba(0, 0, 0, 0.20);
   --border-strong: rgba(0, 0, 0, 0.28);
   --border-soft: rgba(0, 0, 0, 0.10);
-  --overlay: rgba(244, 238, 232, 0.975);
+  --overlay: rgba(250, 250, 250, 0.975);
   --muted: rgba(0, 0, 0, 0.5);
   --disabled-icon: rgba(0, 0, 0, 0.3);
   color-scheme: light;
