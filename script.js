@@ -500,6 +500,26 @@ if ('serviceWorker' in navigator) {
     if (e.target === qrOverlay) qrOverlay.classList.add('hidden');
   });
 
+  // --- Карта дня: одна и та же для всех в течение дня, зависит от даты ---
+  const dayBtn = document.getElementById('dayBtn');
+  const dayBadge = document.getElementById('dayBadge');
+
+  function cardOfDayIndex() {
+    const d = new Date();
+    const key = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    // детерминированный «перемешиватель», чтобы соседние дни не давали соседние карты
+    const h = (key * 9301 + 49297) % 233280;
+    return Math.floor((h / 233280) * CARDS.length) % CARDS.length;
+  }
+
+  function showCardOfDay() {
+    drawCard(cardOfDayIndex());          // forced-индекс: показывается всегда
+    dayBadge.classList.remove('hidden'); // бейдж поверх обычной отрисовки
+    setHint('Карта дня · нажмите, чтобы увидеть послание');
+  }
+
+  dayBtn.addEventListener('click', showCardOfDay);
+
   function pickNewIndex() {
     const pool = filteredPool();
     if (pool.length === 1) return pool[0];
@@ -516,6 +536,8 @@ if ('serviceWorker' in navigator) {
     // явный выбор (избранное, ссылка ?card=N) должен срабатывать всегда
     if (isAnimating && !forced) return;
     isAnimating = true;
+
+    dayBadge.classList.add('hidden');   // любое вытягивание снимает бейдж «Карта дня»
 
     currentIndex = forced ? forcedIndex : pickNewIndex();
     const data = CARDS[currentIndex];
@@ -827,10 +849,13 @@ if ('serviceWorker' in navigator) {
   updateFavUI();
   updateHistoryUI();   // на старте обе стрелки погашены — истории ещё нет
 
-  // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра)
+  // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра).
+  // Если ссылки нет — встречаем пользователя картой дня.
   const cardParam = parseInt(new URLSearchParams(window.location.search).get('card'), 10);
   if (cardParam >= 1 && cardParam <= CARDS.length) {
     drawCard(cardParam - 1);
+  } else {
+    showCardOfDay();
   }
 
   canBuzz = true;   // дальше уже настоящие вытягивания — можно жужжать

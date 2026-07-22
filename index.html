@@ -20,6 +20,17 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <button id="dayBtn" class="day-btn" aria-label="Карта дня">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4.5" width="18" height="16.5" rx="2"></rect>
+      <line x1="3" y1="9.5" x2="21" y2="9.5"></line>
+      <line x1="8" y1="2.5" x2="8" y2="6"></line>
+      <line x1="16" y1="2.5" x2="16" y2="6"></line>
+      <circle cx="12" cy="15.5" r="1.7" fill="currentColor" stroke="none"></circle>
+    </svg>
+  </button>
+
   <button id="qrBtn" class="qr-btn" aria-label="QR-код приложения">
     <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -42,6 +53,7 @@
             <p id="phrase" class="phrase"></p>
           </div>
         </div>
+        <div id="dayBadge" class="day-badge hidden">&#10022; Карта дня</div>
         <button id="likeBtn" class="like-btn hidden" aria-label="Добавить в избранное">&#10084;</button>
         <button id="shareBtn" class="share-btn hidden" aria-label="Поделиться картой">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
