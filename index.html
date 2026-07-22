@@ -20,6 +20,16 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <button id="qrBtn" class="qr-btn" aria-label="QR-код приложения">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+      <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+      <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+      <path d="M14 14h3v3h-3z M18 18h3v3h-3z" fill="currentColor" stroke="none"></path>
+    </svg>
+  </button>
+
   <div class="app">
     <main class="stage">
       <div class="card-wrap">
@@ -97,6 +107,15 @@
     <button id="catalogClose" class="work-close" aria-label="Закрыть">&times;</button>
     <h2 class="fav-title">Все карты</h2>
     <div id="catalogGrid" class="fav-grid"></div>
+  </div>
+
+  <div id="qrOverlay" class="fav-overlay hidden">
+    <button id="qrClose" class="work-close" aria-label="Закрыть">&times;</button>
+    <h2 class="fav-title">MANI Magic</h2>
+    <div class="qr-box">
+      <img src="assets/qr.svg" alt="QR-код приложения">
+    </div>
+    <p class="qr-hint">Наведите камеру телефона на код —<br>откроется приложение</p>
   </div>
 
   <div id="workOverlay" class="work-overlay hidden">

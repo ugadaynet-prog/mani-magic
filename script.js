@@ -490,6 +490,16 @@ if ('serviceWorker' in navigator) {
     if (e.target === catalogOverlay) catalogOverlay.classList.add('hidden');
   });
 
+  // --- QR-код приложения (мастер показывает клиенту) ---
+  const qrBtn = document.getElementById('qrBtn');
+  const qrOverlay = document.getElementById('qrOverlay');
+  const qrClose = document.getElementById('qrClose');
+  qrBtn.addEventListener('click', () => qrOverlay.classList.remove('hidden'));
+  qrClose.addEventListener('click', () => qrOverlay.classList.add('hidden'));
+  qrOverlay.addEventListener('click', (e) => {
+    if (e.target === qrOverlay) qrOverlay.classList.add('hidden');
+  });
+
   function pickNewIndex() {
     const pool = filteredPool();
     if (pool.length === 1) return pool[0];

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mani-magic-v46';
+const CACHE_NAME = 'mani-magic-v47';
 
 const SHELL_FILES = [
   './',
@@ -8,6 +8,7 @@ const SHELL_FILES = [
   './data.js',
   './manifest.json',
   './assets/back-bg.webp',
+  './assets/qr.svg',
   './assets/logo-mani-magic.png',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',

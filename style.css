@@ -65,6 +65,50 @@ html, body {
   overflow: hidden;
 }
 
+/* --- QR-код приложения: показать клиенту в салоне --- */
+.qr-btn {
+  position: fixed;
+  top: calc(6px + env(safe-area-inset-top));
+  right: calc(10px + env(safe-area-inset-right));
+  z-index: 30;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--paper);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.qr-btn:active { transform: scale(0.92); }
+
+.qr-box {
+  /* QR всегда на белом — иначе камера не считает в тёмной теме */
+  background: #fff;
+  padding: 22px;
+  border-radius: 18px;
+  width: min(78vw, 320px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+}
+
+.qr-box img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.qr-hint {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  margin: 18px 0 0;
+}
+
 /* --- Верхний ряд управления: избранное | стрелки | фильтр --- */
 .controls-top {
   width: min(100%, 300px);
@@ -217,7 +261,9 @@ html, body {
 
 .like-btn {
   position: absolute;
-  top: 10px;
+  /* не top:10 — карта на некоторых экранах поднимается почти к краю,
+     и сердечко сталкивалось бы с угловой кнопкой QR */
+  top: 30px;
   right: 10px;
   z-index: 5;
   width: 44px;
@@ -242,7 +288,7 @@ html, body {
 /* «Поделиться» — зеркально сердечку, в левом верхнем углу карты */
 .share-btn {
   position: absolute;
-  top: 10px;
+  top: 30px;   /* вровень с сердечком */
   left: 10px;
   z-index: 5;
   width: 44px;
