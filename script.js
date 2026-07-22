@@ -35,6 +35,7 @@ if ('serviceWorker' in navigator) {
   const likeBtn = document.getElementById('likeBtn');
   const shareBtn = document.getElementById('shareBtn');
   const soundBtn = document.getElementById('soundBtn');
+  const themeBtn = document.getElementById('themeBtn');
   const favOverlay = document.getElementById('favOverlay');
   const favClose = document.getElementById('favClose');
   const favGrid = document.getElementById('favGrid');
@@ -325,6 +326,43 @@ if ('serviceWorker' in navigator) {
     dbg('звук: ' + (muted ? 'выключен' : 'включён') + ' пользователем');
     ensureAudio();
     if (!muted) playDraw();   // при включении сразу проигрываем — слышно, что заработало
+  });
+
+  // --- Тема оформления: тёмная / светлая ---
+  const THEME_KEY = 'maniMagicTheme';
+  let theme = 'dark';
+  try { const t = localStorage.getItem(THEME_KEY); if (t === 'light' || t === 'dark') theme = t; } catch (e) {}
+
+  // Иконка показывает, на ЧТО переключит: в тёмной теме — солнце (→ светлая),
+  // в светлой — месяц (→ тёмная).
+  const THEME_ICON_SUN =
+    '<circle cx="12" cy="12" r="4.2"></circle>' +
+    '<line x1="12" y1="2.5" x2="12" y2="4.5"></line>' +
+    '<line x1="12" y1="19.5" x2="12" y2="21.5"></line>' +
+    '<line x1="2.5" y1="12" x2="4.5" y2="12"></line>' +
+    '<line x1="19.5" y1="12" x2="21.5" y2="12"></line>' +
+    '<line x1="5.1" y1="5.1" x2="6.5" y2="6.5"></line>' +
+    '<line x1="17.5" y1="17.5" x2="18.9" y2="18.9"></line>' +
+    '<line x1="5.1" y1="18.9" x2="6.5" y2="17.5"></line>' +
+    '<line x1="17.5" y1="6.5" x2="18.9" y2="5.1"></line>';
+  const THEME_ICON_MOON =
+    '<path d="M21 12.9A8.2 8.2 0 1 1 11.1 3 6.4 6.4 0 0 0 21 12.9z"></path>';
+
+  // Цвет строки состояния браузера под тему
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.querySelector('svg').innerHTML = (theme === 'dark') ? THEME_ICON_SUN : THEME_ICON_MOON;
+    themeBtn.setAttribute('aria-label', theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
+    if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#f3ede7' : '#0d0d10');
+  }
+  applyTheme();
+
+  themeBtn.addEventListener('click', () => {
+    theme = (theme === 'dark') ? 'light' : 'dark';
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+    applyTheme();
   });
 
   // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---

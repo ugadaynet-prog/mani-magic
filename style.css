@@ -1,10 +1,36 @@
 * { box-sizing: border-box; }
 
+/* Тёмная тема — по умолчанию */
 :root {
   --ink: #23242e;
   --bg: #0d0d10;
   --paper: #f4efe9;
+  --surface: rgba(255, 255, 255, 0.10);   /* фон кнопок-таблеток */
+  --surface-press: rgba(255, 255, 255, 0.18);
+  --surface-soft: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.25);
+  --border-strong: rgba(255, 255, 255, 0.35);
+  --border-soft: rgba(255, 255, 255, 0.16);
+  --overlay: rgba(10, 8, 9, 0.96);         /* фон окон избранного/фильтра/каталога */
+  --muted: rgba(255, 255, 255, 0.55);      /* второстепенный текст */
+  --disabled-icon: rgba(255, 255, 255, 0.35);
   color-scheme: dark;
+}
+
+/* Светлая тема — тёплый кремовый под стиль колоды */
+:root[data-theme="light"] {
+  --bg: #f3ede7;
+  --paper: #2b2622;
+  --surface: rgba(0, 0, 0, 0.05);
+  --surface-press: rgba(0, 0, 0, 0.10);
+  --surface-soft: rgba(0, 0, 0, 0.04);
+  --border: rgba(0, 0, 0, 0.20);
+  --border-strong: rgba(0, 0, 0, 0.28);
+  --border-soft: rgba(0, 0, 0, 0.10);
+  --overlay: rgba(244, 238, 232, 0.975);
+  --muted: rgba(0, 0, 0, 0.5);
+  --disabled-icon: rgba(0, 0, 0, 0.3);
+  color-scheme: light;
 }
 
 html, body {
@@ -56,8 +82,8 @@ html, body {
   height: 32px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: var(--paper);
   font-weight: 600;
   cursor: pointer;
@@ -102,7 +128,7 @@ html, body {
   transition: opacity 0.15s ease, background 0.15s ease;
 }
 
-.hist-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
+.hist-btn:active:not(:disabled) { background: var(--surface-press); }
 
 .hist-btn:disabled {
   opacity: 0.28;
@@ -154,8 +180,8 @@ html, body {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
   color: var(--paper);
   font-size: 15px;
   cursor: pointer;
@@ -184,7 +210,7 @@ html, body {
 .filter-row .name { flex: 1; }
 
 .filter-row .num {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -238,7 +264,7 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(10, 8, 9, 0.96);
+  background: var(--overlay);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -290,7 +316,7 @@ html, body {
 }
 
 .fav-empty {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--muted);
   font-size: 15px;
   text-align: center;
   line-height: 1.5;
@@ -454,11 +480,12 @@ html, body {
   width: auto;
 }
 
-.sound-btn {
+.sound-btn,
+.theme-btn {
   flex: 0 0 auto;
   width: 50px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--paper);
   display: flex;
@@ -468,8 +495,9 @@ html, body {
   transition: transform 0.15s ease, color 0.15s ease;
 }
 
-.sound-btn.muted { color: rgba(255, 255, 255, 0.35); }
-.sound-btn:active { transform: scale(0.95); }
+.sound-btn.muted { color: var(--disabled-icon); }
+.sound-btn:active,
+.theme-btn:active { transform: scale(0.95); }
 
 .btn:active {
   transform: scale(0.97);
@@ -488,7 +516,7 @@ html, body {
 .btn-ghost {
   background: transparent;
   color: var(--paper);
-  border: 1px solid rgba(255,255,255,0.35);
+  border: 1px solid var(--border-strong);
 }
 
 .btn:disabled {
