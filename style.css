@@ -441,6 +441,36 @@ html, body {
   transition: transform 0.15s ease, opacity 0.2s ease;
 }
 
+/* Ряд: слева кнопка звука, справа «Тряхнуть колоду» на весь остаток */
+.draw-row {
+  width: min(100%, 330px);
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.draw-row #shakeBtn {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.sound-btn {
+  flex: 0 0 auto;
+  width: 50px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.sound-btn.muted { color: rgba(255, 255, 255, 0.35); }
+.sound-btn:active { transform: scale(0.95); }
+
 .btn:active {
   transform: scale(0.97);
 }

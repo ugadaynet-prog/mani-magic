@@ -34,6 +34,7 @@ if ('serviceWorker' in navigator) {
   const favCount = document.getElementById('favCount');
   const likeBtn = document.getElementById('likeBtn');
   const shareBtn = document.getElementById('shareBtn');
+  const soundBtn = document.getElementById('soundBtn');
   const favOverlay = document.getElementById('favOverlay');
   const favClose = document.getElementById('favClose');
   const favGrid = document.getElementById('favGrid');
@@ -236,6 +237,72 @@ if ('serviceWorker' in navigator) {
     if (res === false && touched === false) showTouchHint();
   }
 
+  // --- Звук при вытягивании ---
+  // Синтезируем короткий «свист» карты через Web Audio — внешний файл не нужен.
+  // Как и вибрация, звук доступен только после первого касания страницы.
+  const SOUND_KEY = 'maniMagicMuted';
+  let muted = false;
+  try { muted = localStorage.getItem(SOUND_KEY) === '1'; } catch (e) {}
+
+  const SND_ICON_ON =
+    '<path d="M4 9v6h4l5 4V5L8 9H4z"></path>' +
+    '<path d="M16 8.6a4 4 0 0 1 0 6.8"></path>' +
+    '<path d="M18.7 6a7 7 0 0 1 0 12"></path>';
+  const SND_ICON_OFF =
+    '<path d="M4 9v6h4l5 4V5L8 9H4z"></path>' +
+    '<line x1="16" y1="9.5" x2="21" y2="14.5"></line>' +
+    '<line x1="21" y1="9.5" x2="16" y2="14.5"></line>';
+
+  function updateSoundIcon() {
+    soundBtn.querySelector('svg').innerHTML = muted ? SND_ICON_OFF : SND_ICON_ON;
+    soundBtn.classList.toggle('muted', muted);
+    soundBtn.setAttribute('aria-label', muted ? 'Включить звук' : 'Выключить звук');
+  }
+
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try { audioCtx = new AC(); } catch (e) { audioCtx = null; return; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  }
+  // разблокировать звук на первом же касании (тряска касанием не считается)
+  ['pointerdown', 'touchstart', 'click'].forEach((ev) =>
+    window.addEventListener(ev, ensureAudio, { once: true, capture: true }));
+
+  function playDraw() {
+    if (muted) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    try {
+      const ctx = audioCtx, now = ctx.currentTime, dur = 0.26;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;   // белый шум
+      const src = ctx.createBufferSource(); src.buffer = buffer;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+      bp.frequency.setValueAtTime(900, now);                          // «свист»: частота
+      bp.frequency.exponentialRampToValueAtTime(2600, now + 0.10);    // вверх…
+      bp.frequency.exponentialRampToValueAtTime(700, now + dur);      // …и вниз
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.22, now + 0.02);          // быстрый заход
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);         // мягкий спад
+      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      src.start(now); src.stop(now + dur);
+    } catch (e) {}
+  }
+
+  updateSoundIcon();
+  soundBtn.addEventListener('click', () => {
+    muted = !muted;
+    try { localStorage.setItem(SOUND_KEY, muted ? '1' : '0'); } catch (e) {}
+    updateSoundIcon();
+    if (!muted) playDraw();   // при включении сразу проигрываем — слышно, что заработало
+  });
+
   // --- История просмотра: можно вернуться к карте, которую случайно смахнули ---
   const HIST_MAX = 50;
   let history = [];
@@ -390,8 +457,8 @@ if ('serviceWorker' in navigator) {
     }
     updateHistoryUI();
 
-    // жужжим только когда карта именно выпала; шаги назад/вперёд — молча
-    if (!fromHistory) buzz();
+    // отклик только когда карта именно выпала; шаги назад/вперёд — молча
+    if (!fromHistory) { buzz(); playDraw(); }
 
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
     isFlipped = false;
