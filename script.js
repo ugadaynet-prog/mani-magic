@@ -283,38 +283,35 @@ if ('serviceWorker' in navigator) {
     // Жёсткой отсечки по state нет: иначе первое же вытягивание было бы немым.
     if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     try {
-      const ctx = audioCtx, now = ctx.currentTime, dur = 0.30;
+      const ctx = audioCtx, now = ctx.currentTime;
 
       // общий выход
       const master = ctx.createGain();
-      master.gain.value = 0.9;
+      master.gain.value = 0.85;
       master.connect(ctx.destination);
 
-      // «свист» — шум через полосовой фильтр с проездом частоты вверх-вниз
-      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource(); src.buffer = buffer;
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.5;
-      bp.frequency.setValueAtTime(1000, now);
-      bp.frequency.exponentialRampToValueAtTime(3000, now + 0.11);
-      bp.frequency.exponentialRampToValueAtTime(800, now + dur);
-      const gn = ctx.createGain();
-      gn.gain.setValueAtTime(0.0001, now);
-      gn.gain.exponentialRampToValueAtTime(0.6, now + 0.02);   // громче прежнего
-      gn.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-      src.connect(bp); bp.connect(gn); gn.connect(master);
-      src.start(now); src.stop(now + dur);
+      // Мягкий «шелест» колоды: несколько тихих слоёв фильтрованного шума с
+      // ПЛАВНЫМ заходом (не резким) — именно резкая атака звучит как щелчок.
+      function rustle(offset, dur, fStart, fEnd, peak) {
+        const t = now + offset;
+        const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;   // шум
+        const src = ctx.createBufferSource(); src.buffer = buffer;
+        const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.7;
+        bp.frequency.setValueAtTime(fStart, t);
+        bp.frequency.linearRampToValueAtTime(fEnd, t + dur);   // лёгкий уход частоты вниз
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(peak, t + dur * 0.4);   // мягкое нарастание
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);  // мягкий спад
+        src.connect(bp); bp.connect(g); g.connect(master);
+        src.start(t); src.stop(t + dur);
+      }
 
-      // короткий щелчок в начале — чёткий «плюх» карты
-      const osc = ctx.createOscillator(); osc.type = 'triangle';
-      osc.frequency.setValueAtTime(1800, now);
-      osc.frequency.exponentialRampToValueAtTime(500, now + 0.06);
-      const go = ctx.createGain();
-      go.gain.setValueAtTime(0.5, now);
-      go.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-      osc.connect(go); go.connect(master);
-      osc.start(now); osc.stop(now + 0.09);
+      // два слоя со сдвигом — как несколько карт, скользящих друг за другом
+      rustle(0.00, 0.34, 2600, 1500, 0.30);
+      rustle(0.06, 0.30, 3300, 1900, 0.20);
 
       dbg('звук: играю (state=' + audioCtx.state + ')');
     } catch (e) { dbg('звук: ошибка ' + e.message); }
