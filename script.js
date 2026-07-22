@@ -263,36 +263,61 @@ if ('serviceWorker' in navigator) {
   function ensureAudio() {
     if (!audioCtx) {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      try { audioCtx = new AC(); } catch (e) { audioCtx = null; return; }
+      if (!AC) { dbg('звук: нет Web Audio API'); return; }
+      try { audioCtx = new AC(); dbg('звук: контекст создан, state=' + audioCtx.state); }
+      catch (e) { audioCtx = null; dbg('звук: ошибка создания ' + e.message); return; }
     }
-    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => dbg('звук: возобновлён, state=' + audioCtx.state)).catch(() => {});
+    }
   }
   // разблокировать звук на первом же касании (тряска касанием не считается)
   ['pointerdown', 'touchstart', 'click'].forEach((ev) =>
     window.addEventListener(ev, ensureAudio, { once: true, capture: true }));
 
   function playDraw() {
-    if (muted) return;
+    if (muted) { dbg('звук: выключен пользователем'); return; }
     ensureAudio();
-    if (!audioCtx) return;
+    if (!audioCtx) { dbg('звук: контекста нет'); return; }
+    // если контекст ещё спит — будим; звук пойдёт, как только проснётся.
+    // Жёсткой отсечки по state нет: иначе первое же вытягивание было бы немым.
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     try {
-      const ctx = audioCtx, now = ctx.currentTime, dur = 0.26;
+      const ctx = audioCtx, now = ctx.currentTime, dur = 0.30;
+
+      // общий выход
+      const master = ctx.createGain();
+      master.gain.value = 0.9;
+      master.connect(ctx.destination);
+
+      // «свист» — шум через полосовой фильтр с проездом частоты вверх-вниз
       const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;   // белый шум
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       const src = ctx.createBufferSource(); src.buffer = buffer;
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
-      bp.frequency.setValueAtTime(900, now);                          // «свист»: частота
-      bp.frequency.exponentialRampToValueAtTime(2600, now + 0.10);    // вверх…
-      bp.frequency.exponentialRampToValueAtTime(700, now + dur);      // …и вниз
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.22, now + 0.02);          // быстрый заход
-      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);         // мягкий спад
-      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.5;
+      bp.frequency.setValueAtTime(1000, now);
+      bp.frequency.exponentialRampToValueAtTime(3000, now + 0.11);
+      bp.frequency.exponentialRampToValueAtTime(800, now + dur);
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.0001, now);
+      gn.gain.exponentialRampToValueAtTime(0.6, now + 0.02);   // громче прежнего
+      gn.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      src.connect(bp); bp.connect(gn); gn.connect(master);
       src.start(now); src.stop(now + dur);
-    } catch (e) {}
+
+      // короткий щелчок в начале — чёткий «плюх» карты
+      const osc = ctx.createOscillator(); osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1800, now);
+      osc.frequency.exponentialRampToValueAtTime(500, now + 0.06);
+      const go = ctx.createGain();
+      go.gain.setValueAtTime(0.5, now);
+      go.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.connect(go); go.connect(master);
+      osc.start(now); osc.stop(now + 0.09);
+
+      dbg('звук: играю (state=' + audioCtx.state + ')');
+    } catch (e) { dbg('звук: ошибка ' + e.message); }
   }
 
   updateSoundIcon();
@@ -300,6 +325,8 @@ if ('serviceWorker' in navigator) {
     muted = !muted;
     try { localStorage.setItem(SOUND_KEY, muted ? '1' : '0'); } catch (e) {}
     updateSoundIcon();
+    dbg('звук: ' + (muted ? 'выключен' : 'включён') + ' пользователем');
+    ensureAudio();
     if (!muted) playDraw();   // при включении сразу проигрываем — слышно, что заработало
   });
 
@@ -766,4 +793,6 @@ if ('serviceWorker' in navigator) {
   dbg('вибрация в браузере: ' + (typeof navigator.vibrate === 'function' ? 'есть' : 'НЕТ') +
       ' | узор ' + BUZZ_PATTERN.join('-') + ' (' + BUZZ_MS + 'мс)' +
       ' | датчик глушится на ' + (BUZZ_MS + BUZZ_SETTLE) + 'мс');
+  dbg('звук: Web Audio ' + ((window.AudioContext || window.webkitAudioContext) ? 'есть' : 'НЕТ') +
+      ' | звук ' + (muted ? 'ВЫКЛ' : 'вкл') + ' | коснитесь экрана для разблокировки');
 })();
