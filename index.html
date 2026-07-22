@@ -55,6 +55,9 @@
           <button id="backBtn" class="hist-btn" aria-label="Предыдущая карта">&#8592;</button>
           <button id="fwdBtn" class="hist-btn" aria-label="Следующая карта">&#8594;</button>
         </div>
+        <button id="catalogBtn" class="catalog-btn" aria-label="Все карты">
+          <span>Все карты</span>
+        </button>
         <button id="filterBtn" class="filter-btn" aria-label="Фильтр по цвету">
           <span id="filterLabel">Все цвета</span>
         </button>
@@ -76,6 +79,12 @@
     <h2 class="fav-title">Понравилось</h2>
     <div id="favGrid" class="fav-grid"></div>
     <p id="favEmpty" class="fav-empty hidden">Пока пусто.<br>Нажмите &#10084; на карте, которая понравилась.</p>
+  </div>
+
+  <div id="catalogOverlay" class="fav-overlay hidden">
+    <button id="catalogClose" class="work-close" aria-label="Закрыть">&times;</button>
+    <h2 class="fav-title">Все карты</h2>
+    <div id="catalogGrid" class="fav-grid"></div>
   </div>
 
   <div id="workOverlay" class="work-overlay hidden">

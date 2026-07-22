@@ -47,11 +47,11 @@ html, body {
   gap: 8px;
 }
 
-/* три равные доли: слева избранное, по центру стрелки, справа фильтр */
+/* общий вид всех кнопок ряда */
 .fav-btn,
 .hist-nav,
+.catalog-btn,
 .filter-btn {
-  flex: 1 1 0;
   min-width: 0;
   height: 32px;
   padding: 0;
@@ -63,11 +63,19 @@ html, body {
   cursor: pointer;
 }
 
+/* избранное и стрелки — компактные по содержимому;
+   «Все карты» и «Все цвета» делят оставшуюся ширину поровну */
+.fav-btn,
+.hist-nav { flex: 0 0 auto; }
+.catalog-btn,
+.filter-btn { flex: 1 1 0; }
+
 .fav-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
+  padding: 0 11px;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -84,7 +92,7 @@ html, body {
 .hist-btn {
   flex: 1 1 0;
   min-width: 0;
-  padding: 0;
+  padding: 0 8px;          /* стрелки компактные, но с зоной под палец */
   border: none;
   background: transparent;
   color: var(--paper);
@@ -101,19 +109,30 @@ html, body {
   cursor: default;
 }
 
-.filter-btn {
+.filter-btn,
+.catalog-btn {
   font-size: 12px;
   overflow: hidden;
 }
 
 /* Отступ задан внутреннему тексту, а не самой кнопке: у <button> отступ
    прибавляется к доле flex поверх border-box и ломает равные ширины. */
-.filter-btn span {
+.filter-btn span,
+.catalog-btn span {
   display: block;
-  padding: 0 10px;
+  padding: 0 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Очень узкие экраны (старые маленькие телефоны): ужимаем отступы,
+   чтобы «Все карты» и «Все цвета» помещались без многоточия. */
+@media (max-width: 359px) {
+  .filter-btn span,
+  .catalog-btn span { padding: 0 3px; }
+  .hist-btn { padding: 0 6px; }
+  .fav-btn { padding: 0 9px; }
 }
 
 .filter-btn.active {

@@ -46,6 +46,10 @@ if ('serviceWorker' in navigator) {
   const filterOverlay = document.getElementById('filterOverlay');
   const filterClose = document.getElementById('filterClose');
   const filterList = document.getElementById('filterList');
+  const catalogBtn = document.getElementById('catalogBtn');
+  const catalogOverlay = document.getElementById('catalogOverlay');
+  const catalogClose = document.getElementById('catalogClose');
+  const catalogGrid = document.getElementById('catalogGrid');
 
   // Подписи дизайнов берутся из карты (workLabels). Если их нет — просто «Дизайн N».
   let currentLabels = [];
@@ -329,6 +333,32 @@ if ('serviceWorker' in navigator) {
   filterClose.addEventListener('click', () => filterOverlay.classList.add('hidden'));
   filterOverlay.addEventListener('click', (e) => {
     if (e.target === filterOverlay) filterOverlay.classList.add('hidden');
+  });
+
+  // --- Каталог: все 49 карт сеткой ---
+  let catalogBuilt = false;
+  function renderCatalog() {
+    if (catalogBuilt) return;        // карты не меняются — строим один раз
+    CARDS.forEach((card, idx) => {
+      const item = document.createElement('div');
+      item.className = 'fav-item';
+      const img = document.createElement('img');
+      img.src = card.front;
+      img.alt = 'Карта ' + (idx + 1);
+      img.addEventListener('click', () => {
+        catalogOverlay.classList.add('hidden');
+        drawCard(idx);
+      });
+      item.appendChild(img);
+      catalogGrid.appendChild(item);
+    });
+    catalogBuilt = true;
+  }
+
+  catalogBtn.addEventListener('click', () => { renderCatalog(); catalogOverlay.classList.remove('hidden'); });
+  catalogClose.addEventListener('click', () => catalogOverlay.classList.add('hidden'));
+  catalogOverlay.addEventListener('click', (e) => {
+    if (e.target === catalogOverlay) catalogOverlay.classList.add('hidden');
   });
 
   function pickNewIndex() {
