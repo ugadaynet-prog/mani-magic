@@ -383,6 +383,36 @@ html, body {
   cursor: pointer;
 }
 
+/* Кнопка «Поделиться подборкой» под сеткой избранного */
+.sel-share-btn {
+  margin-top: 20px;
+  flex: 0 0 auto;
+  padding: 11px 20px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #e63950, #b5203a);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.sel-share-btn:active { transform: scale(0.97); }
+
+.sel-count {
+  color: var(--muted);
+  font-size: 14px;
+  margin: -10px 0 16px;
+}
+
+.sel-hint {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  margin: 18px 0 0;
+}
+
 .fav-empty {
   color: var(--muted);
   font-size: 15px;

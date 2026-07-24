@@ -39,6 +39,11 @@ if ('serviceWorker' in navigator) {
   const favOverlay = document.getElementById('favOverlay');
   const favClose = document.getElementById('favClose');
   const favGrid = document.getElementById('favGrid');
+  const shareSelBtn = document.getElementById('shareSelBtn');
+  const selOverlay = document.getElementById('selOverlay');
+  const selClose = document.getElementById('selClose');
+  const selGrid = document.getElementById('selGrid');
+  const selCount = document.getElementById('selCount');
   const favEmpty = document.getElementById('favEmpty');
   const histNav = document.getElementById('histNav');
   const backBtn = document.getElementById('backBtn');
@@ -86,6 +91,7 @@ if ('serviceWorker' in navigator) {
   function renderFavorites() {
     favGrid.innerHTML = '';
     favEmpty.classList.toggle('hidden', favorites.length > 0);
+    shareSelBtn.classList.toggle('hidden', favorites.length === 0);
     favorites.forEach((idx) => {
       const item = document.createElement('div');
       item.className = 'fav-item';
@@ -157,6 +163,68 @@ if ('serviceWorker' in navigator) {
   }
 
   shareBtn.addEventListener('click', (e) => { e.stopPropagation(); shareCard(); });
+
+  // --- Подборка: несколько карт одной ссылкой (?cards=7,19,33) ---
+  function plural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+    return many;
+  }
+
+  function shareSelection() {
+    if (favorites.length === 0) return;
+    const nums = favorites.map((i) => i + 1).join(',');
+    const url = location.origin + location.pathname + '?cards=' + nums;
+    const n = favorites.length;
+    const text = 'Моя подборка: ' + n + ' ' + plural(n, 'карта', 'карты', 'карт') + ' 💅';
+    const payload = { title: 'MANI Magic — подборка', text, url };
+
+    if (navigator.share) { navigator.share(payload).catch(() => {}); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => toast('Ссылка на подборку скопирована'))
+        .catch(() => toast(url));
+      return;
+    }
+    toast(url);
+  }
+
+  shareSelBtn.addEventListener('click', shareSelection);
+
+  // Разбор ссылки: только существующие номера, без повторов, максимум 49
+  function parseSelection(raw) {
+    if (!raw) return [];
+    const seen = {};
+    return raw.split(',')
+      .map((s) => parseInt(s, 10) - 1)
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < CARDS.length &&
+        !seen[i] && (seen[i] = true))
+      .slice(0, CARDS.length);
+  }
+
+  function renderSelection(list) {
+    selGrid.innerHTML = '';
+    selCount.textContent = list.length + ' ' + plural(list.length, 'карта', 'карты', 'карт');
+    list.forEach((idx) => {
+      const item = document.createElement('div');
+      item.className = 'fav-item';
+      const img = document.createElement('img');
+      img.src = CARDS[idx].front;
+      img.alt = 'Карта ' + (idx + 1);
+      img.addEventListener('click', () => {
+        selOverlay.classList.add('hidden');
+        drawCard(idx);
+      });
+      item.appendChild(img);
+      selGrid.appendChild(item);
+    });
+  }
+
+  selClose.addEventListener('click', () => selOverlay.classList.add('hidden'));
+  selOverlay.addEventListener('click', (e) => {
+    if (e.target === selOverlay) selOverlay.classList.add('hidden');
+  });
 
   favBtn.addEventListener('click', () => { renderFavorites(); favOverlay.classList.remove('hidden'); });
   favClose.addEventListener('click', () => favOverlay.classList.add('hidden'));
@@ -851,9 +919,17 @@ if ('serviceWorker' in navigator) {
 
   // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра).
   // Если ссылки нет — встречаем пользователя картой дня.
-  const cardParam = parseInt(new URLSearchParams(window.location.search).get('card'), 10);
+  const params = new URLSearchParams(window.location.search);
+  const cardParam = parseInt(params.get('card'), 10);
+  const selection = parseSelection(params.get('cards'));
   if (cardParam >= 1 && cardParam <= CARDS.length) {
     drawCard(cardParam - 1);
+  } else if (selection.length > 0) {
+    // пришли по ссылке-подборке: показываем её, за ней открыта первая карта
+    drawCard(selection[0]);
+    renderSelection(selection);
+    selOverlay.classList.remove('hidden');
+    setHint('Подборка · нажмите на карту, чтобы посмотреть');
   } else {
     showCardOfDay();
   }
