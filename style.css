@@ -65,6 +65,44 @@ html, body {
   overflow: hidden;
 }
 
+/* --- Заставка при открытии: чёрный логотип на белом + слоган --- */
+/* Намеренно белая в обеих темах: это бренд-момент, он одинаковый всегда. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 4vh, 30px);
+  padding: 24px;
+  transition: opacity 0.45s ease;
+}
+
+.splash.hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-logo {
+  width: min(58vw, 240px);
+  height: auto;
+  filter: brightness(0);      /* логотип чисто чёрным */
+}
+
+.splash-slogan {
+  margin: 0;
+  color: #14141a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(16px, 4.6vw, 21px);
+  line-height: 1.4;
+  text-align: center;
+}
+
 /* --- Угловые кнопки: карта дня (слева) и QR (справа) --- */
 .qr-btn,
 .day-btn {

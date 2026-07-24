@@ -13,6 +13,30 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// --- Заставка: показываем не меньше секунды, потом плавно убираем ---
+(function () {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  const MIN_MS = 1000;          // чтобы не мигала на быстрой загрузке
+  const MAX_MS = 3000;          // страховка, если что-то грузится долго
+  const started = Date.now();
+  let done = false;
+
+  function hide() {
+    if (done) return;
+    done = true;
+    const wait = Math.max(0, MIN_MS - (Date.now() - started));
+    setTimeout(() => {
+      splash.classList.add('hiding');
+      setTimeout(() => { if (splash.parentNode) splash.remove(); }, 500);
+    }, wait);
+  }
+
+  if (document.readyState === 'complete') hide();
+  else window.addEventListener('load', hide);
+  setTimeout(hide, MAX_MS);
+})();
+
 (function () {
   const cardEl = document.getElementById('card');
   const cardFrontEl = document.getElementById('cardFront');
