@@ -113,6 +113,7 @@ if ('serviceWorker' in navigator) {
   function toggleFavorite() {
     if (!hasCard) return;
     const at = favorites.indexOf(currentIndex);
+    track(at === -1 ? 'like' : 'unlike', { card: currentIndex + 1 });
     if (at === -1) favorites.push(currentIndex); else favorites.splice(at, 1);
     saveFavorites();
     updateFavUI();
@@ -131,6 +132,7 @@ if ('serviceWorker' in navigator) {
       img.alt = 'Карта ' + (idx + 1);
       img.addEventListener('click', () => {
         favOverlay.classList.add('hidden');
+        drawSource = 'favorites';
         drawCard(idx);
       });
 
@@ -175,6 +177,7 @@ if ('serviceWorker' in navigator) {
   // Ссылка ведёт прямо на эту карту (?card=N) — получатель откроет именно её.
   function shareCard() {
     if (!hasCard) return;
+    track('share_card', { card: currentIndex + 1 });
     const url = location.origin + location.pathname + '?card=' + (currentIndex + 1);
     const payload = { title: 'MANI Magic', text: 'Хочу такой маникюр 💅', url };
 
@@ -204,6 +207,7 @@ if ('serviceWorker' in navigator) {
 
   function shareSelection() {
     if (favorites.length === 0) return;
+    track('share_selection', { cards: favorites.length });
     const nums = favorites.map((i) => i + 1).join(',');
     const url = location.origin + location.pathname + '?cards=' + nums;
     const n = favorites.length;
@@ -244,6 +248,7 @@ if ('serviceWorker' in navigator) {
       img.alt = 'Карта ' + (idx + 1);
       img.addEventListener('click', () => {
         selOverlay.classList.add('hidden');
+        drawSource = 'selection';
         drawCard(idx);
       });
       item.appendChild(img);
@@ -268,6 +273,7 @@ if ('serviceWorker' in navigator) {
   let isAnimating = false;
   let currentWorks = [];
   let workPos = 0;
+  let drawSource = 'shake';   // откуда пришло вытягивание: shake/button/catalog/favorites/selection/day/link/filter
 
   // --- Отладочный экран: открыть приложение со ссылкой ?debug=1 ---
   // Показывает прямо на телефоне, что происходит с тряской и вибрацией.
@@ -289,6 +295,38 @@ if ('serviceWorker' in navigator) {
     if (dbgLines.length > 16) dbgLines.pop();
     if (dbgBox) dbgBox.textContent = dbgLines.join('\n');
   }
+
+  // --- Аналитика ---
+  // Слой событий, не привязанный к поставщику: код приложения всегда зовёт track(),
+  // а куда это уйдёт — решается здесь одной настройкой.
+  //
+  // Для ВЕБА (эта версия) нужен номер счётчика Яндекс Метрики — вписать в METRICA_ID.
+  // AppMetrica сюда не подходит: у неё нет браузерного SDK, только Android/iOS/Unity/
+  // Flutter/React Native. Ключ AppMetrica для RuStore-обёртки (TWA):
+  //   b3ad5749-3bbe-41af-a573-443bf81c34cc
+  const METRICA_ID = null;          // например 12345678 — тогда аналитика включится
+  const trackLog = [];              // последние события, видны при ?debug=1
+
+  function loadMetrica(id) {
+    window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+    window.ym.l = +new Date();
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://mc.yandex.ru/metrika/tag.js';
+    document.head.appendChild(s);
+    window.ym(id, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+  }
+  if (METRICA_ID) loadMetrica(METRICA_ID);
+
+  function track(event, params) {
+    trackLog.push({ event, params: params || null, t: Date.now() });
+    if (trackLog.length > 300) trackLog.shift();
+    dbg('событие: ' + event + (params ? ' ' + JSON.stringify(params) : ''));
+    if (METRICA_ID && typeof window.ym === 'function') {
+      try { window.ym(METRICA_ID, 'reachGoal', event, params || undefined); } catch (e) {}
+    }
+  }
+  window.__maniEvents = trackLog;   // чтобы можно было посмотреть события при проверке
 
   // --- Отклик вибрацией, когда выпала карта ---
   // Есть в Chrome на Android. Safari на iPhone вибрацию из браузера не умеет —
@@ -559,8 +597,11 @@ if ('serviceWorker' in navigator) {
       row.appendChild(sw); row.appendChild(nm); row.appendChild(num);
       row.addEventListener('click', () => {
         activeFilter = g.all ? null : g.name;
+        track('filter_apply', { color: activeFilter || 'all' });
         updateFilterUI();
         filterOverlay.classList.add('hidden');
+        drawSource = 'filter';
+
         drawCard();               // сразу показываем карту из выбранной группы
       });
       filterList.appendChild(row);
@@ -589,8 +630,13 @@ if ('serviceWorker' in navigator) {
       img.src = card.front;
       img.alt = 'Карта ' + (idx + 1) + (locked ? ' (по подписке)' : '');
       img.addEventListener('click', () => {
-        if (locked) { openPaywall(); return; }   // закрытая карта ведёт на подписку
+        if (locked) {                            // закрытая карта ведёт на подписку
+          track('locked_card_tap', { card: idx + 1 });
+          openPaywall('locked_card');
+          return;
+        }
         catalogOverlay.classList.add('hidden');
+        drawSource = 'catalog';
         drawCard(idx);
       });
       item.appendChild(img);
@@ -602,7 +648,8 @@ if ('serviceWorker' in navigator) {
   }
 
   // --- Экран подписки ---
-  function openPaywall() {
+  function openPaywall(from) {
+    track('paywall_show', { from: from || 'unknown' });   // ключевая метрика воронки
     catalogOverlay.classList.add('hidden');
     paywallOverlay.classList.remove('hidden');
   }
@@ -611,11 +658,15 @@ if ('serviceWorker' in navigator) {
   paywallOverlay.addEventListener('click', (e) => {
     if (e.target === paywallOverlay) paywallOverlay.classList.add('hidden');
   });
-  lockBanner.addEventListener('click', openPaywall);
+  lockBanner.addEventListener('click', () => openPaywall('banner'));
   // платежи ещё не подключены — кнопка не должна делать вид, что что-то произошло
   pwBuyBtn.disabled = true;
 
-  catalogBtn.addEventListener('click', () => { renderCatalog(); catalogOverlay.classList.remove('hidden'); });
+  catalogBtn.addEventListener('click', () => {
+    track('catalog_open');
+    renderCatalog();
+    catalogOverlay.classList.remove('hidden');
+  });
   catalogClose.addEventListener('click', () => catalogOverlay.classList.add('hidden'));
   catalogOverlay.addEventListener('click', (e) => {
     if (e.target === catalogOverlay) catalogOverlay.classList.add('hidden');
@@ -625,7 +676,7 @@ if ('serviceWorker' in navigator) {
   const qrBtn = document.getElementById('qrBtn');
   const qrOverlay = document.getElementById('qrOverlay');
   const qrClose = document.getElementById('qrClose');
-  qrBtn.addEventListener('click', () => qrOverlay.classList.remove('hidden'));
+  qrBtn.addEventListener('click', () => { track('qr_open'); qrOverlay.classList.remove('hidden'); });
   qrClose.addEventListener('click', () => qrOverlay.classList.add('hidden'));
   qrOverlay.addEventListener('click', (e) => {
     if (e.target === qrOverlay) qrOverlay.classList.add('hidden');
@@ -644,6 +695,7 @@ if ('serviceWorker' in navigator) {
   }
 
   function showCardOfDay() {
+    drawSource = 'day';
     drawCard(cardOfDayIndex());          // forced-индекс: показывается всегда
     dayBadge.classList.remove('hidden'); // бейдж поверх обычной отрисовки
     setHint('Карта дня · нажмите, чтобы увидеть послание');
@@ -672,6 +724,12 @@ if ('serviceWorker' in navigator) {
 
     currentIndex = forced ? forcedIndex : pickNewIndex();
     const data = CARDS[currentIndex];
+
+    // главное событие воронки: как именно человек получил карту
+    if (!fromHistory) {
+      track('card_draw', { card: currentIndex + 1, source: drawSource, paid: isPaid() });
+    }
+    drawSource = 'shake';   // источник по умолчанию для следующего вытягивания
 
     if (!fromHistory) {
       // новая карта: всё, что было «впереди», отбрасываем и дописываем в конец
@@ -730,7 +788,7 @@ if ('serviceWorker' in navigator) {
   }
 
   cardEl.addEventListener('click', flipCard);
-  shakeBtn.addEventListener('click', () => drawCard());
+  shakeBtn.addEventListener('click', () => { drawSource = 'button'; drawCard(); });
   backBtn.addEventListener('click', goBack);
   fwdBtn.addEventListener('click', goForward);
 
@@ -871,6 +929,7 @@ if ('serviceWorker' in navigator) {
 
   function openWork() {
     if (workBtn.classList.contains('hidden') || currentWorks.length === 0) return;
+    track('gallery_open', { card: currentIndex + 1 });
     workPos = 0;
     renderDots();
     showWork(0);
@@ -938,6 +997,7 @@ if ('serviceWorker' in navigator) {
       if (delta > SHAKE_THRESHOLD && now - lastShakeTime > SHAKE_COOLDOWN) {
         lastShakeTime = now;
         dbg('тряска: сила ' + delta.toFixed(1));
+        drawSource = 'shake';
         drawCard();
       }
     }
@@ -986,9 +1046,11 @@ if ('serviceWorker' in navigator) {
   const cardParam = parseInt(params.get('card'), 10);
   const selection = parseSelection(params.get('cards'));
   if (cardParam >= 1 && cardParam <= CARDS.length) {
+    drawSource = 'link';
     drawCard(cardParam - 1);
   } else if (selection.length > 0) {
     // пришли по ссылке-подборке: показываем её, за ней открыта первая карта
+    drawSource = 'link_selection';
     drawCard(selection[0]);
     renderSelection(selection);
     selOverlay.classList.remove('hidden');
