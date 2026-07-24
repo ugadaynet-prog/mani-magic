@@ -127,7 +127,45 @@
   <div id="catalogOverlay" class="fav-overlay hidden">
     <button id="catalogClose" class="work-close" aria-label="Закрыть">&times;</button>
     <h2 class="fav-title">Все карты</h2>
+    <button id="lockBanner" class="lock-banner hidden">
+      <span id="lockBannerText">Открыто 15 из 49 карт</span>
+      <span class="lock-banner-cta">Открыть все</span>
+    </button>
     <div id="catalogGrid" class="fav-grid"></div>
+  </div>
+
+  <div id="paywallOverlay" class="fav-overlay hidden">
+    <button id="paywallClose" class="work-close" aria-label="Закрыть">&times;</button>
+    <h2 class="fav-title">Полная колода</h2>
+    <p class="pw-sub">Сейчас открыто 15 карт из 49</p>
+
+    <div class="pw-plans">
+      <div class="pw-plan pw-plan-best">
+        <div class="pw-badge">Выгоднее</div>
+        <p class="pw-name">Полная колода · год</p>
+        <p class="pw-price">990 ₽<span>/год</span></p>
+        <p class="pw-note">14 дней бесплатно, потом 82 ₽ в месяц</p>
+      </div>
+      <div class="pw-plan">
+        <p class="pw-name">Полная колода · месяц</p>
+        <p class="pw-price">199 ₽<span>/мес</span></p>
+        <p class="pw-note">14 дней бесплатно</p>
+      </div>
+      <div class="pw-plan">
+        <p class="pw-name">Для мастера</p>
+        <p class="pw-price">399 ₽<span>/мес</span></p>
+        <p class="pw-note">Всё выше + свой QR, режим «клиентка тянет карту», витрина работ</p>
+      </div>
+    </div>
+
+    <ul class="pw-list">
+      <li>Все 49 карт вместо 15</li>
+      <li>Сезонные колоды: Новый год, 8 Марта, лето</li>
+      <li>Все примеры работ</li>
+    </ul>
+
+    <button id="pwBuyBtn" class="pw-buy">Оформить подписку</button>
+    <p id="pwSoon" class="pw-soon">Оплата подключается — кнопка заработает, как только откроем приём платежей</p>
   </div>
 
   <div id="qrOverlay" class="fav-overlay hidden">

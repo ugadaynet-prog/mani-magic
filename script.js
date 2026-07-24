@@ -57,9 +57,39 @@ if ('serviceWorker' in navigator) {
   const catalogOverlay = document.getElementById('catalogOverlay');
   const catalogClose = document.getElementById('catalogClose');
   const catalogGrid = document.getElementById('catalogGrid');
+  const lockBanner = document.getElementById('lockBanner');
+  const lockBannerText = document.getElementById('lockBannerText');
+  const paywallOverlay = document.getElementById('paywallOverlay');
+  const paywallClose = document.getElementById('paywallClose');
+  const pwBuyBtn = document.getElementById('pwBuyBtn');
 
   // Подписи дизайнов берутся из карты (workLabels). Если их нет — просто «Дизайн N».
   let currentLabels = [];
+
+  // --- Подписка ---
+  // ВАЖНО: это «мягкий» пейволл. Всё приложение статическое, карты и фото лежат
+  // в коде, поэтому запрет — только на уровне интерфейса. Настоящая защита
+  // потребует отдавать платные карты с сервера после проверки оплаты.
+  const PLAN_KEY = 'maniMagicPlan';          // 'free' | 'full' | 'pro'
+  let plan = 'free';
+  try {
+    const p = localStorage.getItem(PLAN_KEY);
+    if (p === 'full' || p === 'pro') plan = p;
+  } catch (e) {}
+
+  // Демо-разблокировка для показов: ?unlock=1 включает, ?unlock=0 выключает
+  try {
+    const u = new URLSearchParams(location.search).get('unlock');
+    if (u === '1' || u === 'pro') { plan = (u === 'pro') ? 'pro' : 'full'; localStorage.setItem(PLAN_KEY, plan); }
+    if (u === '0') { plan = 'free'; localStorage.setItem(PLAN_KEY, 'free'); }
+  } catch (e) {}
+
+  const isPaid = () => plan !== 'free';
+
+  // 15 бесплатных карт, равномерно по колоде — чтобы бесплатный набор был
+  // разноцветным, а не первыми пятнадцатью подряд
+  const FREE_CARDS = [0, 3, 7, 10, 14, 17, 21, 24, 27, 31, 34, 38, 41, 45, 48];
+  const isFree = (idx) => isPaid() || FREE_CARDS.indexOf(idx) !== -1;
 
   // --- Избранное (сохраняется в памяти телефона) ---
   const FAV_KEY = 'maniMagicFavorites';
@@ -479,12 +509,23 @@ if ('serviceWorker' in navigator) {
     CARDS.reduce((n, c) => n + (c.colors && c.colors.indexOf(g) !== -1 ? 1 : 0), 0);
 
   function filteredPool() {
-    if (!activeFilter) return CARDS.map((_, i) => i);
-    const pool = [];
-    CARDS.forEach((c, i) => {
-      if (c.colors && c.colors.indexOf(activeFilter) !== -1) pool.push(i);
-    });
-    return pool.length ? pool : CARDS.map((_, i) => i);
+    let pool;
+    if (!activeFilter) {
+      pool = CARDS.map((_, i) => i);
+    } else {
+      pool = [];
+      CARDS.forEach((c, i) => {
+        if (c.colors && c.colors.indexOf(activeFilter) !== -1) pool.push(i);
+      });
+      if (!pool.length) pool = CARDS.map((_, i) => i);
+    }
+    // без подписки тряска достаёт только из бесплатных карт;
+    // карта дня и открытые по ссылке карты этим не ограничены — они как раз показывают, чего не хватает
+    if (!isPaid()) {
+      const free = pool.filter(isFree);
+      if (free.length) pool = free;
+    }
+    return pool;
   }
 
   function updateFilterUI() {
@@ -533,24 +574,46 @@ if ('serviceWorker' in navigator) {
   });
 
   // --- Каталог: все 49 карт сеткой ---
-  let catalogBuilt = false;
+  let catalogBuilt = null;   // хранит план, под который построена сетка
   function renderCatalog() {
-    if (catalogBuilt) return;        // карты не меняются — строим один раз
+    // перестраиваем, если статус подписки изменился — иначе замки останутся висеть
+    if (catalogBuilt === plan) return;
+    catalogGrid.innerHTML = '';
     CARDS.forEach((card, idx) => {
       const item = document.createElement('div');
       item.className = 'fav-item';
+      const locked = !isFree(idx);
+      if (locked) item.classList.add('locked');
+
       const img = document.createElement('img');
       img.src = card.front;
-      img.alt = 'Карта ' + (idx + 1);
+      img.alt = 'Карта ' + (idx + 1) + (locked ? ' (по подписке)' : '');
       img.addEventListener('click', () => {
+        if (locked) { openPaywall(); return; }   // закрытая карта ведёт на подписку
         catalogOverlay.classList.add('hidden');
         drawCard(idx);
       });
       item.appendChild(img);
       catalogGrid.appendChild(item);
     });
-    catalogBuilt = true;
+    lockBanner.classList.toggle('hidden', isPaid());
+    lockBannerText.textContent = 'Открыто ' + FREE_CARDS.length + ' из ' + CARDS.length + ' карт';
+    catalogBuilt = plan;
   }
+
+  // --- Экран подписки ---
+  function openPaywall() {
+    catalogOverlay.classList.add('hidden');
+    paywallOverlay.classList.remove('hidden');
+  }
+
+  paywallClose.addEventListener('click', () => paywallOverlay.classList.add('hidden'));
+  paywallOverlay.addEventListener('click', (e) => {
+    if (e.target === paywallOverlay) paywallOverlay.classList.add('hidden');
+  });
+  lockBanner.addEventListener('click', openPaywall);
+  // платежи ещё не подключены — кнопка не должна делать вид, что что-то произошло
+  pwBuyBtn.disabled = true;
 
   catalogBtn.addEventListener('click', () => { renderCatalog(); catalogOverlay.classList.remove('hidden'); });
   catalogClose.addEventListener('click', () => catalogOverlay.classList.add('hidden'));
