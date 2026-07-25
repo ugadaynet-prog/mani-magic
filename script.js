@@ -17,8 +17,8 @@ if ('serviceWorker' in navigator) {
 (function () {
   const splash = document.getElementById('splash');
   if (!splash) return;
-  const MIN_MS = 1000;          // чтобы не мигала на быстрой загрузке
-  const MAX_MS = 3000;          // страховка, если что-то грузится долго
+  const MIN_MS = 1800;          // держим, чтобы успеть прочитать слоган
+  const MAX_MS = 3500;          // страховка, если что-то грузится долго
   const started = Date.now();
   let done = false;
 
