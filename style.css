@@ -481,6 +481,97 @@ html, body {
 
 .pw-plan-best { border-color: #e63950; background: rgba(230, 57, 80, 0.12); }
 
+/* Выбранный тариф (когда подключён приём оплаты) */
+.pw-plan.selectable { cursor: pointer; }
+.pw-plan.pw-sel { border-color: #e63950; box-shadow: 0 0 0 2px #e63950 inset; }
+.pw-plan .pw-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border-soft);
+  display: none;
+}
+.pw-plan.pw-sel .pw-check {
+  display: block;
+  border-color: #e63950;
+  background: #e63950 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center/13px no-repeat;
+}
+
+/* Верхняя плашка режима мастера (открыто по QR: ?master=slug) */
+.master-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  color: #fff;
+  background: var(--master-accent, #b5203a);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  font-size: 14px;
+}
+.master-bar .mb-info { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.master-bar .mb-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.master-bar .mb-city { font-size: 12px; opacity: 0.85; }
+.master-bar .mb-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.master-bar .mb-book,
+.master-bar .mb-works {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+body.has-master-bar { padding-top: 52px; }
+
+/* Витрина работ мастера (в режиме мастера) */
+.mw-overlay { z-index: 70; }
+.mw-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+}
+@media (min-width: 460px) { .mw-grid { grid-template-columns: repeat(3, 1fr); } }
+.mw-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+  cursor: pointer;
+  background: var(--surface-soft);
+}
+.mw-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+.mw-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+
 .pw-badge {
   position: absolute;
   top: -9px;
@@ -508,6 +599,35 @@ html, body {
   line-height: 1.7;
 }
 
+.pw-email-label {
+  width: 100%;
+  max-width: 420px;
+  margin: 18px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pw-email {
+  width: min(100%, 420px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--paper);
+  font-size: 15px;
+}
+
+.pw-email::placeholder { color: var(--muted); }
+.pw-email:focus { outline: none; border-color: #e63950; }
+
+.pw-email-error {
+  width: 100%;
+  max-width: 420px;
+  margin: 6px 0 0;
+  color: #ff6b7f;
+  font-size: 12px;
+}
+
 .pw-buy {
   margin-top: 20px;
   width: min(100%, 420px);
@@ -531,6 +651,16 @@ html, body {
   margin: 10px 0 0;
   max-width: 420px;
 }
+
+.pw-legal {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  max-width: 420px;
+}
+.pw-legal a { color: var(--muted); text-decoration: underline; }
 
 /* Кнопка «Поделиться подборкой» под сеткой избранного */
 .sel-share-btn {

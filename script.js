@@ -1,4 +1,6 @@
-if ('serviceWorker' in navigator) {
+// В native-сборке (Capacitor/RuStore) файлы и так локальные внутри приложения —
+// service worker там не нужен и только усложнил бы обновление версий.
+if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
   // Как только на сервере появляется новая версия и она активируется,
   // сразу перезагружаем страницу, чтобы показать актуальный вариант.
   let refreshedOnce = false;
@@ -91,9 +93,11 @@ if ('serviceWorker' in navigator) {
   let currentLabels = [];
 
   // --- Подписка ---
-  // ВАЖНО: это «мягкий» пейволл. Всё приложение статическое, карты и фото лежат
-  // в коде, поэтому запрет — только на уровне интерфейса. Настоящая защита
-  // потребует отдавать платные карты с сервера после проверки оплаты.
+  // Пока сервер не подключён (SERVER_URL пуст, см. ниже) — это «мягкий» пейволл:
+  // всё приложение статическое, карты и фото лежат в коде, запрет только на уровне
+  // интерфейса. Когда включён SERVER_URL, статус подписки берётся с сервера (источник
+  // правды). Полная защита картинок появится, когда платные карты переедут в хранилище
+  // сервера и будут отдаваться по пропуску — это делается вместе с развёртыванием.
   const PLAN_KEY = 'maniMagicPlan';          // 'free' | 'full' | 'pro'
   let plan = 'free';
   try {
@@ -114,6 +118,348 @@ if ('serviceWorker' in navigator) {
   // разноцветным, а не первыми пятнадцатью подряд
   const FREE_CARDS = [0, 3, 7, 10, 14, 17, 21, 24, 27, 31, 34, 38, 41, 45, 48];
   const isFree = (idx) => isPaid() || FREE_CARDS.indexOf(idx) !== -1;
+
+  // --- Связь с сервером (за выключателем) ---------------------------------
+  // По умолчанию SERVER_URL пуст → приложение работает как раньше и НИКУДА не
+  // ходит: живая версия не ломается. Когда сервер развёрнут — впишите его адрес
+  // в DEFAULT_SERVER_URL. Для разовой проверки можно открыть приложение с
+  // ?server=https://адрес (этим же пользуемся при локальном тесте).
+  const DEFAULT_SERVER_URL = '';
+  let SERVER_URL = DEFAULT_SERVER_URL;
+  try {
+    const s = new URLSearchParams(location.search).get('server');
+    // ?server= разрешаем только для локальной проверки (localhost) или если это тот же
+    // адрес, что зашит по умолчанию. Иначе чужая ссылка не сможет увести оплату
+    // на посторонний сервер.
+    if (s && (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(s) || s === DEFAULT_SERVER_URL)) {
+      SERVER_URL = s;
+    }
+  } catch (e) {}
+  SERVER_URL = (SERVER_URL || '').replace(/\/+$/, '');
+  const serverOn = () => !!SERVER_URL;
+  // ?dev=1 — только для нашей проверки: имитировать оплату в тестовом режиме.
+  // Без него в тестовом режиме кнопка честно пишет «оплата скоро», без «бесплатной» разблокировки.
+  let DEV_MOCK = false;
+  try { DEV_MOCK = new URLSearchParams(location.search).get('dev') === '1'; } catch (e) {}
+
+  // Нативная сборка RuStore (Capacitor): там оплата идёт через RuStore Pay SDK,
+  // а не через ЮKassa — сторы не разрешают внешние платежи за цифровой товар внутри
+  // приложения. window.Capacitor есть только в собранном native-приложении.
+  const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  // Анонимный идентификатор устройства — к нему привязана подписка (без аккаунтов).
+  const DEVICE_KEY = 'maniMagicDevice';
+  let deviceId = '';
+  try {
+    deviceId = localStorage.getItem(DEVICE_KEY) || '';
+    if (!deviceId) {
+      deviceId = 'd_' + ((window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2));
+      localStorage.setItem(DEVICE_KEY, deviceId);
+    }
+  } catch (e) {}
+
+  const PENDING_KEY = 'maniMagicPending';   // id платежа, пока ждём возврата с оплаты
+  const EMAIL_KEY = 'maniMagicEmail';       // email для чека — запоминаем, чтобы не вводить каждый раз
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let accessPass = null;                    // JWT-пропуск активной подписки
+  let selectedPlanKey = 'full_year';        // какой тариф выбран в окне подписки
+
+  function api(path, opts) {
+    return fetch(SERVER_URL + path, opts).then((r) => {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    });
+  }
+
+  // Пере-применяет части интерфейса, зависящие от подписки: после ответа сервера
+  // или оплаты план может измениться уже во время работы приложения.
+  function applyPlanUI() {
+    catalogBuilt = null;
+    if (catalogOverlay && !catalogOverlay.classList.contains('hidden')) renderCatalog();
+    lockBanner.classList.toggle('hidden', isPaid());
+  }
+
+  // Спросить у сервера статус подписки. Сервер — источник правды.
+  function refreshAccess() {
+    if (!serverOn() || !deviceId) return Promise.resolve();
+    return api('/api/access?deviceId=' + encodeURIComponent(deviceId))
+      .then((a) => {
+        if (a.plan === 'full' || a.plan === 'pro') {
+          plan = a.plan;
+          accessPass = a.pass || null;
+          try { localStorage.setItem(PLAN_KEY, plan); } catch (e) {}
+        } else {
+          plan = 'free';
+          accessPass = null;
+          try { localStorage.setItem(PLAN_KEY, 'free'); } catch (e) {}
+        }
+        applyPlanUI();
+        dbg('доступ: ' + plan);
+      })
+      .catch((e) => dbg('доступ: ошибка ' + e.message));
+  }
+
+  // Оформление подписки. В тестовом режиме сервер отвечает mock:true — тогда
+  // имитируем успешную оплату и сразу проверяем доступ. В бою уводим на ЮKassa.
+  // В native-сборке RuStore — свой путь через RuStore Pay SDK (см. startNativeCheckout).
+  function startCheckout() {
+    if (!serverOn()) return;
+    if (isNativeApp()) return startNativeCheckout();
+
+    // ЮKassa требует чек (54-ФЗ) с email покупателя — без него платёж не создать.
+    const pwEmail = document.getElementById('pwEmail');
+    const pwEmailError = document.getElementById('pwEmailError');
+    const email = pwEmail ? pwEmail.value.trim() : '';
+    if (!EMAIL_RE.test(email)) {
+      if (pwEmailError) pwEmailError.classList.remove('hidden');
+      if (pwEmail) pwEmail.focus();
+      return;
+    }
+    if (pwEmailError) pwEmailError.classList.add('hidden');
+    try { localStorage.setItem(EMAIL_KEY, email); } catch (e) {}
+
+    pwBuyBtn.disabled = true;
+    const label = pwBuyBtn.textContent;
+    pwBuyBtn.textContent = 'Открываем оплату…';
+    track('checkout_start', { planKey: selectedPlanKey });
+    api('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planKey: selectedPlanKey, deviceId: deviceId, email: email }),
+    }).then((r) => {
+      if (r.mock) {
+        if (DEV_MOCK) {   // наша проверка: имитируем успешную оплату
+          return api('/api/dev/complete-mock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentId: r.paymentId }),
+          }).then(refreshAccess).then(onPurchaseMaybeDone);
+        }
+        toast('Приём оплаты скоро подключится');   // ключей ЮKassa ещё нет
+        return;
+      }
+      if (r.confirmationUrl) {
+        try { localStorage.setItem(PENDING_KEY, r.paymentId); } catch (e) {}
+        location.href = r.confirmationUrl;   // уходим на страницу оплаты ЮKassa
+      }
+    }).catch((e) => {
+      toast('Не получилось открыть оплату');
+      dbg('оплата: ' + e.message);
+    }).finally(() => {
+      pwBuyBtn.disabled = false;
+      pwBuyBtn.textContent = label;
+    });
+  }
+
+  function onPurchaseMaybeDone() {
+    if (isPaid()) {
+      paywallOverlay.classList.add('hidden');
+      toast('Готово! Открыта вся колода 💅');
+      track('purchase_done', { plan: plan });
+    }
+  }
+
+  // Покупка внутри Android-приложения (RuStore Pay SDK через нативный плагин
+  // RuStoreBilling). planKey используется и как id товара в консоли RuStore —
+  // те же ключи, что и в PLANS на сервере (full_month/full_year/pro_month/pro_year).
+  // Сервер НЕ верит клиенту на слово: сам проверяет покупку через Public API RuStore,
+  // прежде чем выдать подписку (см. /api/rustore/grant).
+  function startNativeCheckout() {
+    const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.RuStoreBilling;
+    if (!plugin) { toast('Оплата недоступна в этой сборке'); return; }
+    pwBuyBtn.disabled = true;
+    const label = pwBuyBtn.textContent;
+    pwBuyBtn.textContent = 'Открываем оплату…';
+    track('checkout_start', { planKey: selectedPlanKey, native: true });
+    plugin.purchaseProduct({ productId: selectedPlanKey })
+      .then((result) => api('/api/rustore/grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: deviceId, planKey: selectedPlanKey,
+          purchaseId: result.purchaseId, invoiceId: result.invoiceId, sandbox: !!result.sandbox,
+        }),
+      }))
+      .then(refreshAccess)
+      .then(onPurchaseMaybeDone)
+      .catch((e) => {
+        if (e && e.message && /cancel/i.test(e.message)) return;   // пользователь просто передумал
+        toast('Не получилось оформить оплату');
+        dbg('RuStore оплата: ' + (e && e.message));
+      })
+      .finally(() => {
+        pwBuyBtn.disabled = false;
+        pwBuyBtn.textContent = label;
+      });
+  }
+
+  // Вернулись с оплаты ЮKassa — несколько раз спросим статус, пока подписка «доедет».
+  function resumePendingPayment() {
+    if (!serverOn()) return;
+    let pending = '';
+    try { pending = localStorage.getItem(PENDING_KEY) || ''; } catch (e) {}
+    if (!pending) return;
+    let tries = 0;
+    const tick = () => {
+      refreshAccess().then(() => {
+        if (isPaid()) {
+          try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+          onPurchaseMaybeDone();
+        } else if (++tries < 5) {
+          setTimeout(tick, 1500);
+        } else {
+          try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+        }
+      });
+    };
+    tick();
+  }
+
+  // --- Режим мастера (страница открыта по QR мастера: ?master=slug) ---------
+  let masterSlug = '';
+  try { masterSlug = new URLSearchParams(location.search).get('master') || ''; } catch (e) {}
+  const masterMode = () => serverOn() && !!masterSlug;
+  let masterWorks = [];   // фото работ мастера — для витрины клиенту
+
+  function initMasterMode() {
+    if (!masterMode()) return;
+    api('/api/m/' + encodeURIComponent(masterSlug))
+      .then((r) => {
+        const m = r.master || {};
+        masterWorks = (Array.isArray(m.works) ? m.works : [])
+          .map((u) => (/^https?:/.test(u) ? u : SERVER_URL + u));
+        renderMasterBar(m);
+        track('master_open', { slug: masterSlug });
+      })
+      .catch((e) => dbg('мастер: ' + e.message));
+  }
+
+  function renderMasterBar(m) {
+    if (!m) return;
+    if (m.accent) document.documentElement.style.setProperty('--master-accent', m.accent);
+    const bar = document.createElement('div');
+    bar.className = 'master-bar';
+
+    const info = document.createElement('div');
+    info.className = 'mb-info';
+    const name = document.createElement('span');
+    name.className = 'mb-name';
+    name.textContent = m.studioName || 'Мастер';
+    info.appendChild(name);
+    if (m.city) {
+      const city = document.createElement('span');
+      city.className = 'mb-city';
+      city.textContent = m.city;
+      info.appendChild(city);
+    }
+    bar.appendChild(info);
+
+    // кнопки справа: витрина работ и запись
+    const actions = document.createElement('div');
+    actions.className = 'mb-actions';
+    if (masterWorks.length) {
+      const w = document.createElement('button');
+      w.type = 'button';
+      w.className = 'mb-works';
+      w.textContent = 'Работы';
+      w.addEventListener('click', openMasterWorks);
+      actions.appendChild(w);
+    }
+    if (m.bookingUrl) {
+      const book = document.createElement('a');
+      book.className = 'mb-book';
+      book.href = m.bookingUrl;
+      book.target = '_blank';
+      book.rel = 'noopener';
+      book.textContent = 'Записаться';
+      book.addEventListener('click', () => track('master_book', { slug: masterSlug }));
+      actions.appendChild(book);
+    }
+    bar.appendChild(actions);
+
+    document.body.appendChild(bar);
+    document.body.classList.add('has-master-bar');
+  }
+
+  // --- Витрина работ мастера (галерея + просмотр по тапу) ---
+  function openMasterWorks() {
+    const grid = document.getElementById('mwGrid');
+    grid.innerHTML = '';
+    masterWorks.forEach((url) => {
+      const img = document.createElement('img');
+      img.src = url; img.alt = 'Работа мастера';
+      img.addEventListener('click', () => openLightbox(url));
+      grid.appendChild(img);
+    });
+    document.getElementById('masterWorksOverlay').classList.remove('hidden');
+    track('master_works_open', { slug: masterSlug, count: masterWorks.length });
+  }
+  function closeMasterWorks() { document.getElementById('masterWorksOverlay').classList.add('hidden'); }
+  function openLightbox(url) {
+    document.getElementById('mwBig').src = url;
+    document.getElementById('mwLightbox').classList.remove('hidden');
+  }
+  function closeLightbox() {
+    document.getElementById('mwLightbox').classList.add('hidden');
+    document.getElementById('mwBig').src = '';
+  }
+  document.getElementById('mwClose').addEventListener('click', closeMasterWorks);
+  document.getElementById('masterWorksOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'masterWorksOverlay') closeMasterWorks();
+  });
+  document.getElementById('mwLightbox').addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('mwLightbox').classList.contains('hidden')) closeLightbox();
+    else if (!document.getElementById('masterWorksOverlay').classList.contains('hidden')) closeMasterWorks();
+  });
+
+  // Клиент в режиме мастера вытянул карту — тихо сообщаем мастеру (для «что выбрал клиент»).
+  function recordMasterPick(cardIndex) {
+    if (!masterMode()) return;
+    api('/api/m/' + encodeURIComponent(masterSlug) + '/pick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card: cardIndex + 1 }),
+    }).catch(() => {});
+  }
+
+  // --- Закрытые карты с сервера ---------------------------------------------
+  // Платные карты у подписчика грузятся не из бандла, а по временным подписанным
+  // ссылкам с сервера (настоящая защита картинок). Бесплатные всегда лежат в
+  // приложении. Пока картинки ещё и в бандле — если сервер не ответил, тихо
+  // показываем карту из бандла, ничего не ломая.
+  let drawSeq = 0;                    // номер последнего вытягивания (защита от гонок)
+  const serverMediaCache = {};        // index -> {front, works} | false
+
+  async function serverCardMedia(index) {
+    if (!serverOn() || !isPaid() || !accessPass) return null;
+    if (FREE_CARDS.indexOf(index) !== -1) return null;      // бесплатные — из бандла
+    if (serverMediaCache[index]) return serverMediaCache[index];
+    if (serverMediaCache[index] === false) return null;
+    const n = index + 1;
+    try {
+      const hdr = () => ({ Authorization: 'Bearer ' + accessPass });
+      let r = await fetch(SERVER_URL + '/api/content/card/' + n, { headers: hdr() });
+      if (r.status === 401) {                                // пропуск устарел — обновить и повторить
+        await refreshAccess();
+        if (!accessPass) return null;
+        r = await fetch(SERVER_URL + '/api/content/card/' + n, { headers: hdr() });
+      }
+      if (!r.ok) { serverMediaCache[index] = false; return null; }
+      const d = await r.json();
+      const bundleWorks = Array.isArray(CARDS[index].works) ? CARDS[index].works.length : 0;
+      const media = {
+        front: SERVER_URL + d.front,
+        // берём столько работ, сколько реально есть у карты (сервер отдаёт до 5)
+        works: (Array.isArray(d.works) ? d.works : []).slice(0, bundleWorks).map((w) => SERVER_URL + w),
+      };
+      serverMediaCache[index] = media;
+      return media;
+    } catch (e) { dbg('карта с сервера: ' + e.message); return null; }
+  }
 
   // --- Избранное (сохраняется в памяти телефона) ---
   const FAV_KEY = 'maniMagicFavorites';
@@ -683,8 +1029,43 @@ if ('serviceWorker' in navigator) {
     if (e.target === paywallOverlay) paywallOverlay.classList.add('hidden');
   });
   lockBanner.addEventListener('click', () => openPaywall('banner'));
-  // платежи ещё не подключены — кнопка не должна делать вид, что что-то произошло
-  pwBuyBtn.disabled = true;
+
+  // Выбор тарифа и кнопка оплаты. Пока сервер не подключён (serverOn() === false)
+  // — всё как раньше: кнопка выключена, снизу подпись «оплата подключается».
+  (function wirePaywall() {
+    const planEls = Array.prototype.slice.call(document.querySelectorAll('#pwPlans .pw-plan'));
+    const pwSoon = document.getElementById('pwSoon');
+    const pwEmail = document.getElementById('pwEmail');
+    const pwEmailError = document.getElementById('pwEmailError');
+    if (pwEmail) {
+      try { pwEmail.value = localStorage.getItem(EMAIL_KEY) || ''; } catch (e) {}
+      pwEmail.addEventListener('input', () => { if (pwEmailError) pwEmailError.classList.add('hidden'); });
+    }
+
+    function selectPlan(key) {
+      selectedPlanKey = key;
+      planEls.forEach((el) => el.classList.toggle('pw-sel', el.dataset.planKey === key));
+    }
+
+    if (serverOn()) {
+      planEls.forEach((el) => {
+        el.classList.add('selectable');
+        if (!el.querySelector('.pw-check')) {
+          const c = document.createElement('span');
+          c.className = 'pw-check';
+          el.appendChild(c);
+        }
+        el.addEventListener('click', () => selectPlan(el.dataset.planKey));
+      });
+      selectPlan(selectedPlanKey);
+      if (pwSoon) pwSoon.classList.add('hidden');
+      pwBuyBtn.disabled = false;
+      pwBuyBtn.addEventListener('click', startCheckout);
+    } else {
+      // платежи ещё не подключены — кнопка не должна делать вид, что что-то произошло
+      pwBuyBtn.disabled = true;
+    }
+  })();
 
   catalogBtn.addEventListener('click', () => {
     track('catalog_open');
@@ -752,6 +1133,7 @@ if ('serviceWorker' in navigator) {
     // главное событие воронки: как именно человек получил карту
     if (!fromHistory) {
       track('card_draw', { card: currentIndex + 1, source: drawSource, paid: isPaid() });
+      recordMasterPick(currentIndex);   // в режиме мастера — сообщить, что выбрал клиент
     }
     drawSource = 'shake';   // источник по умолчанию для следующего вытягивания
 
@@ -776,8 +1158,11 @@ if ('serviceWorker' in navigator) {
     void cardEl.offsetWidth;
     cardEl.classList.add('drawing');
 
+    const drawToken = ++drawSeq;   // чтобы поздний ответ сервера не «прилетел» на другую карту
+
     const preload = new Image();
     preload.onload = () => {
+      if (drawToken !== drawSeq) return;
       frontImg.src = data.front;
       cardFrontEl.classList.remove('empty');
     };
@@ -785,13 +1170,23 @@ if ('serviceWorker' in navigator) {
     phraseEl.textContent = data.phrase;
 
     // Кнопка «Примеры работ» — только если у карты есть фото работ
-    currentWorks = Array.isArray(data.works) ? data.works : [];
+    currentWorks = Array.isArray(data.works) ? data.works.slice() : [];
     currentLabels = Array.isArray(data.workLabels) ? data.workLabels : [];
     if (currentWorks.length > 0) {
       workBtn.classList.remove('hidden');
     } else {
       workBtn.classList.add('hidden');
     }
+
+    // Платная карта у подписчика: лицо и работы подменяем на защищённые ссылки
+    // с сервера, когда они придут (если за это время не вытянули другую карту).
+    serverCardMedia(currentIndex).then((media) => {
+      if (!media || drawToken !== drawSeq) return;
+      const p = new Image();
+      p.onload = () => { if (drawToken === drawSeq) frontImg.src = media.front; };
+      p.src = media.front;
+      if (media.works.length) currentWorks = media.works;
+    });
 
     hasCard = true;
     likeBtn.classList.remove('hidden');
@@ -1084,6 +1479,14 @@ if ('serviceWorker' in navigator) {
   }
 
   canBuzz = true;   // дальше уже настоящие вытягивания — можно жужжать
+
+  // Подключение к серверу — только если он задан (?server= или DEFAULT_SERVER_URL).
+  // Без этого приложение работает полностью автономно, как прежде.
+  if (serverOn()) {
+    dbg('сервер: ' + SERVER_URL + (masterSlug ? ' · мастер ' + masterSlug : ''));
+    initMasterMode();
+    refreshAccess().then(resumePendingPayment);
+  }
 
   dbg('вибрация в браузере: ' + (typeof navigator.vibrate === 'function' ? 'есть' : 'НЕТ') +
       ' | узор ' + BUZZ_PATTERN.join('-') + ' (' + BUZZ_MS + 'мс)' +
