@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mani-magic-v54';
+const CACHE_NAME = 'mani-magic-v57';
 
 const SHELL_FILES = [
   './',
@@ -46,6 +46,9 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
+
+  // Запросы к серверу (другой домен) — всегда напрямую в сеть, кэш их не трогает.
+  if (url.origin !== self.location.origin) return;
 
   if (isFreshFirst(url)) {
     event.respondWith(
