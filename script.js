@@ -674,7 +674,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // AppMetrica сюда не подходит: у неё нет браузерного SDK, только Android/iOS/Unity/
   // Flutter/React Native. Ключ AppMetrica для RuStore-обёртки (TWA):
   //   b3ad5749-3bbe-41af-a573-443bf81c34cc
-  const METRICA_ID = null;          // например 12345678 — тогда аналитика включится
+  const METRICA_ID = 111151437;
   const trackLog = [];              // последние события, видны при ?debug=1
 
   function loadMetrica(id) {
@@ -684,7 +684,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     s.async = true;
     s.src = 'https://mc.yandex.ru/metrika/tag.js';
     document.head.appendChild(s);
-    window.ym(id, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+    // webvisor включён при создании счётчика в кабинете — держим в коде то же самое.
+    window.ym(id, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: true });
   }
   if (METRICA_ID) loadMetrica(METRICA_ID);
 
