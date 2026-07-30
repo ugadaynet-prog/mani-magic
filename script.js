@@ -124,7 +124,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // ходит: живая версия не ломается. Когда сервер развёрнут — впишите его адрес
   // в DEFAULT_SERVER_URL. Для разовой проверки можно открыть приложение с
   // ?server=https://адрес (этим же пользуемся при локальном тесте).
-  const DEFAULT_SERVER_URL = '';
+  const DEFAULT_SERVER_URL = 'https://api.mani-magic.ru';
   let SERVER_URL = DEFAULT_SERVER_URL;
   try {
     const s = new URLSearchParams(location.search).get('server');
