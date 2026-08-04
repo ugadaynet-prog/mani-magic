@@ -168,7 +168,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   function api(path, opts) {
     return fetch(SERVER_URL + path, opts).then((r) => {
-      if (!r.ok) throw new Error('http ' + r.status);
+      if (!r.ok) {
+        // Текст ошибки оставляем прежним (на него смотрят все старые вызовы),
+        // но добавляем код от сервера — по нему показываем человеку причину.
+        return r.json().catch(() => ({})).then((body) => {
+          const err = new Error('http ' + r.status);
+          err.status = r.status;
+          err.code = body && body.error;
+          throw err;
+        });
+      }
       return r.json();
     });
   }
@@ -297,6 +306,99 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       track('purchase_done', { plan: plan });
     }
   }
+
+  // --- Вход мастера по коду из кабинета ---
+  // Отдельно от ссылки ?pass= : на iPhone у приложения с экрана «Домой» своё
+  // хранилище, отдельное от Safari, поэтому пропуск, полученный в браузере,
+  // в установленное приложение не переносится — код вводится уже внутри него.
+  const pwMasterToggle = document.getElementById('pwMasterToggle');
+  const pwMasterBox = document.getElementById('pwMasterBox');
+  const pwMasterCode = document.getElementById('pwMasterCode');
+  const pwMasterBtn = document.getElementById('pwMasterBtn');
+  const pwMasterMsg = document.getElementById('pwMasterMsg');
+
+  const MASTER_CODE_ERRORS = {
+    invalid_code: 'Код не найден — проверьте, нет ли опечатки',
+    code_used: 'Этот код уже использован. Возьмите новый в кабинете',
+    code_expired: 'Код истёк. Возьмите новый в кабинете',
+    no_pro: 'Подписка Pro не активна',
+    no_device: 'Не удалось определить устройство',
+  };
+
+  if (pwMasterToggle) {
+    pwMasterToggle.addEventListener('click', () => {
+      pwMasterBox.classList.toggle('hidden');
+      if (!pwMasterBox.classList.contains('hidden')) pwMasterCode.focus();
+    });
+  }
+  if (pwMasterBtn) {
+    pwMasterBtn.addEventListener('click', () => {
+      const code = (pwMasterCode.value || '').trim();
+      pwMasterMsg.classList.add('hidden');
+      if (!code) { showMasterMsg('Введите код из кабинета'); return; }
+      if (!serverOn()) { showMasterMsg('Нет связи с сервером'); return; }
+      pwMasterBtn.disabled = true;
+      api('/api/deck-pass/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, deviceId: deviceId }),
+      })
+        .then(() => refreshAccess())
+        .then(() => {
+          if (isPaid()) {
+            paywallOverlay.classList.add('hidden');
+            toast('Готово! Колода открыта 💅');
+          } else {
+            showMasterMsg('Не получилось открыть колоду');
+          }
+        })
+        .catch((e) => showMasterMsg(MASTER_CODE_ERRORS[e.code] || 'Код не подошёл'))
+        .finally(() => { pwMasterBtn.disabled = false; });
+    });
+  }
+  function showMasterMsg(text) {
+    pwMasterMsg.textContent = text;
+    pwMasterMsg.classList.remove('hidden');
+  }
+
+  // --- Установка приложения на телефон ---
+  // Android/Chrome отдаёт событие beforeinstallprompt — показываем свою кнопку.
+  // Safari на iPhone такого события не даёт вообще, там только ручное
+  // «Поделиться → На экран „Домой“», поэтому для него — подсказка.
+  let installEvent = null;
+  const installBtn = document.getElementById('installBtn');
+  const installHint = document.getElementById('installHint');
+
+  const isStandalone = () =>
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = () =>
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS притворяется Mac
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installEvent = e;
+    if (installBtn && !isStandalone()) installBtn.classList.remove('hidden');
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (!installEvent) return;
+      installEvent.prompt();
+      const res = await installEvent.userChoice.catch(() => null);
+      track('app_install', { outcome: res ? res.outcome : 'unknown' });
+      installEvent = null;
+      installBtn.classList.add('hidden');
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    if (installBtn) installBtn.classList.add('hidden');
+    if (installHint) installHint.classList.add('hidden');
+  });
+
+  // Уже установленному приложению подсказка не нужна
+  if (installHint && isIOS() && !isStandalone()) installHint.classList.remove('hidden');
 
   // Покупка внутри Android-приложения (RuStore Pay SDK через нативный плагин
   // RuStoreBilling). planKey используется и как id товара в консоли RuStore —

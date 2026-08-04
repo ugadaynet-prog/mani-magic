@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mani-magic-v61';
+const CACHE_NAME = 'mani-magic-v62';
 
 const SHELL_FILES = [
   './',
@@ -49,6 +49,11 @@ self.addEventListener('fetch', (event) => {
 
   // Запросы к серверу (другой домен) — всегда напрямую в сеть, кэш их не трогает.
   if (url.origin !== self.location.origin) return;
+
+  // ...и точно так же любой /api/ на своём домене: статус подписки и пропуска
+  // обязаны быть свежими. Иначе после оплаты или ввода кода мастера страница
+  // продолжит показывать старый ответ «free» из кэша.
+  if (url.pathname.startsWith('/api/')) return;
 
   if (isFreshFirst(url)) {
     event.respondWith(

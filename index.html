@@ -181,6 +181,22 @@
     <button id="pwBuyBtn" class="pw-buy">Оформить подписку</button>
     <p id="pwSoon" class="pw-soon">Оплата подключается — кнопка заработает, как только откроем приём платежей</p>
     <p class="pw-legal">Оформляя подписку, вы принимаете <a href="oferta.html" target="_blank" rel="noopener">Оферту</a> и <a href="privacy.html" target="_blank" rel="noopener">Политику&nbsp;конфиденциальности</a></p>
+
+    <!-- Установка на телефон. Кнопка появляется только там, где браузер это
+         умеет (Android/Chrome); на iPhone вместо неё подсказка. -->
+    <button id="installBtn" class="pw-master-toggle hidden" type="button">Установить приложение на телефон</button>
+    <p id="installHint" class="pw-legal hidden">Чтобы приложение было на экране «Домой»: нажмите
+      <b>Поделиться</b> внизу Safari, затем <b>«На экран „Домой“»</b></p>
+
+    <!-- Вход для мастера с Pro: код берётся в кабинете. Нужен отдельно от ссылки,
+         потому что на iPhone у установленного приложения своё хранилище. -->
+    <button id="pwMasterToggle" class="pw-master-toggle" type="button">Я мастер — у меня есть код</button>
+    <div id="pwMasterBox" class="pw-master-box hidden">
+      <input id="pwMasterCode" class="pw-email" type="text" inputmode="latin" autocomplete="off"
+             placeholder="XXXX-XXXX" style="text-transform:uppercase">
+      <button id="pwMasterBtn" class="pw-buy" type="button">Открыть колоду</button>
+      <p id="pwMasterMsg" class="pw-email-error hidden"></p>
+    </div>
   </div>
 
   <div id="qrOverlay" class="fav-overlay hidden">

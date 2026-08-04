@@ -663,6 +663,28 @@ body.has-master-bar { padding-top: 52px; }
 }
 .pw-legal a { color: var(--muted); text-decoration: underline; }
 
+/* Вход мастера по коду — намеренно неброский, чтобы не отвлекать клиента */
+.pw-master-toggle {
+  margin: 14px 0 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px;
+}
+.pw-master-box {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pw-master-box.hidden { display: none; }
+
 /* Кнопка «Поделиться подборкой» под сеткой избранного */
 .sel-share-btn {
   margin-top: 20px;
