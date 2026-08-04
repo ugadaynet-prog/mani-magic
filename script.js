@@ -181,6 +181,43 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     lockBanner.classList.toggle('hidden', isPaid());
   }
 
+  // Одноразовый код из кабинета мастера (?pass=...) — меняем на пропуск для
+  // этого устройства. Код сгорает сразу, поэтому чистим его из адресной строки,
+  // чтобы обновление страницы не выглядело как ошибка.
+  function redeemDeckPass() {
+    let code = '';
+    try { code = new URLSearchParams(location.search).get('pass') || ''; } catch (e) {}
+    if (!code || !serverOn() || !deviceId) return Promise.resolve();
+    return api('/api/deck-pass/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, deviceId: deviceId }),
+    })
+      .then(() => dbg('пропуск мастера получен'))
+      .catch((e) => dbg('пропуск: ' + e.message))
+      .then(() => {
+        try {
+          const u = new URL(location.href);
+          u.searchParams.delete('pass');
+          history.replaceState(null, '', u.toString());
+        } catch (e) {}
+      });
+  }
+
+  // Клиент открыл страницу студии по QR: пока у мастера активен Pro, колода
+  // открывается на сутки. Отказ (нет Pro / лимит) — не ошибка, просто остаются
+  // бесплатные карты.
+  function requestGuestPass() {
+    if (!masterMode() || !deviceId || isPaid()) return Promise.resolve();
+    return api('/api/m/' + encodeURIComponent(masterSlug) + '/guest-pass', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: deviceId }),
+    })
+      .then(() => dbg('гостевой пропуск выдан'))
+      .catch((e) => dbg('гостевой пропуск: ' + e.message));
+  }
+
   // Спросить у сервера статус подписки. Сервер — источник правды.
   function refreshAccess() {
     if (!serverOn() || !deviceId) return Promise.resolve();
@@ -321,10 +358,51 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   let masterSlug = '';
   try { masterSlug = new URLSearchParams(location.search).get('master') || ''; } catch (e) {}
   const masterMode = () => serverOn() && !!masterSlug;
+
+  // Пришёл ли сюда сам мастер из кабинета (в ссылке был одноразовый код).
+  // Запоминаем: код из адреса стирается сразу, а кнопка «В кабинет» должна
+  // пережить перезагрузку страницы.
+  const FROM_CABINET_KEY = 'maniMagicFromCabinet';
+  let cameFromCabinet = false;
+  try {
+    if (new URLSearchParams(location.search).get('pass')) {
+      cameFromCabinet = true;
+      sessionStorage.setItem(FROM_CABINET_KEY, '1');
+    } else {
+      cameFromCabinet = sessionStorage.getItem(FROM_CABINET_KEY) === '1';
+    }
+  } catch (e) {}
+  const CABINET_URL = 'https://api.mani-magic.ru/master/';
   let masterWorks = [];   // фото работ мастера — для витрины клиенту
 
+  // У мастера может быть ещё не задан адрес студии — тогда ?master= в ссылке нет
+  // и плашка не рисуется. Возврат в кабинет всё равно должен быть.
+  function renderBackBarOnly() {
+    const bar = document.createElement('div');
+    bar.className = 'master-bar';
+    const info = document.createElement('div');
+    info.className = 'mb-info';
+    const name = document.createElement('span');
+    name.className = 'mb-name';
+    name.textContent = 'Ваша колода';
+    info.appendChild(name);
+    const actions = document.createElement('div');
+    actions.className = 'mb-actions';
+    const back = document.createElement('a');
+    back.className = 'mb-back';
+    back.href = CABINET_URL;
+    back.textContent = 'В кабинет';
+    actions.appendChild(back);
+    bar.appendChild(info); bar.appendChild(actions);
+    document.body.appendChild(bar);
+    document.body.classList.add('has-master-bar');
+  }
+
   function initMasterMode() {
-    if (!masterMode()) return;
+    if (!masterMode()) {
+      if (cameFromCabinet) renderBackBarOnly();
+      return;
+    }
     api('/api/m/' + encodeURIComponent(masterSlug))
       .then((r) => {
         const m = r.master || {};
@@ -376,6 +454,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       book.textContent = 'Записаться';
       book.addEventListener('click', () => track('master_book', { slug: masterSlug }));
       actions.appendChild(book);
+    }
+    // Кнопка обратно — только самому мастеру (пришёл из кабинета по пропуску),
+    // клиенту в салоне она не нужна и только путала бы.
+    if (cameFromCabinet) {
+      const back = document.createElement('a');
+      back.className = 'mb-back';
+      back.href = CABINET_URL;
+      back.textContent = 'В кабинет';
+      actions.appendChild(back);
     }
     bar.appendChild(actions);
 
@@ -1486,7 +1573,13 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   if (serverOn()) {
     dbg('сервер: ' + SERVER_URL + (masterSlug ? ' · мастер ' + masterSlug : ''));
     initMasterMode();
-    refreshAccess().then(resumePendingPayment);
+    // Порядок важен: сперва меняем код из кабинета на пропуск, потом спрашиваем
+    // доступ. Гостевой пропуск запрашиваем уже зная план — платящему он не нужен.
+    redeemDeckPass()
+      .then(refreshAccess)
+      .then(requestGuestPass)
+      .then(() => (isPaid() ? null : refreshAccess()))
+      .then(resumePendingPayment);
   }
 
   dbg('вибрация в браузере: ' + (typeof navigator.vibrate === 'function' ? 'есть' : 'НЕТ') +
