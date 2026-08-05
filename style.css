@@ -125,8 +125,107 @@ html, body {
 .qr-btn { right: calc(10px + env(safe-area-inset-right)); }
 .day-btn { left: calc(10px + env(safe-area-inset-left)); }
 
+/* Кнопка «Ещё» — ПОД кнопкой QR, у правого края. В верхнем ряду места нет:
+   карта занимает середину экрана, и третья кнопка легла бы поверх картинки,
+   где её не видно (полупрозрачный фон на ярком снимке пропадает). */
+.more-btn {
+  position: fixed;
+  top: calc(46px + env(safe-area-inset-top));
+  right: calc(10px + env(safe-area-inset-right));
+  z-index: 30;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--paper);
+}
+/* Высоту плашки замеряет скрипт (--mb-h): у клиента там ещё строка с городом,
+   и фиксированный отступ наезжал бы на кнопки. */
+body.has-master-bar .qr-btn,
+body.has-master-bar .day-btn { top: calc(var(--mb-h, 53px) + 6px + env(safe-area-inset-top)); }
+body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-area-inset-top)); }
+
 .qr-btn:active,
-.day-btn:active { transform: scale(0.92); }
+.day-btn:active,
+.more-btn:active { transform: scale(0.92); }
+
+/* Меню «Ещё» */
+.more-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, .5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.more-sheet.hidden { display: none; }
+.more-card {
+  width: 100%;
+  max-width: 420px;
+  /* именно --bg, а не --surface: тот полупрозрачный (фон кнопок-таблеток),
+     и сквозь меню просвечивала бы картинка карты */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.more-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--paper);
+}
+.more-item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 13px 14px;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--paper);
+  text-decoration: none;
+  cursor: pointer;
+}
+.more-item.hidden { display: none; }
+.more-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.more-close { opacity: .7; }
+.more-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+.more-err { color: #d64545; }
+.more-codebox { display: flex; flex-direction: column; gap: 8px; }
+.more-codebox.hidden { display: none; }
+.more-codebox input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 17px;
+  letter-spacing: .06em;
+  text-align: center;
+  padding: 13px 14px;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2, transparent);
+  color: var(--paper);
+}
 
 /* Бейдж «Карта дня» — по центру над картой, читается на любом фото */
 .day-badge {

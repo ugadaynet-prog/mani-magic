@@ -46,6 +46,50 @@
     </svg>
   </button>
 
+  <script>
+    // Ловим событие установки КАК МОЖНО РАНЬШЕ: Chrome умеет выстрелить им до того,
+    // как загрузится script.js, и тогда кнопка «Установить» не появится вообще.
+    window.__installEvent = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__installEvent = e;
+      window.dispatchEvent(new Event('mm-installable'));
+    });
+  </script>
+
+  <button id="moreBtn" class="more-btn" aria-label="Ещё">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+      <circle cx="5" cy="12" r="1.9"></circle>
+      <circle cx="12" cy="12" r="1.9"></circle>
+      <circle cx="19" cy="12" r="1.9"></circle>
+    </svg>
+  </button>
+
+  <!-- Постоянное меню. Раньше установка и вход мастера жили внутри окна оплаты —
+       мастер с открытой колодой не видел их вообще, а на Android их приходилось
+       искать. Здесь они доступны всегда. -->
+  <div id="moreSheet" class="more-sheet hidden">
+    <div class="more-card">
+      <h3 class="more-title">Ещё</h3>
+
+      <button id="installBtn" class="more-item hidden" type="button">Установить приложение на телефон</button>
+      <p id="installHint" class="more-note hidden">Чтобы приложение было на экране «Домой»: нажмите
+        <b>Поделиться</b> внизу Safari, затем <b>«На экран „Домой“»</b></p>
+
+      <a id="moreCabinet" class="more-item hidden" href="https://api.mani-magic.ru/master/">Кабинет мастера</a>
+
+      <button id="masterToggle" class="more-item" type="button">Я мастер — ввести код</button>
+      <div id="masterBox" class="more-codebox hidden">
+        <input id="masterCode" type="text" inputmode="latin" autocomplete="off"
+               placeholder="XXXX-XXXX" style="text-transform:uppercase">
+        <button id="masterBtn" class="more-item more-primary" type="button">Открыть колоду</button>
+        <p id="masterMsg" class="more-note more-err hidden"></p>
+      </div>
+
+      <button id="moreClose" class="more-item more-close" type="button">Закрыть</button>
+    </div>
+  </div>
+
   <div class="app">
     <main class="stage">
       <div class="card-wrap">
@@ -182,21 +226,6 @@
     <p id="pwSoon" class="pw-soon">Оплата подключается — кнопка заработает, как только откроем приём платежей</p>
     <p class="pw-legal">Оформляя подписку, вы принимаете <a href="oferta.html" target="_blank" rel="noopener">Оферту</a> и <a href="privacy.html" target="_blank" rel="noopener">Политику&nbsp;конфиденциальности</a></p>
 
-    <!-- Установка на телефон. Кнопка появляется только там, где браузер это
-         умеет (Android/Chrome); на iPhone вместо неё подсказка. -->
-    <button id="installBtn" class="pw-master-toggle hidden" type="button">Установить приложение на телефон</button>
-    <p id="installHint" class="pw-legal hidden">Чтобы приложение было на экране «Домой»: нажмите
-      <b>Поделиться</b> внизу Safari, затем <b>«На экран „Домой“»</b></p>
-
-    <!-- Вход для мастера с Pro: код берётся в кабинете. Нужен отдельно от ссылки,
-         потому что на iPhone у установленного приложения своё хранилище. -->
-    <button id="pwMasterToggle" class="pw-master-toggle" type="button">Я мастер — у меня есть код</button>
-    <div id="pwMasterBox" class="pw-master-box hidden">
-      <input id="pwMasterCode" class="pw-email" type="text" inputmode="latin" autocomplete="off"
-             placeholder="XXXX-XXXX" style="text-transform:uppercase">
-      <button id="pwMasterBtn" class="pw-buy" type="button">Открыть колоду</button>
-      <p id="pwMasterMsg" class="pw-email-error hidden"></p>
-    </div>
   </div>
 
   <div id="qrOverlay" class="fav-overlay hidden">

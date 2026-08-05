@@ -241,8 +241,14 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           accessPass = null;
           try { localStorage.setItem(PLAN_KEY, 'free'); } catch (e) {}
         }
+        // Сервер сам говорит, что это хозяин колоды (пропуск kind=master), а не
+        // клиент по QR. Раньше это выводилось из ?pass= в адресе — и после
+        // ручного ввода кода мастер оставался без плашки и без выхода в кабинет.
+        isOwnMaster = a.via === 'master';
+        if (isOwnMaster && a.masterSlug && !masterSlug) masterSlug = a.masterSlug;
         applyPlanUI();
-        dbg('доступ: ' + plan);
+        refreshMasterBar();
+        dbg('доступ: ' + plan + (isOwnMaster ? ' (мастер)' : ''));
       })
       .catch((e) => dbg('доступ: ошибка ' + e.message));
   }
@@ -307,15 +313,20 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }
   }
 
-  // --- Вход мастера по коду из кабинета ---
-  // Отдельно от ссылки ?pass= : на iPhone у приложения с экрана «Домой» своё
-  // хранилище, отдельное от Safari, поэтому пропуск, полученный в браузере,
-  // в установленное приложение не переносится — код вводится уже внутри него.
-  const pwMasterToggle = document.getElementById('pwMasterToggle');
-  const pwMasterBox = document.getElementById('pwMasterBox');
-  const pwMasterCode = document.getElementById('pwMasterCode');
-  const pwMasterBtn = document.getElementById('pwMasterBtn');
-  const pwMasterMsg = document.getElementById('pwMasterMsg');
+  // --- Меню «Ещё»: установка на телефон и вход мастера по коду ---
+  // Живёт отдельно от окна оплаты: мастер с уже открытой колодой окно оплаты
+  // не видит, а значит не нашёл бы ни установку, ни ввод кода.
+  const moreBtn = document.getElementById('moreBtn');
+  const moreSheet = document.getElementById('moreSheet');
+  const moreClose = document.getElementById('moreClose');
+  const moreCabinet = document.getElementById('moreCabinet');
+  const installBtn = document.getElementById('installBtn');
+  const installHint = document.getElementById('installHint');
+  const masterToggle = document.getElementById('masterToggle');
+  const masterBox = document.getElementById('masterBox');
+  const masterCode = document.getElementById('masterCode');
+  const masterBtn = document.getElementById('masterBtn');
+  const masterMsg = document.getElementById('masterMsg');
 
   const MASTER_CODE_ERRORS = {
     invalid_code: 'Код не найден — проверьте, нет ли опечатки',
@@ -325,19 +336,70 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     no_device: 'Не удалось определить устройство',
   };
 
-  if (pwMasterToggle) {
-    pwMasterToggle.addEventListener('click', () => {
-      pwMasterBox.classList.toggle('hidden');
-      if (!pwMasterBox.classList.contains('hidden')) pwMasterCode.focus();
+  const isStandalone = () =>
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = () =>
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS притворяется Mac
+
+  function openMore() {
+    moreSheet.classList.remove('hidden');
+    refreshMoreSheet();
+  }
+  function closeMore() {
+    moreSheet.classList.add('hidden');
+    masterBox.classList.add('hidden');
+    masterMsg.classList.add('hidden');
+  }
+  if (moreBtn) moreBtn.addEventListener('click', openMore);
+  if (moreClose) moreClose.addEventListener('click', closeMore);
+  if (moreSheet) moreSheet.addEventListener('click', (e) => { if (e.target === moreSheet) closeMore(); });
+
+  // Что показывать в меню — зависит от того, установлено ли приложение,
+  // умеет ли браузер ставить его сам и открыта ли уже колода у мастера.
+  function refreshMoreSheet() {
+    const installed = isStandalone();
+    installBtn.classList.toggle('hidden', !window.__installEvent || installed);
+    installHint.classList.toggle('hidden', !(isIOS() && !installed));
+    // «Кабинет мастера» — только своему мастеру, не клиенту по QR
+    moreCabinet.classList.toggle('hidden', !isOwnMaster);
+    // код уже не нужен, если колода открыта именно как у мастера
+    masterToggle.classList.toggle('hidden', isOwnMaster);
+  }
+  window.addEventListener('mm-installable', () => {
+    if (!moreSheet.classList.contains('hidden')) refreshMoreSheet();
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      const ev = window.__installEvent;
+      if (!ev) return;
+      ev.prompt();
+      const res = await ev.userChoice.catch(() => null);
+      track('app_install', { outcome: res ? res.outcome : 'unknown' });
+      window.__installEvent = null;
+      installBtn.classList.add('hidden');
     });
   }
-  if (pwMasterBtn) {
-    pwMasterBtn.addEventListener('click', () => {
-      const code = (pwMasterCode.value || '').trim();
-      pwMasterMsg.classList.add('hidden');
+  window.addEventListener('appinstalled', () => {
+    window.__installEvent = null;
+    installBtn.classList.add('hidden');
+    installHint.classList.add('hidden');
+  });
+
+  if (masterToggle) {
+    masterToggle.addEventListener('click', () => {
+      masterBox.classList.toggle('hidden');
+      if (!masterBox.classList.contains('hidden')) masterCode.focus();
+    });
+  }
+  if (masterBtn) {
+    masterBtn.addEventListener('click', () => {
+      const code = (masterCode.value || '').trim();
+      masterMsg.classList.add('hidden');
       if (!code) { showMasterMsg('Введите код из кабинета'); return; }
       if (!serverOn()) { showMasterMsg('Нет связи с сервером'); return; }
-      pwMasterBtn.disabled = true;
+      masterBtn.disabled = true;
       api('/api/deck-pass/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -346,6 +408,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         .then(() => refreshAccess())
         .then(() => {
           if (isPaid()) {
+            closeMore();
             paywallOverlay.classList.add('hidden');
             toast('Готово! Колода открыта 💅');
           } else {
@@ -353,52 +416,13 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           }
         })
         .catch((e) => showMasterMsg(MASTER_CODE_ERRORS[e.code] || 'Код не подошёл'))
-        .finally(() => { pwMasterBtn.disabled = false; });
+        .finally(() => { masterBtn.disabled = false; });
     });
   }
   function showMasterMsg(text) {
-    pwMasterMsg.textContent = text;
-    pwMasterMsg.classList.remove('hidden');
+    masterMsg.textContent = text;
+    masterMsg.classList.remove('hidden');
   }
-
-  // --- Установка приложения на телефон ---
-  // Android/Chrome отдаёт событие beforeinstallprompt — показываем свою кнопку.
-  // Safari на iPhone такого события не даёт вообще, там только ручное
-  // «Поделиться → На экран „Домой“», поэтому для него — подсказка.
-  let installEvent = null;
-  const installBtn = document.getElementById('installBtn');
-  const installHint = document.getElementById('installHint');
-
-  const isStandalone = () =>
-    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  const isIOS = () =>
-    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS притворяется Mac
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    installEvent = e;
-    if (installBtn && !isStandalone()) installBtn.classList.remove('hidden');
-  });
-
-  if (installBtn) {
-    installBtn.addEventListener('click', async () => {
-      if (!installEvent) return;
-      installEvent.prompt();
-      const res = await installEvent.userChoice.catch(() => null);
-      track('app_install', { outcome: res ? res.outcome : 'unknown' });
-      installEvent = null;
-      installBtn.classList.add('hidden');
-    });
-  }
-
-  window.addEventListener('appinstalled', () => {
-    if (installBtn) installBtn.classList.add('hidden');
-    if (installHint) installHint.classList.add('hidden');
-  });
-
-  // Уже установленному приложению подсказка не нужна
-  if (installHint && isIOS() && !isStandalone()) installHint.classList.remove('hidden');
 
   // Покупка внутри Android-приложения (RuStore Pay SDK через нативный плагин
   // RuStoreBilling). planKey используется и как id товара в консоли RuStore —
@@ -461,27 +485,46 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   try { masterSlug = new URLSearchParams(location.search).get('master') || ''; } catch (e) {}
   const masterMode = () => serverOn() && !!masterSlug;
 
-  // Пришёл ли сюда сам мастер из кабинета (в ссылке был одноразовый код).
-  // Запоминаем: код из адреса стирается сразу, а кнопка «В кабинет» должна
-  // пережить перезагрузку страницы.
-  const FROM_CABINET_KEY = 'maniMagicFromCabinet';
-  let cameFromCabinet = false;
-  try {
-    if (new URLSearchParams(location.search).get('pass')) {
-      cameFromCabinet = true;
-      sessionStorage.setItem(FROM_CABINET_KEY, '1');
-    } else {
-      cameFromCabinet = sessionStorage.getItem(FROM_CABINET_KEY) === '1';
-    }
-  } catch (e) {}
+  // Хозяин колоды это или клиент по QR — определяет сервер (kind пропуска),
+  // ответ приходит в /api/access. На адрес ссылки не смотрим: код из него
+  // стирается сразу, а в установленное приложение его вообще вводят руками.
+  let isOwnMaster = false;
   const CABINET_URL = 'https://api.mani-magic.ru/master/';
   let masterWorks = [];   // фото работ мастера — для витрины клиенту
 
-  // У мастера может быть ещё не задан адрес студии — тогда ?master= в ссылке нет
-  // и плашка не рисуется. Возврат в кабинет всё равно должен быть.
-  function renderBackBarOnly() {
+  // Плашка сверху. Перерисовывается при каждом ответе сервера, поэтому
+  // появляется и после ручного ввода кода, и после перезагрузки.
+  // Кнопки в углах должны стоять ПОД плашкой, а её высота зависит от содержимого
+  // (у клиента там ещё город). Меряем и отдаём в CSS.
+  function syncMasterBarHeight() {
+    const bar = document.querySelector('.master-bar');
+    document.documentElement.style.setProperty('--mb-h', bar ? bar.offsetHeight + 'px' : '0px');
+  }
+
+  function refreshMasterBar() {
+    const own = document.querySelector('.master-bar.mb-own');
+    if (isOwnMaster) {
+      if (!own) {
+        // витрину студии (её строит клиентский путь) при этом не трогаем
+        const other = document.querySelector('.master-bar');
+        if (other) other.remove();
+        renderOwnMasterBar();
+      }
+      return;
+    }
+    // Плашку клиента, пришедшего по QR, оставляем как есть — убираем только свою.
+    if (own) {
+      own.remove();
+      document.body.classList.remove('has-master-bar');
+      syncMasterBarHeight();
+    }
+  }
+
+  // У мастера может быть ещё не задан адрес студии — плашку клиента тогда
+  // не построить, но выход в кабинет нужен в любом случае.
+  function renderOwnMasterBar() {
     const bar = document.createElement('div');
-    bar.className = 'master-bar';
+    bar.className = 'master-bar mb-own';
     const info = document.createElement('div');
     info.className = 'mb-info';
     const name = document.createElement('span');
@@ -498,13 +541,13 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     bar.appendChild(info); bar.appendChild(actions);
     document.body.appendChild(bar);
     document.body.classList.add('has-master-bar');
+    syncMasterBarHeight();
   }
 
   function initMasterMode() {
-    if (!masterMode()) {
-      if (cameFromCabinet) renderBackBarOnly();
-      return;
-    }
+    // Свою колоду мастер видит с плашкой «В кабинет» — витрина студии ему не нужна,
+    // её строим только клиенту, пришедшему по QR.
+    if (!masterMode() || isOwnMaster) { refreshMasterBar(); return; }
     api('/api/m/' + encodeURIComponent(masterSlug))
       .then((r) => {
         const m = r.master || {};
@@ -557,9 +600,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       book.addEventListener('click', () => track('master_book', { slug: masterSlug }));
       actions.appendChild(book);
     }
-    // Кнопка обратно — только самому мастеру (пришёл из кабинета по пропуску),
-    // клиенту в салоне она не нужна и только путала бы.
-    if (cameFromCabinet) {
+    // Кнопка обратно — только самому мастеру; клиенту в салоне она не нужна
+    // и только путала бы. Свою колоду мастер видит без витрины студии, так что
+    // сюда попадаем редко — но проверку оставляем на случай гонки ответов.
+    if (isOwnMaster) {
       const back = document.createElement('a');
       back.className = 'mb-back';
       back.href = CABINET_URL;
@@ -570,6 +614,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
     document.body.appendChild(bar);
     document.body.classList.add('has-master-bar');
+    syncMasterBarHeight();
   }
 
   // --- Витрина работ мастера (галерея + просмотр по тапу) ---
