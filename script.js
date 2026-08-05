@@ -327,6 +327,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const masterCode = document.getElementById('masterCode');
   const masterBtn = document.getElementById('masterBtn');
   const masterMsg = document.getElementById('masterMsg');
+  const installedNote = document.getElementById('installedNote');
+  // Признак «только что поставили» переживает перезапуск: приложение открывается
+  // уже как отдельное окно, и обычным способом факт установки не узнать.
+  const INSTALLED_KEY = 'maniMagicInstalled';
+  let justInstalled = false;
+  try { justInstalled = localStorage.getItem(INSTALLED_KEY) === '1'; } catch (e) {}
 
   const MASTER_CODE_ERRORS = {
     invalid_code: 'Код не найден — проверьте, нет ли опечатки',
@@ -358,9 +364,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // Что показывать в меню — зависит от того, установлено ли приложение,
   // умеет ли браузер ставить его сам и открыта ли уже колода у мастера.
   function refreshMoreSheet() {
-    const installed = isStandalone();
+    const installed = isStandalone() || justInstalled;
     installBtn.classList.toggle('hidden', !window.__installEvent || installed);
+    // подсказку про «Домой» показываем только там, где ставят руками (iPhone)
     installHint.classList.toggle('hidden', !(isIOS() && !installed));
+    // а на Android — что делать, если значок не появился на главном экране
+    installedNote.classList.toggle('hidden', !(justInstalled && !isIOS()));
     // «Кабинет мастера» — только своему мастеру, не клиенту по QR
     moreCabinet.classList.toggle('hidden', !isOwnMaster);
     // код уже не нужен, если колода открыта именно как у мастера
@@ -383,8 +392,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
   window.addEventListener('appinstalled', () => {
     window.__installEvent = null;
+    justInstalled = true;
+    try { localStorage.setItem(INSTALLED_KEY, '1'); } catch (e) {}
     installBtn.classList.add('hidden');
     installHint.classList.add('hidden');
+    if (!moreSheet.classList.contains('hidden')) refreshMoreSheet();
+    toast('Установлено! Значок — в списке приложений телефона');
   });
 
   if (masterToggle) {
