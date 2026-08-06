@@ -640,6 +640,71 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 }
 body.has-master-bar { padding-top: 52px; }
 
+/* Кнопка «Показать мастеру» — видна только клиенту, пришедшему по QR */
+.pick-btn {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 40;
+  border: none;
+  border-radius: 999px;
+  padding: 13px 26px;
+  min-height: 48px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--master-accent, #b5203a);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+.pick-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 90;                 /* выше галереи работ (75) */
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.pick-box {
+  width: 100%;
+  max-width: 460px;
+  background: var(--paper, #fff);
+  color: var(--ink, #1f2126);
+  border-radius: 20px 20px 0 0;
+  padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pick-box h3 { margin: 0; font-size: 18px; }
+.pick-hint { margin: 0; font-size: 13.5px; color: var(--muted, #6b6b70); }
+.pick-label { font-size: 14px; }
+.pick-input {
+  font-family: inherit;
+  font-size: 16px;             /* 16px — иначе iOS зумит страницу при фокусе */
+  padding: 12px 14px;
+  min-height: 48px;
+  border: 1px solid var(--line, #e8ddd7);
+  border-radius: 12px;
+  background: #fff;
+  color: #1f2126;
+}
+.pick-send, .pick-cancel {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  min-height: 50px;
+  border-radius: 14px;
+  cursor: pointer;
+  border: none;
+}
+.pick-send { background: var(--master-accent, #b5203a); color: #fff; }
+.pick-cancel { background: none; color: var(--muted, #6b6b70); font-weight: 500; }
+
 /* Витрина работ мастера (в режиме мастера) */
 .mw-overlay { z-index: 70; }
 .mw-grid {

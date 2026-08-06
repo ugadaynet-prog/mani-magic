@@ -242,6 +242,19 @@
     <p class="qr-hint">Наведите камеру телефона на код —<br>откроется приложение</p>
   </div>
 
+  <!-- Клиент в режиме мастера показывает свой выбор. Появляется только по QR мастера. -->
+  <button id="pickBtn" class="pick-btn hidden" type="button">Показать мастеру</button>
+  <div id="pickSheet" class="pick-sheet hidden">
+    <div class="pick-box">
+      <h3>Показать мастеру выбор</h3>
+      <p id="pickDesignHint" class="pick-hint"></p>
+      <label class="pick-label" for="pickName">Как вас зовут? <span class="muted">(необязательно)</span></label>
+      <input id="pickName" class="pick-input" type="text" maxlength="40" autocomplete="given-name" placeholder="Например, Марина">
+      <button id="pickSend" class="pick-send" type="button">Показать мастеру</button>
+      <button id="pickCancel" class="pick-cancel" type="button">Отмена</button>
+    </div>
+  </div>
+
   <div id="workOverlay" class="work-overlay hidden">
     <button id="workPrev" class="work-nav work-prev" aria-label="Предыдущее">&#8249;</button>
     <div class="work-stage">

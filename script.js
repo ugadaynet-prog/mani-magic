@@ -662,14 +662,53 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     else if (!document.getElementById('masterWorksOverlay').classList.contains('hidden')) closeMasterWorks();
   });
 
-  // Клиент в режиме мастера вытянул карту — тихо сообщаем мастеру (для «что выбрал клиент»).
-  function recordMasterPick(cardIndex) {
-    if (!masterMode()) return;
+  // --- Клиент показывает мастеру свой выбор -------------------------------
+  // Раньше запись уходила при КАЖДОЙ тряске, и мастер получал поток случайных
+  // карт и пушей. Теперь — только осознанное нажатие, с номером понравившегося
+  // дизайна и именем, если клиент захочет его назвать.
+  const pickBtn = document.getElementById('pickBtn');
+  const pickSheet = document.getElementById('pickSheet');
+  const pickName = document.getElementById('pickName');
+  const pickDesignHint = document.getElementById('pickDesignHint');
+  let likedDesign = null;   // какой из пяти дизайнов клиент открыл последним
+
+  function updatePickBtn() {
+    if (!pickBtn) return;
+    likedDesign = null;
+    pickBtn.classList.toggle('hidden', !masterMode());
+  }
+
+  function openPickSheet() {
+    pickDesignHint.textContent = likedDesign
+      ? 'Мастер увидит карту ' + (currentIndex + 1) + ' и дизайн № ' + likedDesign
+      : 'Мастер увидит карту ' + (currentIndex + 1) + '. Откройте «Работы», чтобы выбрать конкретный дизайн';
+    pickSheet.classList.remove('hidden');
+    pickName.focus();
+  }
+  function closePickSheet() { pickSheet.classList.add('hidden'); }
+
+  function sendPick() {
+    const body = { card: currentIndex + 1 };
+    if (likedDesign) body.design = likedDesign;
+    const nm = (pickName.value || '').trim();
+    if (nm) body.name = nm;
+    closePickSheet();
+    toast('Мастер увидит ваш выбор 💅');
+    track('client_pick', { card: currentIndex + 1, design: likedDesign || 0, named: !!nm });
     api('/api/m/' + encodeURIComponent(masterSlug) + '/pick', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ card: cardIndex + 1 }),
+      body: JSON.stringify(body),
     }).catch(() => {});
+  }
+
+  updatePickBtn();   // состояние кнопки известно сразу, не дожидаясь первой карты
+
+  if (pickBtn) {
+    pickBtn.addEventListener('click', openPickSheet);
+    document.getElementById('pickSend').addEventListener('click', sendPick);
+    document.getElementById('pickCancel').addEventListener('click', closePickSheet);
+    pickSheet.addEventListener('click', (e) => { if (e.target === pickSheet) closePickSheet(); });
   }
 
   // --- Закрытые карты с сервера ---------------------------------------------
@@ -1380,8 +1419,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     // главное событие воронки: как именно человек получил карту
     if (!fromHistory) {
       track('card_draw', { card: currentIndex + 1, source: drawSource, paid: isPaid() });
-      recordMasterPick(currentIndex);   // в режиме мастера — сообщить, что выбрал клиент
     }
+    // Мастеру НЕ сообщаем про каждую тряску: это был бы поток мусора и пушей.
+    // Запись уходит только когда клиент сам нажмёт «Показать мастеру».
+    updatePickBtn();
     drawSource = 'shake';   // источник по умолчанию для следующего вытягивания
 
     if (!fromHistory) {
@@ -1589,6 +1630,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       '<span class="work-counter">' + (i + 1) + ' / ' + currentWorks.length + '</span>';
     workPrev.disabled = (i === 0);
     workNext.disabled = (i === currentWorks.length - 1);
+    // запоминаем, какой дизайн клиент смотрел последним — его и покажем мастеру
+    likedDesign = i + 1;
     Array.prototype.forEach.call(workDots.children, (d, di) => {
       d.classList.toggle('active', di === workPos);
     });
