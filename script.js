@@ -247,6 +247,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         if (isOwnMaster && a.masterSlug && !masterSlug) masterSlug = a.masterSlug;
         applyPlanUI();
         refreshMasterBar();
+        updatePickBtn();   // кто перед нами, становится известно только здесь
         dbg('доступ: ' + plan + (isOwnMaster ? ' (мастер)' : ''));
       })
       .catch((e) => dbg('доступ: ошибка ' + e.message));
@@ -573,7 +574,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   function renderMasterBar(m) {
     if (!m) return;
-    if (m.accent) document.documentElement.style.setProperty('--master-accent', m.accent);
+    if (m.accent) {
+      document.documentElement.style.setProperty('--master-accent', m.accent);
+      document.body.classList.add('has-master-accent');   // включает акцент студии на кнопке выбора
+    }
     const bar = document.createElement('div');
     bar.className = 'master-bar';
 
@@ -675,7 +679,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   function updatePickBtn() {
     if (!pickBtn) return;
     likedDesign = null;
-    pickBtn.classList.toggle('hidden', !masterMode());
+    // Только клиенту, пришедшему по QR. Мастер открывает СВОЮ колоду с тем же
+    // ?master=slug, поэтому одного masterMode() мало — показывать ему некому.
+    pickBtn.classList.toggle('hidden', !masterMode() || isOwnMaster);
   }
 
   function openPickSheet() {

@@ -640,25 +640,17 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 }
 body.has-master-bar { padding-top: 52px; }
 
-/* Кнопка «Показать мастеру» — видна только клиенту, пришедшему по QR */
-.pick-btn {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  z-index: 40;
-  border: none;
-  border-radius: 999px;
-  padding: 13px 26px;
-  min-height: 48px;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  background: var(--master-accent, #b5203a);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  cursor: pointer;
+/* «Примеры работ» и «Показать мастеру» стоят в одну строку и делят ширину поровну.
+   Раньше кнопка выбора висела поверх подвала и закрывала «Примеры работ». */
+.foot-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
 }
+.foot-row .btn { flex: 1 1 0; min-width: 0; }
+/* Цвет кнопки выбора — под акцент студии, если мастер его задал; иначе остаётся
+   фирменный градиент от .btn-primary (переменной --accent в приложении нет). */
+body.has-master-accent #pickBtn { background: var(--master-accent); }
 .pick-sheet {
   position: fixed;
   inset: 0;

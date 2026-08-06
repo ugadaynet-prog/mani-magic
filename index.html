@@ -152,7 +152,12 @@
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
         </button>
       </div>
-      <button id="workBtn" class="btn btn-ghost hidden">Примеры работ</button>
+      <!-- В режиме клиента здесь две кнопки в строку; у мастера своей колоды
+           «Показать мастеру» не появляется — показывать некому. -->
+      <div class="foot-row">
+        <button id="workBtn" class="btn btn-ghost hidden">Примеры работ</button>
+        <button id="pickBtn" class="btn btn-primary hidden" type="button">Показать мастеру</button>
+      </div>
     </footer>
   </div>
 
@@ -242,8 +247,7 @@
     <p class="qr-hint">Наведите камеру телефона на код —<br>откроется приложение</p>
   </div>
 
-  <!-- Клиент в режиме мастера показывает свой выбор. Появляется только по QR мастера. -->
-  <button id="pickBtn" class="pick-btn hidden" type="button">Показать мастеру</button>
+  <!-- Окно подтверждения выбора: открывается кнопкой «Показать мастеру» из подвала -->
   <div id="pickSheet" class="pick-sheet hidden">
     <div class="pick-box">
       <h3>Показать мастеру выбор</h3>
