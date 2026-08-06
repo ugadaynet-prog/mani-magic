@@ -103,6 +103,16 @@ html, body {
   text-align: center;
 }
 
+/* Круглые кнопки в углах оставляем 32px на вид — крупнее они спорили бы с картой.
+   Но зону нажатия расширяем невидимо до ~44px, иначе палец промахивается. */
+.qr-btn::after,
+.day-btn::after,
+.more-btn::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
 /* --- Угловые кнопки: карта дня (слева) и QR (справа) --- */
 .qr-btn,
 .day-btn {
@@ -270,7 +280,8 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 
 /* --- Верхний ряд управления: избранное | стрелки | фильтр --- */
 .controls-top {
-  width: min(100%, 300px);
+  /* было 300px — в этот зажим не влезали кнопки нормального размера */
+  width: min(100%, 348px);
   display: flex;
   align-items: stretch;
   gap: 8px;
@@ -282,7 +293,9 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 .catalog-btn,
 .filter-btn {
   min-width: 0;
-  height: 32px;
+  /* 44px — минимум, по которому палец попадает уверенно (было 32,
+     стрелки «назад/вперёд» промахивались особенно часто) */
+  height: 44px;
   padding: 0;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -295,7 +308,8 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 /* избранное и стрелки — компактные по содержимому;
    «Все карты» и «Все цвета» делят оставшуюся ширину поровну */
 .fav-btn,
-.hist-nav { flex: 0 0 auto; }
+/* по 44px на стрелку — иначе «назад/вперёд» ловятся пальцем через раз */
+.hist-nav { flex: 0 0 auto; min-width: 88px; }
 .catalog-btn,
 .filter-btn { flex: 1 1 0; }
 

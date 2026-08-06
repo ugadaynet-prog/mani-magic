@@ -207,7 +207,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         try {
           const u = new URL(location.href);
           u.searchParams.delete('pass');
-          history.replaceState(null, '', u.toString());
+          // именно window.history: ниже в файле объявлена своя переменная history
+          // (история вытянутых карт), и без префикса код молча падал в try/catch,
+          // а одноразовый код так и оставался висеть в адресной строке
+          window.history.replaceState(null, '', u.toString());
         } catch (e) {}
       });
   }
@@ -687,7 +690,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   function openPickSheet() {
     pickDesignHint.textContent = likedDesign
       ? 'Мастер увидит карту ' + (currentIndex + 1) + ' и дизайн № ' + likedDesign
-      : 'Мастер увидит карту ' + (currentIndex + 1) + '. Откройте «Работы», чтобы выбрать конкретный дизайн';
+      : 'Мастер увидит карту ' + (currentIndex + 1) + '. Откройте «Примеры работ», чтобы выбрать конкретный дизайн';
     pickSheet.classList.remove('hidden');
     pickName.focus();
   }
