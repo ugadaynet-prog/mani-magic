@@ -1085,7 +1085,9 @@ body.has-master-bar { padding-top: 52px; }
 .work-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* Выше плашки режима мастера (60): при 50 она ложилась поверх галереи и
+     перекрывала верх фото — из-за этого и был недоступен выход. */
+  z-index: 75;
   background: rgba(0, 0, 0, 0.9);
   display: flex;
   flex-direction: column;

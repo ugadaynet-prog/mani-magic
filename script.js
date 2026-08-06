@@ -50,7 +50,6 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const workBtn = document.getElementById('workBtn');
   const workOverlay = document.getElementById('workOverlay');
   const workImg = document.getElementById('workImg');
-  const workClose = document.getElementById('workClose');
   const workPrev = document.getElementById('workPrev');
   const workNext = document.getElementById('workNext');
   const workCaption = document.getElementById('workCaption');
@@ -1473,6 +1472,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   // --- Зум фото: щипок двумя пальцами, двойной тап, перетаскивание ---
   const workStage = document.querySelector('.work-stage');
+  const workMeta = document.querySelector('.work-meta');
   let zScale = 1, zX = 0, zY = 0;
   let pinchDist0 = 0, pinchScale0 = 1;
   let panX0 = 0, panY0 = 0, panBaseX = 0, panBaseY = 0;
@@ -1605,12 +1605,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   function closeWork() {
     workOverlay.classList.add('hidden');
     resetZoom();
+    setDrag(0);   // сбрасываем сдвиг от свайпа, иначе он останется на следующем открытии
   }
   function nextWork() { showWork(Math.min(workPos + 1, currentWorks.length - 1)); }
   function prevWork() { showWork(Math.max(workPos - 1, 0)); }
 
   workBtn.addEventListener('click', openWork);
-  workClose.addEventListener('click', closeWork);
   workNext.addEventListener('click', nextWork);
   workPrev.addEventListener('click', prevWork);
   workOverlay.addEventListener('click', (e) => {
@@ -1623,16 +1623,53 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     else if (e.key === 'ArrowLeft') prevWork();
   });
 
-  // Свайп для листания — только когда фото не увеличено
-  let touchX = null;
+  // Свайпы — только когда фото не увеличено.
+  // Вбок листает работы, вниз закрывает галерею (кнопки-крестика больше нет).
+  const CLOSE_DIST = 90;      // насколько увести палец вниз, чтобы закрыть
+  let touchX = null, touchY = null, dragY = 0;
+
+  function setDrag(y) {
+    dragY = y;
+    // тянем само фото и подписи, фон гасим — видно, что галерея «уезжает»
+    const t = y ? 'translateY(' + y + 'px)' : '';
+    workStage.style.transform = t;
+    workMeta.style.transform = t;
+    workOverlay.style.backgroundColor = y
+      ? 'rgba(0,0,0,' + Math.max(0.35, 0.9 - y / 400) + ')'
+      : '';
+  }
+  function endDrag(close) {
+    workStage.style.transition = workMeta.style.transition = 'transform .2s ease';
+    setDrag(0);
+    setTimeout(() => { workStage.style.transition = workMeta.style.transition = ''; }, 220);
+    if (close) closeWork();
+  }
+
   workOverlay.addEventListener('touchstart', (e) => {
-    touchX = (e.touches.length === 1 && !isZoomed()) ? e.changedTouches[0].clientX : null;
+    if (e.touches.length === 1 && !isZoomed()) {
+      touchX = e.changedTouches[0].clientX;
+      touchY = e.changedTouches[0].clientY;
+    } else {
+      touchX = touchY = null;
+    }
   }, { passive: true });
-  workOverlay.addEventListener('touchend', (e) => {
-    if (touchX === null || isZoomed() || isPinching) { touchX = null; return; }
+
+  workOverlay.addEventListener('touchmove', (e) => {
+    if (touchY === null || isZoomed() || isPinching) return;
     const dx = e.changedTouches[0].clientX - touchX;
-    if (Math.abs(dx) > 40) { if (dx < 0) nextWork(); else prevWork(); }
-    touchX = null;
+    const dy = e.changedTouches[0].clientY - touchY;
+    // тянем только если жест явно вертикальный и вниз — иначе это листание
+    if (dy > 0 && dy > Math.abs(dx)) setDrag(dy);
+  }, { passive: true });
+
+  workOverlay.addEventListener('touchend', (e) => {
+    if (touchX === null || isZoomed() || isPinching) { touchX = touchY = null; setDrag(0); return; }
+    const dx = e.changedTouches[0].clientX - touchX;
+    const dy = e.changedTouches[0].clientY - touchY;
+    if (dy > Math.abs(dx) && dy > CLOSE_DIST) endDrag(true);
+    else if (Math.abs(dx) > 40 && Math.abs(dx) > dy) { endDrag(false); if (dx < 0) nextWork(); else prevWork(); }
+    else endDrag(false);
+    touchX = touchY = null;
   }, { passive: true });
 
   // --- Shake detection ---
