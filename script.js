@@ -708,6 +708,73 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }).catch(() => {});
   }
 
+  // --- Системная кнопка «Назад» закрывает открытое окно -------------------
+  // Без этого на Android «Назад» выходила из приложения прямо из избранного,
+  // каталога или фильтра. Сделано одним местом: следим за появлением окон, а не
+  // дописываем обработчик в каждую из десяти функций открытия.
+  // Порядок — сверху вниз по слоям: закрываем то, что лежит выше всех.
+  const OVERLAYS = [
+    ['pickSheet', () => closePickSheet()],
+    ['mwLightbox', () => closeLightbox()],
+    ['workOverlay', () => closeWork()],
+    ['masterWorksOverlay', () => closeMasterWorks()],
+    ['moreSheet', () => closeMore()],
+    ['paywallOverlay', null], ['catalogOverlay', null], ['favOverlay', null],
+    ['selOverlay', null], ['filterOverlay', null], ['qrOverlay', null],
+  ];
+  const isOpen = (id) => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  };
+  const anyOpen = () => OVERLAYS.some(([id]) => isOpen(id));
+  let backEntryPushed = false;   // лежит ли в истории наша запись под открытое окно
+  let ignorePop = false;         // мы сами вызвали window.history.back(), закрывать нечего
+
+  function closeTopOverlay() {
+    for (const [id, closer] of OVERLAYS) {
+      if (!isOpen(id)) continue;
+      if (closer) closer();
+      else document.getElementById(id).classList.add('hidden');
+      return true;
+    }
+    return false;
+  }
+
+  // Появилось окно — кладём запись в историю; закрылось последнее — забираем её
+  // обратно, иначе «Назад» пришлось бы жать дважды.
+  // В некоторых окружениях (встроенные вебвью, строгие режимы приватности)
+  // History API урезан. Тогда просто не трогаем историю: окна закрываются
+  // крестиком и свайпом, как и раньше, а приложение не сыплет ошибками.
+  const canHistory = typeof window.history.pushState === 'function';
+
+  function syncHistory() {
+    if (!canHistory) return;
+    const open = anyOpen();
+    if (open && !backEntryPushed) {
+      try { window.history.pushState({ mmOverlay: true }, ''); backEntryPushed = true; } catch (e) {}
+    } else if (!open && backEntryPushed) {
+      backEntryPushed = false;
+      ignorePop = true;
+      try { window.history.back(); } catch (e) { ignorePop = false; }
+    }
+  }
+
+  window.addEventListener('popstate', () => {
+    if (ignorePop) { ignorePop = false; return; }
+    if (!anyOpen()) return;              // окон нет — это обычная навигация
+    backEntryPushed = false;             // запись уже израсходована переходом назад
+    closeTopOverlay();
+    syncHistory();                       // осталось открытое окно — кладём запись снова
+  });
+
+  // Ловим открытие/закрытие по смене класса hidden — работает и для тех окон,
+  // которые закрываются кликом по фону или свайпом, а не только кнопкой.
+  const overlayWatcher = new MutationObserver(() => syncHistory());
+  OVERLAYS.forEach(([id]) => {
+    const el = document.getElementById(id);
+    if (el) overlayWatcher.observe(el, { attributes: true, attributeFilter: ['class'] });
+  });
+
   updatePickBtn();   // состояние кнопки известно сразу, не дожидаясь первой карты
 
   if (pickBtn) {

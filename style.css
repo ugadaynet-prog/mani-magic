@@ -153,11 +153,11 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 .day-btn:active,
 .more-btn:active { transform: scale(0.92); }
 
-/* Меню «Ещё» */
+/* Меню «Ещё» — тоже выше плашки мастера, см. порядок слоёв ниже */
 .more-sheet {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 68;
   background: rgba(0, 0, 0, .5);
   display: flex;
   align-items: flex-end;
@@ -465,10 +465,15 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 
 .share-btn:active { transform: scale(0.92); }
 
+/* Порядок слоёв (чтобы больше не наступать на эти грабли):
+   плашка мастера 60 → полноэкранные окна 68 → витрина студии 70 →
+   просмотр фото 75 → лайтбокс 80 → шторка выбора 90.
+   Раньше окна и плашка стояли на 60 одновременно, и плашка — добавляется в DOM
+   позже — ложилась поверх, закрывая крестик у избранного, каталога и фильтра. */
 .fav-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 68;
   background: var(--overlay);
   display: flex;
   flex-direction: column;
