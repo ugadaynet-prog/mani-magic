@@ -1470,14 +1470,38 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   dayBtn.addEventListener('click', showCardOfDay);
 
+  // Тасуем колоду, а не бросаем кубик каждый раз. При случайном выборе с
+  // возвратом повтор из 49 карт выпадает уже в первом десятке примерно в
+  // половине случаев — и это читается как «показывает одно и то же».
+  // Здесь карта не вернётся, пока не выйдет вся колода (или весь фильтр).
+  let deckBag = [];        // оставшиеся в текущем «проходе» индексы
+  let deckBagKey = '';     // под какой набор карт собрана стопка
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   function pickNewIndex() {
     const pool = filteredPool();
     if (pool.length === 1) return pool[0];
-    let idx;
-    do {
-      idx = pool[Math.floor(Math.random() * pool.length)];
-    } while (idx === currentIndex);
-    return idx;
+
+    // сменился фильтр или подписка — стопку пересобираем
+    const key = pool.join(',');
+    if (key !== deckBagKey) { deckBagKey = key; deckBag = []; }
+
+    if (!deckBag.length) {
+      deckBag = shuffle(pool.slice());
+      // чтобы на стыке проходов не выпала та же карта, что сейчас на экране
+      if (deckBag.length > 1 && deckBag[deckBag.length - 1] === currentIndex) {
+        deckBag[deckBag.length - 1] = deckBag[0];
+        deckBag[0] = currentIndex;
+      }
+    }
+    return deckBag.pop();
   }
 
   function drawCard(forcedIndex, fromHistory) {
