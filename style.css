@@ -659,6 +659,39 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
 }
 body.has-master-bar { padding-top: 52px; }
 
+/* Выбор колоды: наша или мастера. Две вкладки в одну строку. */
+.deck-switch {
+  display: flex;
+  gap: 6px;
+  width: min(100%, 300px);
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+}
+.deck-switch.hidden { display: none; }
+.deck-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 38px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deck-tab.on {
+  background: var(--master-accent, var(--paper));
+  color: #fff;
+}
+
 /* «Примеры работ» и «Показать мастеру» стоят в одну строку и делят ширину поровну.
    Раньше кнопка выбора висела поверх подвала и закрывала «Примеры работ». */
 .foot-row {

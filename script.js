@@ -507,6 +507,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   let isOwnMaster = false;
   const CABINET_URL = 'https://api.mani-magic.ru/master/';
   let masterWorks = [];   // фото работ мастера — для витрины клиенту
+  let masterDeck = [];    // колода мастера: [{ color, works[] }], пусто = не опубликована
+  let useMasterDeck = false;   // какую колоду сейчас тянет клиентка
 
   // Плашка сверху. Перерисовывается при каждом ответе сервера, поэтому
   // появляется и после ручного ввода кода, и после перезагрузки.
@@ -567,12 +569,41 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     api('/api/m/' + encodeURIComponent(masterSlug))
       .then((r) => {
         const m = r.master || {};
-        masterWorks = (Array.isArray(m.works) ? m.works : [])
-          .map((u) => (/^https?:/.test(u) ? u : SERVER_URL + u));
+        const abs = (u) => (/^https?:/.test(u) ? u : SERVER_URL + u);
+        masterWorks = (Array.isArray(m.works) ? m.works : []).map(abs);
+        // Колода мастера: карта = группа цвета с его работами. Приходит только
+        // если мастер сам её опубликовал, иначе массив пустой и выбора не будет.
+        masterDeck = (Array.isArray(m.deck) ? m.deck : [])
+          .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
+          .map((c) => ({ color: c.color, works: c.works.map(abs) }));
+        renderDeckSwitch();
         renderMasterBar(m);
         track('master_open', { slug: masterSlug });
       })
       .catch((e) => dbg('мастер: ' + e.message));
+  }
+
+  // Переключатель «наша колода / колода мастера». Появляется только у клиентки
+  // по QR и только если мастер свою колоду опубликовал.
+  function renderDeckSwitch() {
+    const row = document.getElementById('deckSwitch');
+    if (!row) return;
+    const show = masterDeck.length > 0 && !isOwnMaster;
+    row.classList.toggle('hidden', !show);
+    if (!show) { useMasterDeck = false; return; }
+    document.getElementById('deckOurs').classList.toggle('on', !useMasterDeck);
+    document.getElementById('deckTheirs').classList.toggle('on', useMasterDeck);
+  }
+
+  function switchDeck(toMaster) {
+    if (useMasterDeck === toMaster) return;
+    useMasterDeck = toMaster;
+    lastMasterColor = null;
+    deckBag = [];            // наша стопка пересобирается при возврате
+    renderDeckSwitch();
+    track('deck_switch', { deck: toMaster ? 'master' : 'ours' });
+    drawSource = 'deck_switch';
+    drawCard();              // сразу показываем карту из выбранной колоды
   }
 
   function renderMasterBar(m) {
@@ -777,6 +808,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     const el = document.getElementById(id);
     if (el) overlayWatcher.observe(el, { attributes: true, attributeFilter: ['class'] });
   });
+
+  document.getElementById('deckOurs')?.addEventListener('click', () => switchDeck(false));
+  document.getElementById('deckTheirs')?.addEventListener('click', () => switchDeck(true));
 
   updatePickBtn();   // состояние кнопки известно сразу, не дожидаясь первой карты
 
@@ -1485,7 +1519,27 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     return a;
   }
 
+  // В колоде мастера карта — это группа цвета. Лицо карты и фразу берём из нашей
+  // колоды (у мастера их нет), а работы под ней подставляются его собственные.
+  let lastMasterColor = null;
+  function pickMasterIndex() {
+    const colors = masterDeck.map((c) => c.color);
+    if (!colors.length) return null;
+    // не повторяем цвет подряд, если их больше одного
+    let color;
+    do { color = colors[Math.floor(Math.random() * colors.length)]; }
+    while (colors.length > 1 && color === lastMasterColor);
+    lastMasterColor = color;
+    const ours = CARDS.map((c, i) => ((c.colors || []).includes(color) ? i : -1)).filter((i) => i >= 0);
+    if (!ours.length) return null;
+    return ours[Math.floor(Math.random() * ours.length)];
+  }
+
   function pickNewIndex() {
+    if (useMasterDeck) {
+      const i = pickMasterIndex();
+      if (i !== null) return i;
+    }
     const pool = filteredPool();
     if (pool.length === 1) return pool[0];
 
@@ -1557,9 +1611,19 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     preload.src = data.front;
     phraseEl.textContent = data.phrase;
 
-    // Кнопка «Примеры работ» — только если у карты есть фото работ
-    currentWorks = Array.isArray(data.works) ? data.works.slice() : [];
-    currentLabels = Array.isArray(data.workLabels) ? data.workLabels : [];
+    // Кнопка «Примеры работ» — только если у карты есть фото работ.
+    // В колоде мастера под картой лежат ЕГО работы этого цвета, а не наши.
+    // Цвет берём от самой выпавшей карты, а не из переменной, оставшейся от
+    // прошлого вызова: карту можно открыть и из каталога, избранного или истории —
+    // там выбор цвета не выполняется, и подстановка молча срывалась.
+    const own = useMasterDeck
+      ? masterDeck.find((c) => c.color === lastMasterColor && (data.colors || []).includes(c.color))
+        || masterDeck.find((c) => (data.colors || []).includes(c.color))
+      : null;
+    currentWorks = own ? own.works.slice()
+      : (Array.isArray(data.works) ? data.works.slice() : []);
+    currentLabels = own ? own.works.map(() => 'Работа мастера')
+      : (Array.isArray(data.workLabels) ? data.workLabels : []);
     if (currentWorks.length > 0) {
       workBtn.classList.remove('hidden');
     } else {
@@ -1573,7 +1637,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       const p = new Image();
       p.onload = () => { if (drawToken === drawSeq) frontImg.src = media.front; };
       p.src = media.front;
-      if (media.works.length) currentWorks = media.works;
+      // В колоде мастера работы под картой — его собственные, серверными их
+      // подменять нельзя: иначе на платных картах снова показывались бы наши.
+      if (media.works.length && !useMasterDeck) currentWorks = media.works;
     });
 
     hasCard = true;

@@ -154,6 +154,12 @@
       </div>
       <!-- В режиме клиента здесь две кнопки в строку; у мастера своей колоды
            «Показать мастеру» не появляется — показывать некому. -->
+      <!-- Выбор колоды. Виден только клиентке по QR и только если мастер
+           опубликовал свою колоду. -->
+      <div id="deckSwitch" class="deck-switch hidden">
+        <button id="deckOurs" class="deck-tab on" type="button">Наша колода</button>
+        <button id="deckTheirs" class="deck-tab" type="button">Колода мастера</button>
+      </div>
       <div class="foot-row">
         <button id="workBtn" class="btn btn-ghost hidden">Примеры работ</button>
         <button id="pickBtn" class="btn btn-primary hidden" type="button">Показать мастеру</button>
