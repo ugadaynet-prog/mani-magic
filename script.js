@@ -247,7 +247,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         // клиент по QR. Раньше это выводилось из ?pass= в адресе — и после
         // ручного ввода кода мастер оставался без плашки и без выхода в кабинет.
         isOwnMaster = a.via === 'master';
-        if (isOwnMaster && a.masterSlug && !masterSlug) masterSlug = a.masterSlug;
+        // Сервер знает мастера и для гостевого пропуска — так связь
+        // восстанавливается даже там, где localStorage пуст (переустановили
+        // приложение, почистили данные). Пока пропуск жив, клиент остаётся «своим».
+        if (a.masterSlug && !masterSlug) {
+          masterSlug = a.masterSlug;
+          try { localStorage.setItem(MASTER_KEY, masterSlug); } catch (e) {}
+          // мастер стал известен только сейчас — витрину и колоду ещё не строили
+          if (!isOwnMaster) initMasterMode();
+        }
         applyPlanUI();
         refreshMasterBar();
         updatePickBtn();   // кто перед нами, становится известно только здесь
@@ -497,8 +505,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
 
   // --- Режим мастера (страница открыта по QR мастера: ?master=slug) ---------
+  // Слуг ЗАПОМИНАЕМ. Установленное на телефон приложение стартует по start_url
+  // из манифеста, без ?master= в адресе, — и без этого клиент терял «своего»
+  // мастера сразу после установки: личный QR переставал быть личным.
+  const MASTER_KEY = 'maniMasterSlug';
   let masterSlug = '';
-  try { masterSlug = new URLSearchParams(location.search).get('master') || ''; } catch (e) {}
+  try {
+    masterSlug = new URLSearchParams(location.search).get('master') || '';
+    if (masterSlug) localStorage.setItem(MASTER_KEY, masterSlug);
+    else masterSlug = localStorage.getItem(MASTER_KEY) || '';
+  } catch (e) {}
   const masterMode = () => serverOn() && !!masterSlug;
 
   // Хозяин колоды это или клиент по QR — определяет сервер (kind пропуска),
@@ -562,10 +578,13 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     syncMasterBarHeight();
   }
 
+  let masterInited = false;   // витрину строим один раз, кто бы сюда ни зашёл
   function initMasterMode() {
     // Свою колоду мастер видит с плашкой «В кабинет» — витрина студии ему не нужна,
     // её строим только клиенту, пришедшему по QR.
     if (!masterMode() || isOwnMaster) { refreshMasterBar(); return; }
+    if (masterInited) return;
+    masterInited = true;
     api('/api/m/' + encodeURIComponent(masterSlug))
       .then((r) => {
         const m = r.master || {};
