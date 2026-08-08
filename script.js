@@ -254,7 +254,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           masterSlug = a.masterSlug;
           try { localStorage.setItem(MASTER_KEY, masterSlug); } catch (e) {}
           // мастер стал известен только сейчас — витрину и колоду ещё не строили
-          if (!isOwnMaster) initMasterMode();
+          if (!isOwnMaster) { initMasterMode(); pinMasterToManifest(); }
         }
         applyPlanUI();
         refreshMasterBar();
@@ -516,6 +516,28 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     else masterSlug = localStorage.getItem(MASTER_KEY) || '';
   } catch (e) {}
   const masterMode = () => serverOn() && !!masterSlug;
+
+  // Установка на телефон должна сохранять мастера. iOS при добавлении на экран
+  // «Домой» берёт start_url ИЗ МАНИФЕСТА и параметры текущего адреса выбрасывает,
+  // а хранилище у приложения на экране своё — отдельное от Safari, так что
+  // запомненный слуг туда не попадёт. Поэтому подменяем манифест на лету: кладём
+  // мастера прямо в start_url. Тогда приложение стартует с ?master=, и дальше всё
+  // чинится само — и витрина, и новый гостевой пропуск на полную колоду.
+  // Если браузер подмену не примет — останется прежнее поведение, ничего не ломается.
+  function pinMasterToManifest() {
+    if (!masterSlug) return;
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link || typeof Blob !== 'function' || !URL.createObjectURL) return;
+    fetch('manifest.json')
+      .then((r) => r.json())
+      .then((mf) => {
+        mf.start_url = './index.html?master=' + encodeURIComponent(masterSlug);
+        const url = URL.createObjectURL(new Blob([JSON.stringify(mf)], { type: 'application/manifest+json' }));
+        link.href = url;
+        dbg('манифест: start_url с мастером ' + masterSlug);
+      })
+      .catch((e) => dbg('манифест: не подменён — ' + e.message));
+  }
 
   // Хозяин колоды это или клиент по QR — определяет сервер (kind пропуска),
   // ответ приходит в /api/access. На адрес ссылки не смотрим: код из него
@@ -1998,6 +2020,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   if (serverOn()) {
     dbg('сервер: ' + SERVER_URL + (masterSlug ? ' · мастер ' + masterSlug : ''));
     initMasterMode();
+    pinMasterToManifest();   // до того, как клиент нажмёт «на экран Домой»
     // Порядок важен: сперва меняем код из кабинета на пропуск, потом спрашиваем
     // доступ. Гостевой пропуск запрашиваем уже зная план — платящему он не нужен.
     redeemDeckPass()
