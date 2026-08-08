@@ -237,12 +237,15 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
   color: var(--paper);
 }
 
-/* Бейдж «Карта дня» — по центру над картой, читается на любом фото */
+/* Бейдж «Карта дня» — по центру карты, читается на любом фото.
+   По высоте стоит на одной линии с «поделиться» и сердечком: они начинаются
+   с top:30px при высоте 44px, значит их центр — на 52px. Выше нельзя: у клиента,
+   пришедшего по QR, верх карты уходит под плашку студии и бейдж ею закрывался. */
 .day-badge {
   position: absolute;
-  top: 8px;
+  top: 52px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 6;
   padding: 5px 12px;
   border-radius: 999px;
