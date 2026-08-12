@@ -1616,11 +1616,21 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (catalogBuilt === key) return;
     catalogGrid.innerHTML = '';
 
+    // Фильтр отбирает карты, у которых нужный цвет ЕСТЬ в палитре из пяти
+    // оттенков, — а не только те, что целиком в нём. Поэтому среди «Красных»
+    // законно оказывается, например, бирюзовая карта с красным третьим тоном.
+    // Без сортировки она попадала в начало сетки, и экран читался как ошибка
+    // фильтра. Сортируем по силе совпадения: сначала карты, где выбранный цвет
+    // стоит первым в разметке, потом — где групп меньше (значит, карта ближе к
+    // чистому цвету). Разметка уже выверена в data.js, свою эвристику по hex
+    // не выдумываем.
     const shown = activeFilter
-      ? CARDS.map((c, i) => i).filter((i) => {
-          const c = CARDS[i];
-          return c.colors && c.colors.indexOf(activeFilter) !== -1;
-        })
+      ? CARDS.map((_, i) => i)
+          .filter((i) => (CARDS[i].colors || []).indexOf(activeFilter) !== -1)
+          .sort((a, b) => {
+            const A = CARDS[a].colors || [], B = CARDS[b].colors || [];
+            return A.indexOf(activeFilter) - B.indexOf(activeFilter) || A.length - B.length || a - b;
+          })
       : CARDS.map((_, i) => i);
 
     shown.forEach((idx) => {
