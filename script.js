@@ -109,6 +109,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const catalogOverlay = document.getElementById('catalogOverlay');
   const catalogClose = document.getElementById('catalogClose');
   const catalogGrid = document.getElementById('catalogGrid');
+  const catalogTitle = document.getElementById('catalogTitle');
   const lockBanner = document.getElementById('lockBanner');
   const lockBannerText = document.getElementById('lockBannerText');
   const paywallOverlay = document.getElementById('paywallOverlay');
@@ -1604,13 +1605,26 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (e.target === filterOverlay) filterOverlay.classList.add('hidden');
   });
 
-  // --- Каталог: все 49 карт сеткой ---
-  let catalogBuilt = null;   // хранит план, под который построена сетка
+  // --- Каталог: карты сеткой, с учётом выбранного цвета ---
+  // Ключ перестройки — план И фильтр: раньше он был только по плану, поэтому
+  // после смены цвета сетка оставалась старой. Из-за этого фильтр выглядел
+  // общим, а работал только на тряску: выбрал «Красные» — а в каталоге всё
+  // вперемешку.
+  let catalogBuilt = null;
   function renderCatalog() {
-    // перестраиваем, если статус подписки изменился — иначе замки останутся висеть
-    if (catalogBuilt === plan) return;
+    const key = plan + '|' + (activeFilter || 'all');
+    if (catalogBuilt === key) return;
     catalogGrid.innerHTML = '';
-    CARDS.forEach((card, idx) => {
+
+    const shown = activeFilter
+      ? CARDS.map((c, i) => i).filter((i) => {
+          const c = CARDS[i];
+          return c.colors && c.colors.indexOf(activeFilter) !== -1;
+        })
+      : CARDS.map((_, i) => i);
+
+    shown.forEach((idx) => {
+      const card = CARDS[idx];
       const item = document.createElement('div');
       item.className = 'fav-item';
       const locked = !isFree(idx);
@@ -1632,9 +1646,17 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       item.appendChild(img);
       catalogGrid.appendChild(item);
     });
+
+    // Заголовок называет то, что видно сейчас, иначе «Все карты» над десятью
+    // красными читается как ошибка.
+    catalogTitle.textContent = activeFilter || 'Все карты';
+
+    // Счётчик тоже считаем внутри выбранного цвета: «открыто 15 из 49» над
+    // одиннадцатью красными было бы неправдой.
+    const freeShown = shown.filter(isFree).length;
     lockBanner.classList.toggle('hidden', isPaid());
-    lockBannerText.textContent = 'Открыто ' + FREE_CARDS.length + ' из ' + CARDS.length + ' карт';
-    catalogBuilt = plan;
+    lockBannerText.textContent = 'Открыто ' + freeShown + ' из ' + shown.length + ' карт';
+    catalogBuilt = key;
   }
 
   // --- Экран подписки ---
