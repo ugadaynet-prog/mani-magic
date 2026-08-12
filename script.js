@@ -427,6 +427,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       const code = (masterCode.value || '').trim();
       masterMsg.classList.add('hidden');
       if (!code) { showMasterMsg('Введите код из кабинета'); return; }
+      // Сюда часто вводят промокод из рассылки (MASTER-XXXXXX) — это другой код:
+      // промокод включает Pro и активируется в кабинете, где мастер входит по почте,
+      // а здесь ждём одноразовый код устройства из кнопки «Показать код для приложения».
+      // Без подсказки человек упирается в «Код не подошёл» и не понимает, куда идти.
+      if (/^MASTER-/i.test(code)) {
+        showMasterMsg('Это промокод — активируйте его по ссылке из сообщения, в кабинете мастера. ' +
+          'А сюда нужен код вида XXXX-XXXX: в кабинете кнопка «Показать код для приложения».');
+        return;
+      }
       if (!serverOn()) { showMasterMsg('Нет связи с сервером'); return; }
       masterBtn.disabled = true;
       api('/api/deck-pass/redeem', {
