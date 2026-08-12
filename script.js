@@ -358,6 +358,20 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     no_device: 'Не удалось определить устройство',
   };
 
+  // Вход мастера по почте прямо в приложении. Нужен тем, кто пришёл из RuStore:
+  // покупка там висит на анонимном устройстве, и без входа мастер не получает ни
+  // кабинета, ни QR, ни витрины, а в базе мастеров не появляется вовсе.
+  const MASTER_LOGIN_ERRORS = {
+    bad_email: 'Проверьте адрес почты',
+    consent_required: 'Отметьте согласие на обработку данных',
+    bad_code: 'Код не подошёл. Проверьте или запросите новый',
+    send_failed: 'Не удалось отправить письмо. Попробуйте позже',
+    device_already_claimed: 'Эта покупка уже привязана к другому аккаунту',
+  };
+  const MASTER_TOKEN_KEY = 'maniMasterToken';
+  const getMasterToken = () => { try { return localStorage.getItem(MASTER_TOKEN_KEY) || ''; } catch (e) { return ''; } };
+  const setMasterToken = (t) => { try { localStorage.setItem(MASTER_TOKEN_KEY, t); } catch (e) {} };
+
   const isStandalone = () =>
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   const isIOS = () =>
@@ -415,6 +429,134 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (!moreSheet.classList.contains('hidden')) refreshMoreSheet();
     toast('Установлено! Значок — в списке приложений телефона');
   });
+
+  // --- Вход мастера по почте (для пришедших из RuStore) ---
+  const mLoginToggle = document.getElementById('mLoginToggle');
+  const mLoginBox = document.getElementById('mLoginBox');
+  const mStepEmail = document.getElementById('mStepEmail');
+  const mStepCode = document.getElementById('mStepCode');
+  const mStepPhone = document.getElementById('mStepPhone');
+  const mEmail = document.getElementById('mEmail');
+  const mConsent = document.getElementById('mConsent');
+  const mCode = document.getElementById('mCode');
+  const mPhone = document.getElementById('mPhone');
+  const mLoginMsg = document.getElementById('mLoginMsg');
+
+  function showLoginMsg(text) {
+    if (!mLoginMsg) return;
+    mLoginMsg.textContent = text;
+    mLoginMsg.classList.remove('hidden');
+  }
+  function loginStep(step) {
+    if (mLoginMsg) mLoginMsg.classList.add('hidden');
+    [mStepEmail, mStepCode, mStepPhone].forEach((el) => el && el.classList.add('hidden'));
+    if (step) step.classList.remove('hidden');
+  }
+  const loginErr = (e) => MASTER_LOGIN_ERRORS[e && e.code] || 'Не получилось. Попробуйте ещё раз';
+
+  if (mLoginToggle) {
+    mLoginToggle.addEventListener('click', () => {
+      mLoginBox.classList.toggle('hidden');
+      if (!mLoginBox.classList.contains('hidden')) {
+        loginStep(mStepEmail);
+        mEmail.focus();
+      }
+    });
+  }
+
+  const mSendCode = document.getElementById('mSendCode');
+  if (mSendCode) {
+    mSendCode.addEventListener('click', () => {
+      const email = (mEmail.value || '').trim();
+      if (mLoginMsg) mLoginMsg.classList.add('hidden');
+      if (!EMAIL_RE.test(email)) { showLoginMsg('Проверьте адрес почты'); mEmail.focus(); return; }
+      // Согласие спрашиваем до отправки кода — как в кабинете: база мастеров
+      // ведётся с согласием с первого дня, задним числом его не добрать.
+      if (!mConsent.checked) { showLoginMsg('Отметьте согласие на обработку данных'); return; }
+      if (!serverOn()) { showLoginMsg('Нет связи с сервером'); return; }
+      mSendCode.disabled = true;
+      api('/api/master/auth/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      })
+        .then(() => { loginStep(mStepCode); mCode.focus(); })
+        .catch((e) => showLoginMsg(loginErr(e)))
+        .finally(() => { mSendCode.disabled = false; });
+    });
+  }
+
+  const mBackEmail = document.getElementById('mBackEmail');
+  if (mBackEmail) mBackEmail.addEventListener('click', () => { loginStep(mStepEmail); mEmail.focus(); });
+
+  const mVerify = document.getElementById('mVerify');
+  if (mVerify) {
+    mVerify.addEventListener('click', () => {
+      const email = (mEmail.value || '').trim();
+      const code = (mCode.value || '').trim();
+      if (mLoginMsg) mLoginMsg.classList.add('hidden');
+      if (!code) { showLoginMsg('Введите код из письма'); return; }
+      mVerify.disabled = true;
+      api('/api/master/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, code: code, consent: !!mConsent.checked }),
+      })
+        .then((r) => {
+          setMasterToken(r.token);
+          // Покупка из RuStore висит на устройстве — забираем её на аккаунт, иначе
+          // купивший в магазине останется без кабинета. Нечего забирать — не беда.
+          return api('/api/master/claim-device', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + r.token },
+            body: JSON.stringify({ deviceId: deviceId }),
+          }).catch(() => null);
+        })
+        .then(() => { loginStep(mStepPhone); mPhone.focus(); })
+        .catch((e) => showLoginMsg(loginErr(e)))
+        .finally(() => { mVerify.disabled = false; });
+    });
+  }
+
+  const mSavePhone = document.getElementById('mSavePhone');
+  if (mSavePhone) {
+    mSavePhone.addEventListener('click', () => {
+      const phone = (mPhone.value || '').trim();
+      if (mLoginMsg) mLoginMsg.classList.add('hidden');
+      if (phone.replace(/\D/g, '').length < 10) { showLoginMsg('Проверьте номер телефона'); return; }
+      const token = getMasterToken();
+      mSavePhone.disabled = true;
+      api('/api/master/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ phone: phone }),
+      })
+        // Если Pro уже на аккаунте (перенесли покупку или промокод) — открываем
+        // колоду на этом устройстве сразу, чтобы мастер не вводил код руками.
+        .then(() => api('/api/master/deck-pass', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: '{}',
+        }).catch(() => null))
+        .then((dp) => {
+          if (!dp || !dp.code) return null;
+          return api('/api/deck-pass/redeem', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: dp.code, deviceId: deviceId }),
+          }).catch(() => null);
+        })
+        .then(() => refreshAccess())
+        .then(() => {
+          mLoginBox.classList.add('hidden');
+          closeMore();
+          if (isPaid()) paywallOverlay.classList.add('hidden');
+          toast('Готово! Вы вошли как мастер 💅');
+        })
+        .catch((e) => showLoginMsg(loginErr(e)))
+        .finally(() => { mSavePhone.disabled = false; });
+    });
+  }
 
   if (masterToggle) {
     masterToggle.addEventListener('click', () => {

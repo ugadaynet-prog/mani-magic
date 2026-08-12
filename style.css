@@ -242,7 +242,21 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
 .more-err { color: #d64545; }
 .more-codebox { display: flex; flex-direction: column; gap: 8px; }
 .more-codebox.hidden { display: none; }
-.more-codebox input {
+/* Шаги входа мастера: каждый шаг — своя колонка, чтобы поля не слипались */
+.more-codebox > div { display: flex; flex-direction: column; gap: 8px; }
+.more-codebox > div.hidden { display: none; }
+
+/* Согласие на обработку данных: галочка слева, текст в строку — общее правило
+   для input ниже растянуло бы чекбокс на всю ширину и увело в центр. */
+.more-consent { display: flex; align-items: flex-start; gap: 9px; text-align: left; }
+.more-consent span { font-size: 13px; line-height: 1.35; color: var(--muted); }
+.more-consent a { color: inherit; }
+.more-codebox input[type="checkbox"] {
+  width: 18px; min-width: 18px; height: 18px; min-height: 18px;
+  margin: 1px 0 0; padding: 0; flex: none; accent-color: var(--accent);
+}
+
+.more-codebox input:not([type="checkbox"]) {
   width: 100%;
   font-family: inherit;
   font-size: 17px;

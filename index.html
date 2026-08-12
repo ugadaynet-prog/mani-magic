@@ -83,6 +83,38 @@
 
       <a id="moreCabinet" class="more-item hidden" href="https://api.mani-magic.ru/master/">Кабинет мастера</a>
 
+      <button id="mLoginToggle" class="more-item" type="button">Я мастер — войти по почте</button>
+      <div id="mLoginBox" class="more-codebox hidden">
+        <!-- Шаг 1: почта и согласие -->
+        <div id="mStepEmail">
+          <p class="more-note">Вход открывает кабинет мастера: своя страница с QR,
+            витрина работ и колода из ваших работ.</p>
+          <input id="mEmail" type="email" inputmode="email" autocomplete="email"
+                 placeholder="Ваша почта">
+          <label class="more-consent">
+            <input id="mConsent" type="checkbox">
+            <span>Согласен на обработку персональных данных
+              (<a href="https://mani-magic.ru/privacy.html" target="_blank" rel="noopener">политика</a>)</span>
+          </label>
+          <button id="mSendCode" class="more-item more-primary" type="button">Получить код</button>
+        </div>
+        <!-- Шаг 2: код из письма -->
+        <div id="mStepCode" class="hidden">
+          <p class="more-note">Код из 6 цифр отправлен на почту. Не пришёл — проверьте «Спам».</p>
+          <input id="mCode" type="text" inputmode="numeric" autocomplete="one-time-code"
+                 placeholder="000000" maxlength="6">
+          <button id="mVerify" class="more-item more-primary" type="button">Войти</button>
+          <button id="mBackEmail" class="more-item" type="button">Другая почта</button>
+        </div>
+        <!-- Шаг 3: телефон для связи -->
+        <div id="mStepPhone" class="hidden">
+          <p class="more-note">Телефон для связи — клиентам он не показывается.</p>
+          <input id="mPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 999 000-00-00">
+          <button id="mSavePhone" class="more-item more-primary" type="button">Готово</button>
+        </div>
+        <p id="mLoginMsg" class="more-note more-err hidden"></p>
+      </div>
+
       <button id="masterToggle" class="more-item" type="button">Я мастер — ввести код</button>
       <div id="masterBox" class="more-codebox hidden">
         <p class="more-note">Код вида XXXX-XXXX из кабинета мастера — кнопка
