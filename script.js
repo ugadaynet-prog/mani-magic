@@ -45,6 +45,33 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const frontImg = document.getElementById('frontImg');
   const phraseEl = document.getElementById('phrase');
   const hintEl = document.getElementById('hint');
+
+  // Фразы в колоде разной длины — от 33 до 126 символов, а размер шрифта в CSS
+  // один на всех. У грани карты overflow:hidden, поэтому длинная фраза просто
+  // срезалась на середине слова (видно и в приложении, и в браузере).
+  // Подгоняем размер под доступную высоту: уменьшаем, пока текст не поместится.
+  const PHRASE_MIN_PX = 11;
+  function fitPhrase() {
+    const back = phraseEl && phraseEl.parentElement;
+    if (!back || !back.clientHeight) return;
+    phraseEl.style.fontSize = '';                     // вернуть базовый размер из CSS
+    const cs = getComputedStyle(back);
+    const logo = back.querySelector('.back-logo');
+    const avail = back.clientHeight
+      - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      - (logo ? logo.getBoundingClientRect().height : 0)
+      - (parseFloat(getComputedStyle(phraseEl).marginBottom) || 0);
+    if (!(avail > 0)) return;
+    let size = parseFloat(getComputedStyle(phraseEl).fontSize) || 22;
+    // Шаг в 0.5px: на самой длинной фразе это десятки итераций, каждая — только
+    // чтение высоты уже перерисованного элемента, заметной паузы не даёт.
+    while (size > PHRASE_MIN_PX && phraseEl.scrollHeight > avail) {
+      size -= 0.5;
+      phraseEl.style.fontSize = size + 'px';
+    }
+  }
+  // Поворот экрана и смена размера окна меняют доступную высоту — пересчитываем.
+  window.addEventListener('resize', fitPhrase);
   const shakeBtn = document.getElementById('shakeBtn');
   const permBtn = document.getElementById('permBtn');
   const workBtn = document.getElementById('workBtn');
@@ -1807,6 +1834,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     };
     preload.src = data.front;
     phraseEl.textContent = data.phrase;
+    fitPhrase();
 
     // Кнопка «Примеры работ» — только если у карты есть фото работ.
     // В колоде мастера под картой лежат ЕГО работы этого цвета, а не наши.
