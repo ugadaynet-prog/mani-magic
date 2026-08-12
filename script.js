@@ -146,6 +146,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // приложения. window.Capacitor есть только в собранном native-приложении.
   const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
+  // В нативной сборке отступы под статус-бар выставляет MainActivity.kt padding'ом
+  // на WebView — CSS-переменные --sat/--sar/--sab/--sal обнуляются, иначе на
+  // телефонах с вырезом камеры env() добавил бы отступ поверх нативного.
+  if (isNativeApp()) document.documentElement.classList.add('native-insets');
+
   // Анонимный идентификатор устройства — к нему привязана подписка (без аккаунтов).
   const DEVICE_KEY = 'maniMagicDevice';
   let deviceId = '';

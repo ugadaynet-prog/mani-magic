@@ -1,5 +1,24 @@
 * { box-sizing: border-box; }
 
+/* Безопасные зоны экрана (вырез камеры, «чёлка», жестовая полоса).
+   В вебе их даёт сам браузер через env(). В приложении для RuStore отступы
+   выставляются нативно, padding'ом на WebView (MainActivity.kt): там env()
+   про статус-бар ничего не знает, а на телефонах с вырезом ещё и вернул бы
+   высоту выреза — отступ удвоился бы. Поэтому нативная сборка их обнуляет. */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+:root.native-insets {
+  --sat: 0px;
+  --sar: 0px;
+  --sab: 0px;
+  --sal: 0px;
+}
+
 /* Тёмная тема — по умолчанию */
 :root {
   --ink: #23242e;
@@ -49,7 +68,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: var(--sat) var(--sar) var(--sab) var(--sal);
 }
 
 .stage {
@@ -117,7 +136,7 @@ html, body {
 .qr-btn,
 .day-btn {
   position: fixed;
-  top: calc(6px + env(safe-area-inset-top));
+  top: calc(6px + var(--sat));
   z-index: 30;
   width: 32px;
   height: 32px;
@@ -132,16 +151,16 @@ html, body {
   transition: transform 0.15s ease;
 }
 
-.qr-btn { right: calc(10px + env(safe-area-inset-right)); }
-.day-btn { left: calc(10px + env(safe-area-inset-left)); }
+.qr-btn { right: calc(10px + var(--sar)); }
+.day-btn { left: calc(10px + var(--sal)); }
 
 /* Кнопка «Ещё» — ПОД кнопкой QR, у правого края. В верхнем ряду места нет:
    карта занимает середину экрана, и третья кнопка легла бы поверх картинки,
    где её не видно (полупрозрачный фон на ярком снимке пропадает). */
 .more-btn {
   position: fixed;
-  top: calc(46px + env(safe-area-inset-top));
-  right: calc(10px + env(safe-area-inset-right));
+  top: calc(46px + var(--sat));
+  right: calc(10px + var(--sar));
   z-index: 30;
   width: 32px;
   height: 32px;
@@ -156,8 +175,8 @@ html, body {
 /* Высоту плашки замеряет скрипт (--mb-h): у клиента там ещё строка с городом,
    и фиксированный отступ наезжал бы на кнопки. */
 body.has-master-bar .qr-btn,
-body.has-master-bar .day-btn { top: calc(var(--mb-h, 53px) + 6px + env(safe-area-inset-top)); }
-body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-area-inset-top)); }
+body.has-master-bar .day-btn { top: calc(var(--mb-h, 53px) + 6px + var(--sat)); }
+body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat)); }
 
 .qr-btn:active,
 .day-btn:active,
@@ -495,7 +514,7 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + env(safe-ar
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: calc(54px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+  padding: calc(54px + var(--sat)) 16px calc(20px + var(--sab));
   overflow-y: auto;
   animation: fadeIn 0.25s ease;
 }
@@ -722,7 +741,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   background: var(--paper, #fff);
   color: var(--ink, #1f2126);
   border-radius: 20px 20px 0 0;
-  padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  padding: 22px 20px calc(20px + var(--sab));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1064,7 +1083,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
-  padding: 8px 20px calc(10px + env(safe-area-inset-bottom));
+  padding: 8px 20px calc(10px + var(--sab));
 }
 
 .btn {
@@ -1144,7 +1163,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
 .touch-hint {
   position: fixed;
   left: 50%;
-  bottom: calc(22px + env(safe-area-inset-bottom));
+  bottom: calc(22px + var(--sab));
   transform: translateX(-50%);
   z-index: 70;
   max-width: 86vw;
@@ -1173,7 +1192,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(22px + env(safe-area-inset-bottom));
+  bottom: calc(22px + var(--sab));
   transform: translateX(-50%);
   z-index: 80;
   max-width: 86vw;
@@ -1206,7 +1225,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: calc(20px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));
+  padding: calc(20px + var(--sat)) 12px calc(18px + var(--sab));
   animation: fadeIn 0.25s ease;
   touch-action: none;
 }
@@ -1302,7 +1321,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
 
 .work-close {
   position: absolute;
-  top: calc(12px + env(safe-area-inset-top));
+  top: calc(12px + var(--sat));
   right: 16px;
   width: 44px;
   height: 44px;
