@@ -12,6 +12,9 @@
   --sal: env(safe-area-inset-left);
 }
 
+/* Отступы в нативной сборке ставит MainActivity.kt padding'ом на WebView.
+   Держим ровно ОДИН механизм: CSS здесь обнуляется, иначе отступы сложились бы —
+   CSS не может увидеть нативный padding и вычесть его. */
 :root.native-insets {
   --sat: 0px;
   --sar: 0px;

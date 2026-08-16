@@ -179,6 +179,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // телефонах с вырезом камеры env() добавил бы отступ поверх нативного.
   if (isNativeApp()) document.documentElement.classList.add('native-insets');
 
+  // Публичный адрес приложения. Внутри Capacitor страница живёт на
+  // https://localhost, и location.origin даёт именно его — ссылка «поделиться»
+  // уезжала получателю как https://localhost/?card=1 и не открывалась ни у кого.
+  // Поэтому для ссылок наружу берём канонический адрес, а не текущий origin.
+  const PUBLIC_APP_URL = 'https://mani-magic.ru/app/';
+  const shareLink = (query) => (isNativeApp()
+    ? PUBLIC_APP_URL
+    : location.origin + location.pathname) + query;
+
   // Анонимный идентификатор устройства — к нему привязана подписка (без аккаунтов).
   const DEVICE_KEY = 'maniMagicDevice';
   let deviceId = '';
@@ -1163,14 +1172,28 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }, 2200);
   }
 
+  // Системное «Поделиться» в нативной сборке.
+  // В WebView Capacitor нет navigator.share — Web Share API там просто не
+  // реализован, поэтому код уходил в запасной путь и молча копировал ссылку
+  // в буфер вместо списка мессенджеров. Плагин @capacitor/share открывает
+  // настоящее системное окно выбора.
+  function nativeShare(payload) {
+    const share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+    if (!isNativeApp() || !share) return false;
+    share.share({ title: payload.title, text: payload.text, url: payload.url })
+      .catch(() => {});   // отмену пользователем не считаем ошибкой
+    return true;
+  }
+
   // --- Поделиться текущей картой ---
   // Ссылка ведёт прямо на эту карту (?card=N) — получатель откроет именно её.
   function shareCard() {
     if (!hasCard) return;
     track('share_card', { card: currentIndex + 1 });
-    const url = location.origin + location.pathname + '?card=' + (currentIndex + 1);
+    const url = shareLink('?card=' + (currentIndex + 1));
     const payload = { title: 'MANI Magic', text: 'Хочу такой маникюр 💅', url };
 
+    if (nativeShare(payload)) return;
     if (navigator.share) {
       navigator.share(payload).catch(() => {});   // отмену пользователем не считаем ошибкой
       return;
@@ -1199,11 +1222,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (favorites.length === 0) return;
     track('share_selection', { cards: favorites.length });
     const nums = favorites.map((i) => i + 1).join(',');
-    const url = location.origin + location.pathname + '?cards=' + nums;
+    const url = shareLink('?cards=' + nums);
     const n = favorites.length;
     const text = 'Моя подборка: ' + n + ' ' + plural(n, 'карта', 'карты', 'карт') + ' 💅';
     const payload = { title: 'MANI Magic — подборка', text, url };
 
+    if (nativeShare(payload)) return;
     if (navigator.share) { navigator.share(payload).catch(() => {}); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url)
