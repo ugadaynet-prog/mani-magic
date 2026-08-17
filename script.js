@@ -174,10 +174,45 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // приложения. window.Capacitor есть только в собранном native-приложении.
   const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
-  // В нативной сборке отступы под статус-бар выставляет MainActivity.kt padding'ом
-  // на WebView — CSS-переменные --sat/--sar/--sab/--sal обнуляются, иначе на
-  // телефонах с вырезом камеры env() добавил бы отступ поверх нативного.
-  if (isNativeApp()) document.documentElement.classList.add('native-insets');
+  // Отступы под системные панели в нативной сборке.
+  //
+  // На Android WebView css-функция env(safe-area-inset-*) про статус-бар и панель
+  // навигации ничего не знает — она про вырез экрана на iOS и здесь всегда даёт
+  // ноль. Поэтому класс native-insets обнуляет env(), а реальные значения мы
+  // спрашиваем у нативной части через плагин Insets и подставляем сами.
+  //
+  // Именно спрашиваем, а не ждём: версии 7 и 8 пытались ставить padding нативно,
+  // и оба раза он до WebView не доезжал — контент оставался под панелями. Здесь
+  // инициатива у страницы, поэтому промахнуться по времени невозможно.
+  if (isNativeApp()) {
+    document.documentElement.classList.add('native-insets');
+
+    const applyInsets = (tries) => {
+      const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Insets;
+      if (!plugin) return;
+      plugin.get().then((r) => {
+        // ready:false — окно ещё не отдало размеры панелей. Отличаем это от
+        // честного «панелей нет», иначе застряли бы на нулях навсегда.
+        if (!r || (!r.ready && tries > 0)) {
+          setTimeout(() => applyInsets(tries - 1), 150);
+          return;
+        }
+        const px = (v) => Math.max(0, Math.round(Number(v) || 0)) + 'px';
+        const root = document.documentElement.style;
+        root.setProperty('--sat', px(r.top));
+        root.setProperty('--sab', px(r.bottom));
+        root.setProperty('--sal', px(r.left));
+        root.setProperty('--sar', px(r.right));
+      }).catch(() => {});
+    };
+
+    applyInsets(20);
+    // Поворот экрана и возврат из фона меняют панели местами и по высоте.
+    window.addEventListener('resize', () => applyInsets(3));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) applyInsets(3);
+    });
+  }
 
   // Публичный адрес приложения. Внутри Capacitor страница живёт на
   // https://localhost, и location.origin даёт именно его — ссылка «поделиться»
