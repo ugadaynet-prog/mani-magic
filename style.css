@@ -1358,9 +1358,15 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  /* Цвета — токенами темы, а не жёстким белым. Раньше тут было color:#fff на
+     полупрозрачном белом фоне: в тёмной теме крестик читался, а в светлой
+     оказывался белым на почти белом --overlay (rgba(250,250,250,0.975)) и
+     становился невидимым. Из окон «Все карты», «Цвет маникюра» и «Полная
+     колода» тогда нельзя выйти иначе как перезапуском приложения.
+     Рамка нужна для контура на однотонном фоне в обеих темах. */
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--paper);
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
