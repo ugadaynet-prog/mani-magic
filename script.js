@@ -197,13 +197,37 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           setTimeout(() => applyInsets(tries - 1), 150);
           return;
         }
-        const px = (v) => Math.max(0, Math.round(Number(v) || 0)) + 'px';
+        const num = (v) => Math.max(0, Math.round(Number(v) || 0));
+        let top = num(r.top);
+        const bottom = num(r.bottom);
+
+        // Страховка. На живом устройстве версия 1.3.1 получила верный нижний
+        // отступ и НУЛЕВОЙ верхний — иконки сверху обрезало статус-баром.
+        // Почему top приходит нулём, пока неясно, поэтому подстраховываемся:
+        // статус-бар на Android почти всегда 24–32dp, и если сверху пришёл ноль
+        // при непустом низе, значение явно неправдоподобное. Лишний зазор — это
+        // косметика, а обрезанные кнопки нажать нельзя вообще.
+        if (top < 8 && bottom > 0) top = 28;
+
         const root = document.documentElement.style;
-        root.setProperty('--sat', px(r.top));
-        root.setProperty('--sab', px(r.bottom));
-        root.setProperty('--sal', px(r.left));
-        root.setProperty('--sar', px(r.right));
-      }).catch(() => {});
+        root.setProperty('--sat', top + 'px');
+        root.setProperty('--sab', bottom + 'px');
+        root.setProperty('--sal', num(r.left) + 'px');
+        root.setProperty('--sar', num(r.right) + 'px');
+
+        // Временная диагностика: показываем, что реально ответил плагин.
+        // Убрать, когда отступы подтвердятся на устройстве.
+        if (window.__maniInsetsDebug !== false) {
+          try {
+            toast('max t' + num(r.top) + ' b' + bottom
+              + ' · systemBars t' + num(r.sysTop) + ' b' + num(r.sysBottom)
+              + ' · ready:' + (r.ready ? 'да' : 'нет')
+              + ' · ставим сверху ' + top);
+          } catch (e) {}
+        }
+      }).catch((e) => {
+        try { toast('insets: плагин не ответил'); } catch (e2) {}
+      });
     };
 
     applyInsets(20);

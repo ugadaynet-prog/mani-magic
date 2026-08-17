@@ -1100,7 +1100,12 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   align-items: center;
   flex: 0 0 auto;
   gap: 8px;
-  padding: 8px 20px calc(10px + var(--sab));
+  /* Без var(--sab): этот блок лежит ВНУТРИ .app, а тот уже добавил отступ под
+     панель навигации. Пока в нативной сборке --sab был нулём, второе слагаемое
+     ничего не портило, но с реальным значением зазор снизу удваивался.
+     Плавающим окнам (.fav-overlay, .work-overlay, .toast, .touch-hint) свой
+     --sab по-прежнему нужен — они position:fixed и padding .app их не касается. */
+  padding: 8px 20px 10px;
 }
 
 .btn {
