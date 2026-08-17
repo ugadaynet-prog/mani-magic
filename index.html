@@ -328,7 +328,12 @@
     <h2 id="mwTitle" class="fav-title">Работы студии</h2>
     <div id="mwGrid" class="mw-grid"></div>
   </div>
-  <div id="mwLightbox" class="mw-lightbox hidden"><img id="mwBig" alt="Работа мастера"></div>
+  <div id="mwLightbox" class="mw-lightbox hidden">
+    <img id="mwBig" alt="Работа мастера">
+    <!-- Выбор работы из витрины мастера. У неё нет ни карты, ни номера дизайна:
+         это собственное фото мастера, поэтому уходит её адрес. -->
+    <button id="mwWant" class="work-want mw-want hidden" type="button">Хочу этот</button>
+  </div>
 
   <script src="data.js"></script>
   <script src="script.js"></script>

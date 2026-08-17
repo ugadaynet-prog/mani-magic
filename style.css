@@ -835,6 +835,17 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   animation: fadeIn 0.2s ease;
 }
 .mw-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+/* Кнопка выбора работы из витрины. Лайтбокс — центрирующий флекс, поэтому кнопку
+   ставим абсолютно у нижнего края: иначе она встала бы рядом с фото и сжала его.
+   Отступ снизу учитывает панель навигации телефона. */
+.mw-want {
+  position: absolute;
+  left: 50%;
+  bottom: calc(24px + var(--sab));
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 1;
+}
 
 .pw-badge {
   position: absolute;

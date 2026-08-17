@@ -992,10 +992,43 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   function openLightbox(url) {
     document.getElementById('mwBig').src = url;
     document.getElementById('mwLightbox').classList.remove('hidden');
+    // Кнопку показываем только клиентке по QR: мастеру выбирать у себя нечего,
+    // а вне режима мастера витрины нет вовсе.
+    const w = document.getElementById('mwWant');
+    if (w) {
+      const canPick = masterMode() && !isOwnMaster;
+      w.classList.toggle('hidden', !canPick);
+      w.dataset.url = url;
+      const chosen = pickedWorkUrl === url;
+      w.classList.toggle('chosen', chosen);
+      w.textContent = chosen ? 'Выбрано ✓' : 'Хочу этот';
+    }
   }
   function closeLightbox() {
     document.getElementById('mwLightbox').classList.add('hidden');
     document.getElementById('mwBig').src = '';
+  }
+
+  // Выбор работы из витрины. Взаимно исключается с выбором дизайна карты: клиентка
+  // показывает мастеру ОДНУ работу, а не две сразу из разных мест.
+  const mwWant = document.getElementById('mwWant');
+  if (mwWant) {
+    mwWant.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = mwWant.dataset.url || '';
+      if (pickedWorkUrl === url) {
+        pickedWorkUrl = '';
+        mwWant.classList.remove('chosen');
+        mwWant.textContent = 'Хочу этот';
+        return;
+      }
+      pickedWorkUrl = url;
+      pickedDesign = null;
+      pickedLabel = '';
+      mwWant.classList.add('chosen');
+      mwWant.textContent = 'Выбрано ✓';
+      toast('Выбрано. Нажмите «Показать мастеру»');
+    });
   }
   document.getElementById('mwClose').addEventListener('click', closeMasterWorks);
   document.getElementById('masterWorksOverlay').addEventListener('click', (e) => {
@@ -1023,6 +1056,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // последним»). null — не выбирала: тогда мастеру уходит только номер карты.
   let pickedDesign = null;
   let pickedLabel = '';
+  // Работа из витрины мастера: у неё нет карты и номера дизайна, поэтому храним
+  // её адрес. Взаимно исключается с pickedDesign — выбор всегда один.
+  let pickedWorkUrl = '';
 
   function updatePickBtn() {
     if (!pickBtn) return;
@@ -1037,17 +1073,23 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   function openPickSheet() {
     // Показываем миниатюру выбранной работы, а не номер дизайна: клиентка должна
     // видеть, что уходит мастеру. Не выбрала — честно говорим, что уйдёт карта.
-    const has = !!pickedDesign;
+    const fromShowcase = !!pickedWorkUrl;
+    const has = fromShowcase || !!pickedDesign;
     if (pickPreview) {
       pickPreview.classList.toggle('hidden', !has);
-      if (has) {
+      if (fromShowcase) {
+        pickPreviewImg.src = pickedWorkUrl;
+        pickPreviewLabel.textContent = 'Работа из витрины студии';
+      } else if (has) {
         pickPreviewImg.src = currentWorks[pickedDesign - 1] || '';
         pickPreviewLabel.textContent = pickedLabel || ('Дизайн № ' + pickedDesign);
       }
     }
-    pickDesignHint.textContent = has
-      ? 'Мастер увидит эту работу и карту ' + (currentIndex + 1)
-      : 'Мастер увидит карту ' + (currentIndex + 1) + ' — без конкретной работы. Откройте «Примеры работ» и нажмите «Хочу этот», чтобы выбрать дизайн';
+    pickDesignHint.textContent = fromShowcase
+      ? 'Мастер увидит именно эту свою работу'
+      : (has
+        ? 'Мастер увидит эту работу и карту ' + (currentIndex + 1)
+        : 'Мастер увидит карту ' + (currentIndex + 1) + ' — без конкретной работы. Откройте «Примеры работ» и нажмите «Хочу этот», чтобы выбрать дизайн');
     pickSheet.classList.remove('hidden');
     pickName.focus();
   }
@@ -1055,6 +1097,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   function sendPick() {
     const body = { card: currentIndex + 1 };
+    // Работа из витрины мастера идёт своим адресом: карты у неё нет, номер карты
+    // на экране к ней не относится и уводил бы мастера не туда.
+    if (pickedWorkUrl) {
+      delete body.card;
+      body.workUrl = pickedWorkUrl;
+    }
     if (pickedDesign) {
       body.design = pickedDesign;
       // Название техники — чтобы в кабинете читалось «Фольга · мрамор», а не
