@@ -215,19 +215,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         root.setProperty('--sal', num(r.left) + 'px');
         root.setProperty('--sar', num(r.right) + 'px');
 
-        // Временная диагностика: показываем, что реально ответил плагин.
-        // Убрать, когда отступы подтвердятся на устройстве.
-        if (window.__maniInsetsDebug !== false) {
-          try {
-            toast('max t' + num(r.top) + ' b' + bottom
-              + ' · systemBars t' + num(r.sysTop) + ' b' + num(r.sysBottom)
-              + ' · ready:' + (r.ready ? 'да' : 'нет')
-              + ' · ставим сверху ' + top);
-          } catch (e) {}
-        }
-      }).catch((e) => {
-        try { toast('insets: плагин не ответил'); } catch (e2) {}
-      });
+        // Диагностику убрали: на устройстве подтвердилось, что плагин отдаёт
+        // верные значения (сверху 27, снизу 48). Причина съезда была не в них,
+        // а в размере карты — он считался от полной высоты экрана, см. style.css.
+      }).catch(() => {});
     };
 
     applyInsets(20);
