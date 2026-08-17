@@ -352,6 +352,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         applyPlanUI();
         refreshMasterBar();
         updatePickBtn();   // кто перед нами, становится известно только здесь
+        // Переключатель колод тоже зависит от isOwnMaster, а флаг стал известен
+        // только сейчас. Без этой перерисовки мастер видел у себя выбор «наша
+        // колода / колода мастера», хотя колода мастера — это его собственная:
+        // initMasterMode() успевал отрисовать переключатель раньше ответа.
+        renderDeckSwitch();
         dbg('доступ: ' + plan + (isOwnMaster ? ' (мастер)' : ''));
       })
       .catch((e) => dbg('доступ: ошибка ' + e.message));
@@ -874,6 +879,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
           .map((c) => ({ color: c.color, works: c.works.map(abs) }));
         renderDeckSwitch();
+        // Флаг мог перевернуться, пока шёл этот запрос: /api/access отвечает
+        // независимо, и у мастера он ставит isOwnMaster уже после того, как мы
+        // сюда зашли. Тогда клиентскую плашку рисовать нельзя — у мастера своя,
+        // с выходом в кабинет. Именно из-за этого сверху появлялась то «Ваша
+        // колода», то «Мастер · Работы» — что успело раньше.
+        if (isOwnMaster) { refreshMasterBar(); return; }
         renderMasterBar(m);
         track('master_open', { slug: masterSlug });
       })

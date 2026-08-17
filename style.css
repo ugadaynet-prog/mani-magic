@@ -739,7 +739,11 @@ body.has-master-bar { padding-top: 52px; }
   text-overflow: ellipsis;
 }
 .deck-tab.on {
-  background: var(--master-accent, var(--paper));
+  /* Запасной цвет — фирменный красный, а НЕ var(--paper). --paper это токен
+     цвета ТЕКСТА: в тёмной теме он светло-кремовый, и активная вкладка выходила
+     светлой с белой подписью — надпись пропадала. Акцент студии, если мастер его
+     задал, остаётся в приоритете: у него белый текст читается. */
+  background: var(--master-accent, #e63950);
   color: #fff;
 }
 
