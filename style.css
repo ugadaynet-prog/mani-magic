@@ -233,7 +233,17 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
   cursor: pointer;
 }
 .more-item.hidden { display: none; }
-.more-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* Фирменный градиент, как у .btn-primary. Раньше тут стояло
+   background: var(--accent) — но переменной --accent в приложении НЕТ, её никто
+   не объявляет (об этом даже есть комментарий ниже, у #pickBtn). Несуществующая
+   переменная делает фон и рамку прозрачными, оставался белый текст: в тёмной
+   теме он читался на тёмной панели, а в светлой кнопка «Получить код»
+   становилась белой на белом и выглядела отсутствующей. */
+.more-primary {
+  background: linear-gradient(135deg, #e63950, #b5203a);
+  border-color: #b5203a;
+  color: #fff;
+}
 .more-close { opacity: .7; }
 .more-note {
   margin: 0;
@@ -256,7 +266,9 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
 .more-consent a { color: inherit; }
 .more-codebox input[type="checkbox"] {
   width: 18px; min-width: 18px; height: 18px; min-height: 18px;
-  margin: 1px 0 0; padding: 0; flex: none; accent-color: var(--accent);
+  /* accent-color тоже ссылался на несуществующую --accent, поэтому галочка
+     согласия выходила системно-синей вместо фирменной. */
+  margin: 1px 0 0; padding: 0; flex: none; accent-color: #e63950;
 }
 
 .more-codebox input:not([type="checkbox"]) {

@@ -539,7 +539,19 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     [mStepEmail, mStepCode, mStepPhone].forEach((el) => el && el.classList.add('hidden'));
     if (step) step.classList.remove('hidden');
   }
-  const loginErr = (e) => MASTER_LOGIN_ERRORS[e && e.code] || 'Не получилось. Попробуйте ещё раз';
+  // Понятный текст по коду ошибки от сервера. Если код не пришёл вовсе — значит
+  // запрос не дошёл до сервера, и общее «Не получилось» тут только мешает: в
+  // нативной сборке 1.3.4 запросы вообще не покидали устройство (в логах nginx
+  // за время попыток ни одной записи, включая CORS-предзапрос), а сообщение об
+  // этом ничего не говорило. Поэтому при сетевом сбое показываем техническую
+  // причину — по ней видно, TLS это, DNS или блокировка.
+  const loginErr = (e) => {
+    const known = MASTER_LOGIN_ERRORS[e && e.code];
+    if (known) return known;
+    if (e && e.status) return 'Сервер ответил ошибкой ' + e.status;
+    const why = (e && (e.message || e.name)) || 'причина неизвестна';
+    return 'Запрос не дошёл до сервера: ' + why;
+  };
 
   if (mLoginToggle) {
     mLoginToggle.addEventListener('click', () => {
