@@ -81,6 +81,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const workNext = document.getElementById('workNext');
   const workCaption = document.getElementById('workCaption');
   const workDots = document.getElementById('workDots');
+  const workWant = document.getElementById('workWant');
 
   const favBtn = document.getElementById('favBtn');
   const favCount = document.getElementById('favCount');
@@ -1003,21 +1004,39 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const pickBtn = document.getElementById('pickBtn');
   const pickSheet = document.getElementById('pickSheet');
   const pickName = document.getElementById('pickName');
+  const pickPreview = document.getElementById('pickPreview');
+  const pickPreviewImg = document.getElementById('pickPreviewImg');
+  const pickPreviewLabel = document.getElementById('pickPreviewLabel');
   const pickDesignHint = document.getElementById('pickDesignHint');
-  let likedDesign = null;   // какой из пяти дизайнов клиент открыл последним
+  // Какой из пяти дизайнов клиентка ВЫБРАЛА кнопкой «Хочу этот» (не «посмотрела
+  // последним»). null — не выбирала: тогда мастеру уходит только номер карты.
+  let pickedDesign = null;
+  let pickedLabel = '';
 
   function updatePickBtn() {
     if (!pickBtn) return;
-    likedDesign = null;
+    // Карта сменилась — прошлый выбор дизайна к новой карте не относится.
+    pickedDesign = null;
+    pickedLabel = '';
     // Только клиенту, пришедшему по QR. Мастер открывает СВОЮ колоду с тем же
     // ?master=slug, поэтому одного masterMode() мало — показывать ему некому.
     pickBtn.classList.toggle('hidden', !masterMode() || isOwnMaster);
   }
 
   function openPickSheet() {
-    pickDesignHint.textContent = likedDesign
-      ? 'Мастер увидит карту ' + (currentIndex + 1) + ' и дизайн № ' + likedDesign
-      : 'Мастер увидит карту ' + (currentIndex + 1) + '. Откройте «Примеры работ», чтобы выбрать конкретный дизайн';
+    // Показываем миниатюру выбранной работы, а не номер дизайна: клиентка должна
+    // видеть, что уходит мастеру. Не выбрала — честно говорим, что уйдёт карта.
+    const has = !!pickedDesign;
+    if (pickPreview) {
+      pickPreview.classList.toggle('hidden', !has);
+      if (has) {
+        pickPreviewImg.src = currentWorks[pickedDesign - 1] || '';
+        pickPreviewLabel.textContent = pickedLabel || ('Дизайн № ' + pickedDesign);
+      }
+    }
+    pickDesignHint.textContent = has
+      ? 'Мастер увидит эту работу и карту ' + (currentIndex + 1)
+      : 'Мастер увидит карту ' + (currentIndex + 1) + ' — без конкретной работы. Откройте «Примеры работ» и нажмите «Хочу этот», чтобы выбрать дизайн';
     pickSheet.classList.remove('hidden');
     pickName.focus();
   }
@@ -1025,12 +1044,17 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   function sendPick() {
     const body = { card: currentIndex + 1 };
-    if (likedDesign) body.design = likedDesign;
+    if (pickedDesign) {
+      body.design = pickedDesign;
+      // Название техники — чтобы в кабинете читалось «Фольга · мрамор», а не
+      // «дизайн № 3». Названия уже есть в data.js, мастеру их и показываем.
+      if (pickedLabel) body.designLabel = pickedLabel;
+    }
     const nm = (pickName.value || '').trim();
     if (nm) body.name = nm;
     closePickSheet();
     toast('Мастер увидит ваш выбор 💅');
-    track('client_pick', { card: currentIndex + 1, design: likedDesign || 0, named: !!nm });
+    track('client_pick', { card: currentIndex + 1, design: pickedDesign || 0, named: !!nm });
     api('/api/m/' + encodeURIComponent(masterSlug) + '/pick', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2139,10 +2163,41 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       '<span class="work-counter">' + (i + 1) + ' / ' + currentWorks.length + '</span>';
     workPrev.disabled = (i === 0);
     workNext.disabled = (i === currentWorks.length - 1);
-    // запоминаем, какой дизайн клиент смотрел последним — его и покажем мастеру
-    likedDesign = i + 1;
+    // Кнопка «Хочу этот» показывает состояние ИМЕННО этого фото: выбрано или нет.
+    // Раньше здесь стояло likedDesign = i + 1 — то есть выбором считалось просто
+    // последнее просмотренное фото. Клиентка листала пять работ, останавливалась
+    // на случайной, и мастеру уходила она, а не та, что понравилась.
+    if (workWant) {
+      const chosen = pickedDesign === i + 1;
+      workWant.classList.remove('hidden');
+      workWant.classList.toggle('chosen', chosen);
+      workWant.textContent = chosen ? 'Выбрано ✓' : 'Хочу этот';
+    }
     Array.prototype.forEach.call(workDots.children, (d, di) => {
       d.classList.toggle('active', di === workPos);
+    });
+  }
+
+  // «Хочу этот» — единственное место, где дизайн становится выбранным.
+  // Повторное нажатие снимает выбор: клиентка может передумать, не выходя.
+  if (workWant) {
+    workWant.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const n = workPos + 1;
+      if (pickedDesign === n) {
+        pickedDesign = null;
+        pickedLabel = '';
+        workWant.classList.remove('chosen');
+        workWant.textContent = 'Хочу этот';
+        return;
+      }
+      pickedDesign = n;
+      pickedLabel = currentLabels[workPos] || '';
+      workWant.classList.add('chosen');
+      workWant.textContent = 'Выбрано ✓';
+      toast(masterMode() && !isOwnMaster
+        ? 'Выбрано. Нажмите «Показать мастеру»'
+        : 'Выбрано');
     });
   }
 

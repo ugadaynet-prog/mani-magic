@@ -1385,6 +1385,50 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   z-index: 2;
 }
 
+/* «Хочу этот» — явный выбор дизайна в галерее работ. Состояние .chosen должно
+   отличаться не только цветом: у части клиенток телефон в светлой теме и на
+   солнце, поэтому у выбранного варианта меняется и текст («Выбрано ✓»). */
+.work-want {
+  display: block;
+  margin: 8px auto 0;
+  padding: 11px 22px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.work-want.chosen {
+  background: linear-gradient(135deg, #e63950, #b5203a);
+  border-color: #b5203a;
+}
+.work-want.hidden { display: none; }
+
+/* Миниатюра выбранной работы в окне «Показать мастеру» */
+.pick-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+.pick-preview.hidden { display: none; }
+.pick-preview-img {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+}
+.pick-preview-label { font-size: 14px; line-height: 1.35; }
+
 .work-nav {
   position: absolute;
   top: 50%;

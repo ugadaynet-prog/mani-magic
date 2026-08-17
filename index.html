@@ -292,6 +292,12 @@
   <div id="pickSheet" class="pick-sheet hidden">
     <div class="pick-box">
       <h3>Показать мастеру выбор</h3>
+      <!-- Миниатюра выбранной работы: клиентка должна видеть, что именно уходит
+           мастеру, а не читать номер дизайна. -->
+      <div id="pickPreview" class="pick-preview hidden">
+        <img id="pickPreviewImg" class="pick-preview-img" src="" alt="">
+        <span id="pickPreviewLabel" class="pick-preview-label"></span>
+      </div>
       <p id="pickDesignHint" class="pick-hint"></p>
       <label class="pick-label" for="pickName">Как вас зовут? <span class="muted">(необязательно)</span></label>
       <input id="pickName" class="pick-input" type="text" maxlength="40" autocomplete="given-name" placeholder="Например, Марина">
@@ -308,6 +314,9 @@
     <button id="workNext" class="work-nav work-next" aria-label="Следующее">&#8250;</button>
     <div class="work-meta">
       <p id="workCaption" class="work-caption"></p>
+      <!-- Явный выбор дизайна. До этого мастеру уходило то фото, на котором
+           клиентка случайно остановилась при листании, — выбором это не было. -->
+      <button id="workWant" class="work-want hidden" type="button">Хочу этот</button>
       <p class="work-zoomhint">Щипок или двойной тап — увеличить · свайп вниз — закрыть</p>
       <div id="workDots" class="work-dots"></div>
     </div>
