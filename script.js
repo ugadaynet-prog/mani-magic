@@ -64,11 +64,26 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (!(avail > 0)) return;
     let size = parseFloat(getComputedStyle(phraseEl).fontSize) || 22;
     // Шаг в 0.5px: на самой длинной фразе это десятки итераций, каждая — только
-    // чтение высоты уже перерисованного элемента, заметной паузы не даёт.
-    while (size > PHRASE_MIN_PX && phraseEl.scrollHeight > avail) {
+    // чтение размеров уже перерисованного элемента, заметной паузы не даёт.
+    //
+    // Ужимаем и по высоте, и по ширине. Раньше проверялась только высота, и
+    // фраза с длинным словом («Целеустремленность», «экспериментировать»)
+    // оставалась крупной: по строкам она помещалась, а само слово в строку —
+    // нет. Текст выровнен по центру, поэтому лишнее срезалось сразу с двух
+    // сторон, и слово читалось как «елеустремленност». Ширину меряем с
+    // допуском в пиксель — на дробном масштабе scrollWidth бывает на доли
+    // больше clientWidth без всякого переполнения, и без допуска цикл
+    // ужимал бы шрифт до предела на ровном месте.
+    const tooWide = () => phraseEl.scrollWidth > phraseEl.clientWidth + 1;
+    phraseEl.classList.remove('phrase-break');
+    while (size > PHRASE_MIN_PX && (phraseEl.scrollHeight > avail || tooWide())) {
       size -= 0.5;
       phraseEl.style.fontSize = size + 'px';
     }
+    // Дошли до предела, а слово всё равно шире карты — разрешаем перенос
+    // внутри слова. Раньше этого не делаем: на карточке целое слово выглядит
+    // лучше разорванного, и ужать шрифт почти всегда достаточно.
+    if (tooWide()) phraseEl.classList.add('phrase-break');
   }
   // Поворот экрана и смена размера окна меняют доступную высоту — пересчитываем.
   window.addEventListener('resize', fitPhrase);
@@ -804,7 +819,18 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // ответ приходит в /api/access. На адрес ссылки не смотрим: код из него
   // стирается сразу, а в установленное приложение его вообще вводят руками.
   let isOwnMaster = false;
-  const CABINET_URL = 'https://api.mani-magic.ru/master/';
+  // Основной домен, а не api.: на веб-версии приложение (mani-magic.ru/app/) и
+  // кабинет (mani-magic.ru/master/) оказываются на одном происхождении, и вход
+  // между ними разделяется сам. В установленном приложении происхождение своё
+  // (capacitor://), поэтому там токен передаётся якорем — см. cabinetHref().
+  const CABINET_URL = 'https://mani-magic.ru/master/';
+
+  // Ссылка «В кабинет» с передачей входа: мастер уже вошёл в приложении, и
+  // просить у него почту второй раз незачем.
+  const cabinetHref = () => {
+    const t = getMasterToken();
+    return t ? CABINET_URL + '#t=' + encodeURIComponent(t) : CABINET_URL;
+  };
   let masterWorks = [];   // фото работ мастера — для витрины клиенту
   let masterDeck = [];    // колода мастера: [{ color, works[] }], пусто = не опубликована
   let useMasterDeck = false;   // какую колоду сейчас тянет клиентка
@@ -852,7 +878,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     actions.className = 'mb-actions';
     const back = document.createElement('a');
     back.className = 'mb-back';
-    back.href = CABINET_URL;
+    back.href = cabinetHref();
     back.textContent = 'В кабинет';
     actions.appendChild(back);
     bar.appendChild(info); bar.appendChild(actions);
@@ -964,7 +990,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (isOwnMaster) {
       const back = document.createElement('a');
       back.className = 'mb-back';
-      back.href = CABINET_URL;
+      back.href = cabinetHref();
       back.textContent = 'В кабинет';
       actions.appendChild(back);
     }
