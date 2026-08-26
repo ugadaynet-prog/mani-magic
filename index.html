@@ -310,25 +310,24 @@
     <button id="workPrev" class="work-nav work-prev" aria-label="Предыдущее">&#8249;</button>
     <div class="work-stage">
       <img id="workImg" class="work-img" src="" alt="Пример готовой работы">
+      <!-- Прямо на фото и теми же местами, что на карте: слева поделиться,
+           справа сердечко. Обе — личные действия клиентки и работают всегда,
+           в отличие от «Показать мастеру» внизу. -->
+      <button id="workShare" class="work-act work-act-share" type="button" aria-label="Поделиться работой">
+        <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" focusable="false">
+          <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M18 8a3 3 0 1 0-2.8-4H15L8.9 9.6M6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2.9-.6 6.3 3.6M18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+        </svg>
+      </button>
+      <button id="workFav" class="work-act work-act-fav" type="button" aria-label="Сохранить работу">&#10084;</button>
     </div>
     <button id="workNext" class="work-nav work-next" aria-label="Следующее">&#8250;</button>
     <div class="work-meta">
       <p id="workCaption" class="work-caption"></p>
       <!-- Явный выбор дизайна. До этого мастеру уходило то фото, на котором
            клиентка случайно остановилась при листании, — выбором это не было. -->
-      <button id="workWant" class="work-want hidden" type="button">Хочу этот</button>
-      <!-- Своё, независимо от мастера: сохранить работу себе и поделиться ею.
-           «Хочу этот» уходит мастеру и без него не работает, а эти две — всегда. -->
-      <div class="work-acts">
-        <button id="workFav" class="work-act" type="button" aria-label="Сохранить работу">&#9825;</button>
-        <button id="workShare" class="work-act" type="button" aria-label="Поделиться работой">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M18 8a3 3 0 1 0-2.8-4H15L8.9 9.6M6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2.9-.6 6.3 3.6M18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-          </svg>
-        </button>
-      </div>
+      <button id="workWant" class="work-want hidden" type="button">Показать мастеру</button>
       <p class="work-zoomhint">Щипок или двойной тап — увеличить · свайп вниз — закрыть</p>
       <div id="workDots" class="work-dots"></div>
     </div>
@@ -344,7 +343,7 @@
     <img id="mwBig" alt="Работа мастера">
     <!-- Выбор работы из витрины мастера. У неё нет ни карты, ни номера дизайна:
          это собственное фото мастера, поэтому уходит её адрес. -->
-    <button id="mwWant" class="work-want mw-want hidden" type="button">Хочу этот</button>
+    <button id="mwWant" class="work-want mw-want hidden" type="button">Показать мастеру</button>
   </div>
 
   <script src="data.js"></script>

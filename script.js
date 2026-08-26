@@ -1027,9 +1027,6 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       const canPick = masterMode() && !isOwnMaster;
       w.classList.toggle('hidden', !canPick);
       w.dataset.url = url;
-      const chosen = pickedWorkUrl === url;
-      w.classList.toggle('chosen', chosen);
-      w.textContent = chosen ? 'Выбрано ✓' : 'Хочу этот';
     }
   }
   function closeLightbox() {
@@ -1041,21 +1038,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // показывает мастеру ОДНУ работу, а не две сразу из разных мест.
   const mwWant = document.getElementById('mwWant');
   if (mwWant) {
+    // Как и в галерее колоды: помечаем и сразу открываем окно отправки,
+    // чтобы название кнопки совпадало с тем, что она делает.
     mwWant.addEventListener('click', (e) => {
       e.stopPropagation();
-      const url = mwWant.dataset.url || '';
-      if (pickedWorkUrl === url) {
-        pickedWorkUrl = '';
-        mwWant.classList.remove('chosen');
-        mwWant.textContent = 'Хочу этот';
-        return;
-      }
-      pickedWorkUrl = url;
+      pickedWorkUrl = mwWant.dataset.url || '';
       pickedDesign = null;
       pickedLabel = '';
-      mwWant.classList.add('chosen');
-      mwWant.textContent = 'Выбрано ✓';
-      toast('Выбрано. Нажмите «Показать мастеру»');
+      closeLightbox();
+      closeMasterWorks();
+      openPickSheet();
     });
   }
   document.getElementById('mwClose').addEventListener('click', closeMasterWorks);
@@ -1117,7 +1109,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       ? 'Мастер увидит именно эту свою работу'
       : (has
         ? 'Мастер увидит эту работу и карту ' + (currentIndex + 1)
-        : 'Мастер увидит карту ' + (currentIndex + 1) + ' — без конкретной работы. Откройте «Примеры работ» и нажмите «Хочу этот», чтобы выбрать дизайн');
+        : 'Мастер увидит карту ' + (currentIndex + 1) + ' — без конкретной работы. Откройте «Примеры работ» и выберите дизайн');
     pickSheet.classList.remove('hidden');
     pickName.focus();
   }
@@ -2339,19 +2331,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       '<span class="work-counter">' + (i + 1) + ' / ' + currentWorks.length + '</span>';
     workPrev.disabled = (i === 0);
     workNext.disabled = (i === currentWorks.length - 1);
-    // Кнопка «Хочу этот» показывает состояние ИМЕННО этого фото: выбрано или нет.
     // Раньше здесь стояло likedDesign = i + 1 — то есть выбором считалось просто
     // последнее просмотренное фото. Клиентка листала пять работ, останавливалась
     // на случайной, и мастеру уходила она, а не та, что понравилась.
     if (workWant) {
-      const chosen = pickedDesign === i + 1;
       // Показываем только клиентке, пришедшей по QR: без мастера отправлять
       // выбор некому. Раньше кнопка висела всегда и вела в тупик — нажатие
       // говорило «Выбрано», но выбор жил в памяти до следующей карты и нигде
-      // не отражался. Для «сохранить себе» рядом теперь есть сердечко.
+      // не отражался. Для «сохранить себе» есть сердечко прямо на фото.
       workWant.classList.toggle('hidden', !masterMode() || isOwnMaster);
-      workWant.classList.toggle('chosen', chosen);
-      workWant.textContent = chosen ? 'Выбрано ✓' : 'Хочу этот';
     }
     updateWorkFavUI();
     Array.prototype.forEach.call(workDots.children, (d, di) => {
@@ -2359,26 +2347,20 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     });
   }
 
-  // «Хочу этот» — единственное место, где дизайн становится выбранным.
-  // Повторное нажатие снимает выбор: клиентка может передумать, не выходя.
+  // «Показать мастеру» из галереи: помечает работу и сразу открывает окно
+  // отправки. Раньше кнопка звалась «Хочу этот» и только запоминала выбор —
+  // дальше клиентке надо было закрыть галерею, найти внизу «Показать мастеру»,
+  // и лишь потом подтвердить. Три касания после того, как она уже ткнула в
+  // понравившееся, и подсказка тостом вместо очевидного следующего шага.
+  // Теперь название совпадает с тем, что происходит.
   if (workWant) {
     workWant.addEventListener('click', (e) => {
       e.stopPropagation();
-      const n = workPos + 1;
-      if (pickedDesign === n) {
-        pickedDesign = null;
-        pickedLabel = '';
-        workWant.classList.remove('chosen');
-        workWant.textContent = 'Хочу этот';
-        return;
-      }
-      pickedDesign = n;
+      pickedDesign = workPos + 1;
       pickedLabel = currentLabels[workPos] || '';
-      workWant.classList.add('chosen');
-      workWant.textContent = 'Выбрано ✓';
-      toast(masterMode() && !isOwnMaster
-        ? 'Выбрано. Нажмите «Показать мастеру»'
-        : 'Выбрано');
+      pickedWorkUrl = '';        // выбор из колоды, а не из витрины мастера
+      closeWork();
+      openPickSheet();
     });
   }
 

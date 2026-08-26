@@ -1318,6 +1318,9 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   width: 100%;
   overflow: hidden;
   touch-action: none; /* жесты зума обрабатываем сами */
+  /* точка отсчёта для кнопок на фото: без неё они считались бы от окна
+     целиком и налезали на крестик и стрелки листания */
+  position: relative;
 }
 
 .work-img {
@@ -1437,35 +1440,39 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   border-color: #b5203a;
 }
 
-/* Сохранить работу себе и поделиться ею. Круглые и заметно меньше «Хочу этот»:
-   та кнопка — действие для мастера и главная в этом окне, эти две личные. */
-.work-acts {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 8px;
-}
-
+/* Сохранить работу и поделиться ею — прямо на фото, теми же местами и тем же
+   видом, что на карте: клиентка уже знает эти две кнопки оттуда. Внизу под
+   фото остаётся только «Показать мастеру» — единственное действие, которое
+   уходит наружу. */
 .work-act {
+  position: absolute;
+  top: 10px;
+  z-index: 6;
   width: 44px;
   height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-size: 20px;
+  border: none;
+  background: rgba(0, 0, 0, 0.38);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 21px;
   line-height: 1;
   padding: 0;
   cursor: pointer;
+  transition: transform 0.18s ease, color 0.18s ease;
 }
 
-.work-act.liked {
-  background: linear-gradient(135deg, #e63950, #b5203a);
-  border-color: #b5203a;
+.work-act-share { left: 10px; }
+.work-act-fav   { right: 10px; color: rgba(255, 255, 255, 0.65); }
+
+.work-act-fav.liked {
+  color: #ff4d67;
+  transform: scale(1.12);
 }
+
+.work-act:active { transform: scale(0.92); }
 
 /* Работа в избранном: подпись техники поверх фото — без неё в сетке из карт
    и работ непонятно, что именно сохранено. */
