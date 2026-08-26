@@ -634,10 +634,56 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
             body: JSON.stringify({ deviceId: deviceId }),
           }).catch(() => null);
         })
-        .then(() => { loginStep(mStepPhone); mPhone.focus(); })
+        // Телефон спрашиваем только если его ещё нет. Раньше шаг показывался
+        // всегда, и мастер, уже входивший однажды, вводил свой же номер заново
+        // при каждом входе — на новом устройстве, после переустановки, после
+        // выхода. Номер лежит в профиле, достаточно его прочитать.
+        .then(() => {
+          const token = getMasterToken();
+          return api('/api/master/me', {
+            headers: { Authorization: 'Bearer ' + token },
+          })
+            .then((me) => {
+              if (me && me.phone) return finishMasterLogin(token);
+              loginStep(mStepPhone);
+              mPhone.focus();
+            })
+            // Профиль не прочитался — не запирать вход из-за этого: спрашиваем
+            // номер, как раньше. Хуже лишний шаг, чем тупик на пустом экране.
+            .catch(() => { loginStep(mStepPhone); mPhone.focus(); });
+        })
         .catch((e) => showLoginMsg(loginErr(e)))
         .finally(() => { mVerify.disabled = false; });
     });
+  }
+
+  // Общий хвост входа: забрать доступ на это устройство и закрыть окно.
+  // Раньше он жил внутри обработчика телефона, и попасть в приложение можно
+  // было только через ввод номера. Теперь сюда приходят оба пути — и тот,
+  // где номер уже сохранён с прошлого раза.
+  function finishMasterLogin(token) {
+    // Если Pro уже на аккаунте (перенесли покупку или промокод) — открываем
+    // колоду на этом устройстве сразу, чтобы мастер не вводил код руками.
+    return api('/api/master/deck-pass', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: '{}',
+    }).catch(() => null)
+      .then((dp) => {
+        if (!dp || !dp.code) return null;
+        return api('/api/deck-pass/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: dp.code, deviceId: deviceId }),
+        }).catch(() => null);
+      })
+      .then(() => refreshAccess())
+      .then(() => {
+        mLoginBox.classList.add('hidden');
+        closeMore();
+        if (isPaid()) paywallOverlay.classList.add('hidden');
+        toast('Готово! Вы вошли как мастер 💅');
+      });
   }
 
   const mSavePhone = document.getElementById('mSavePhone');
@@ -653,28 +699,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ phone: phone }),
       })
-        // Если Pro уже на аккаунте (перенесли покупку или промокод) — открываем
-        // колоду на этом устройстве сразу, чтобы мастер не вводил код руками.
-        .then(() => api('/api/master/deck-pass', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: '{}',
-        }).catch(() => null))
-        .then((dp) => {
-          if (!dp || !dp.code) return null;
-          return api('/api/deck-pass/redeem', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: dp.code, deviceId: deviceId }),
-          }).catch(() => null);
-        })
-        .then(() => refreshAccess())
-        .then(() => {
-          mLoginBox.classList.add('hidden');
-          closeMore();
-          if (isPaid()) paywallOverlay.classList.add('hidden');
-          toast('Готово! Вы вошли как мастер 💅');
-        })
+        .then(() => finishMasterLogin(token))
         .catch((e) => showLoginMsg(loginErr(e)))
         .finally(() => { mSavePhone.disabled = false; });
     });
