@@ -966,6 +966,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
           .map((c) => ({ color: c.color, works: c.works.map(abs) }));
         renderDeckSwitch();
+        // Напоминание про работы без цвета ставится локально, поэтому число
+        // нужно здесь: сервер прислать уведомление в приложение пока не может.
+        pendingNoColor = Number(r.noColor) || 0;
+        syncNotifications();
         if (wantMyDeck && masterDeck.length) switchDeck(true);
       })
       .catch((e) => dbg('своя колода: ' + e.message));
@@ -2110,12 +2114,29 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const dayBtn = document.getElementById('dayBtn');
   const dayBadge = document.getElementById('dayBadge');
 
-  function cardOfDayIndex() {
-    const d = new Date();
-    const key = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-    // детерминированный «перемешиватель», чтобы соседние дни не давали соседние карты
-    const h = (key * 9301 + 49297) % 233280;
-    return Math.floor((h / 233280) * CARDS.length) % CARDS.length;
+  // Дату принимаем аргументом: расписание уведомлений раскладывает карту дня
+  // на две недели вперёд, и ему нужна карта не только сегодняшнего дня.
+  //
+  // Считаем от НОМЕРА ДНЯ, а не от склеенной даты вида 20260831. У склейки на
+  // стыке месяцев прыжок в семьдесят вместо единицы, и карта повторялась через
+  // шесть дней: 27.08 и 02.09 давали одну и ту же. Пока карту дня видели только
+  // те, кто сам открыл приложение, это не бросалось в глаза; с ежедневным
+  // уведомлением повтор внутри недели виден сразу.
+  //
+  // Шаг по колоде берём взаимно простым с числом карт — тогда последовательность
+  // обходит всю колоду и возвращается к карте ровно через 49 дней, без исключений.
+  // Тасовать колоду на каждый круг оказалось хуже: на стыке кругов новая тасовка
+  // не знает о предыдущей, и повтор вылезал через два дня. Шаг ≈0.618 от размера
+  // колоды (золотое сечение) разводит соседние дни по разным местам колоды.
+  // Дата у всех одна, поэтому и карта дня у всех одна и та же.
+  function cardOfDayIndex(when) {
+    const d = when || new Date();
+    const n = CARDS.length;
+    const day = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+    const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+    let step = Math.max(1, Math.round(n * 0.618));
+    while (gcd(step, n) !== 1) step += 1;
+    return ((day * step + 7) % n + n) % n;
   }
 
   function showCardOfDay() {
@@ -2126,6 +2147,198 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
 
   dayBtn.addEventListener('click', showCardOfDay);
+
+  // --- Уведомления ---------------------------------------------------------
+  //
+  // Только в установленном приложении: Web Push внутри Android WebView не
+  // существует — там нет ни Push API, ни объекта PushManager. В браузере за
+  // уведомления отвечает сам браузер, и это отдельная история, живущая в
+  // кабинете мастера.
+  //
+  // Всё здесь — ЛОКАЛЬНЫЕ уведомления: телефон показывает их сам по расписанию,
+  // без сервера и без интернета. Поэтому карта дня работает и в самолёте, но и
+  // прислать что-то срочное («клиентка выбрала карту») так нельзя — для этого
+  // нужен настоящий push, он подключается отдельно.
+  const NOTIFY_KEY = 'maniNotify';        // '0' = выключено; пусто = включено
+  const NOTIFY_HOUR_KEY = 'maniNotifyHour';
+  const NOTIFY_ASKED_KEY = 'maniNotifyAsked';
+  const DAILY_AHEAD = 14;   // на столько дней вперёд раскладываем карту дня
+  const IDLE_DAYS = 5;
+  // Идентификаторы разведены по диапазонам: своё расписание мы каждый раз
+  // снимаем и ставим заново, и снимать надо ровно своё.
+  const ID_DAY_FROM = 1000;
+  const ID_IDLE = 900;
+  const ID_NOCOLOR = 901;
+
+  const LN = () => (isNativeApp() && window.Capacitor.Plugins
+    ? window.Capacitor.Plugins.LocalNotifications : null);
+  const notifyOn = () => {
+    try { return localStorage.getItem(NOTIFY_KEY) !== '0'; } catch (e) { return true; }
+  };
+  const notifyHour = () => {
+    let h = NaN;
+    try { h = parseInt(localStorage.getItem(NOTIFY_HOUR_KEY), 10); } catch (e) {}
+    return Number.isInteger(h) && h >= 0 && h <= 23 ? h : 10;
+  };
+  // Сколько у мастера работ без цвета. Узнаём вместе с его колодой; у клиента
+  // всегда ноль, и напоминание не ставится.
+  let pendingNoColor = 0;
+
+  async function notifyAllowed() {
+    const ln = LN();
+    if (!ln) return false;
+    try { return (await ln.checkPermissions()).display === 'granted'; } catch (e) { return false; }
+  }
+
+  // Пересобираем расписание целиком при каждом открытии приложения. Так проще
+  // и честнее, чем досыпать по одному: карта дня зависит от даты, а «давно не
+  // заглядывали» отсчитывается именно от этого запуска.
+  async function syncNotifications() {
+    const ln = LN();
+    if (!ln) return;
+    const ids = [];
+    for (let i = 0; i < DAILY_AHEAD; i++) ids.push({ id: ID_DAY_FROM + i });
+    ids.push({ id: ID_IDLE }, { id: ID_NOCOLOR });
+    try { await ln.cancel({ notifications: ids }); } catch (e) {}
+    if (!notifyOn() || !(await notifyAllowed())) return;
+
+    const list = [];
+    const hour = notifyHour();
+    const now = new Date();
+    for (let i = 0; i < DAILY_AHEAD; i++) {
+      const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, hour, 0, 0, 0);
+      if (at <= now) continue;                     // сегодняшнее время уже прошло
+      const card = CARDS[cardOfDayIndex(at)];
+      list.push({
+        id: ID_DAY_FROM + i,
+        title: 'Карта дня',
+        // Фраза именно того дня. Одно повторяющееся уведомление так не умеет:
+        // текст у него один на все разы — поэтому раскладываем по дням.
+        body: card && card.phrase ? card.phrase : 'Загляните в колоду',
+        schedule: { at, allowWhileIdle: true },
+        extra: { open: 'day' },
+      });
+    }
+    // Живёт на пять дней вперёд и снимается при каждом заходе — тем, кто
+    // заходит, оно не приходит никогда, только пропавшим.
+    const idleAt = new Date(now.getTime() + IDLE_DAYS * 86400000);
+    idleAt.setHours(hour, 0, 0, 0);
+    list.push({
+      id: ID_IDLE,
+      title: 'MANI Magic',
+      body: 'Давно не заглядывали. Тряхните колоду — вдруг там ваш следующий маникюр.',
+      schedule: { at: idleAt, allowWhileIdle: true },
+      extra: { open: 'deck' },
+    });
+    if (pendingNoColor > 0) {
+      const at = new Date(now.getTime() + 86400000);
+      list.push({
+        id: ID_NOCOLOR,
+        title: 'Колода не собирается',
+        body: 'Работ без цвета: ' + pendingNoColor + '. Пока цвет не проставлен, они видны в витрине, но в колоду не попадают.',
+        schedule: { at, allowWhileIdle: true },
+        extra: { open: 'cabinet' },
+      });
+    }
+    try { await ln.schedule({ notifications: list }); } catch (e) { dbg('уведомления: ' + e.message); }
+  }
+
+  // Разрешение спрашиваем ОДИН раз и не на холодном старте, а когда человек уже
+  // увидел первую карту: на Android отказ почти необратим — второй раз система
+  // окно не покажет, — а до первой карты непонятно, о чём вообще речь.
+  // На Android 12 и старше окна нет вовсе, там уведомления разрешены сразу.
+  async function askNotifyOnce() {
+    const ln = LN();
+    if (!ln || !notifyOn()) return;
+    let asked = false;
+    try { asked = localStorage.getItem(NOTIFY_ASKED_KEY) === '1'; } catch (e) {}
+    if (asked) return;
+    try {
+      const cur = await ln.checkPermissions();
+      if (cur.display !== 'granted' && cur.display !== 'denied') await ln.requestPermissions();
+    } catch (e) {}
+    try { localStorage.setItem(NOTIFY_ASKED_KEY, '1'); } catch (e) {}
+    await paintNotifyUI();
+    await syncNotifications();
+  }
+
+  const notifyBtn = document.getElementById('notifyBtn');
+  const notifyItem = document.getElementById('notifyItem');
+  const notifyNote = document.getElementById('notifyNote');
+  const notifyHourSel = document.getElementById('notifyHour');
+
+  async function paintNotifyUI() {
+    // В браузере всего этого нет: показывать выключатель, который ничего не
+    // включает, хуже, чем не показывать ничего.
+    const native = !!LN();
+    if (notifyBtn) notifyBtn.classList.toggle('hidden', !native);
+    if (notifyItem) notifyItem.classList.toggle('hidden', !native);
+    if (notifyNote) notifyNote.classList.toggle('hidden', !native);
+    if (notifyHourSel) notifyHourSel.classList.toggle('hidden', !native);
+    if (!native) return;
+    const on = notifyOn();
+    const allowed = await notifyAllowed();
+    if (notifyBtn) {
+      notifyBtn.classList.toggle('muted', !on || !allowed);
+      notifyBtn.setAttribute('aria-label', on ? 'Выключить уведомления' : 'Включить уведомления');
+    }
+    if (notifyItem) notifyItem.textContent = 'Уведомления: ' + (on ? 'включены' : 'выключены');
+    if (notifyNote) {
+      notifyNote.textContent = !on
+        ? 'Ничего не присылаем.'
+        : allowed
+          ? 'Карта дня приходит в ' + notifyHour() + ':00. И напомним, если не заглядывали ' + IDLE_DAYS + ' дней.'
+          : 'Телефон уведомления не пропускает. Включите их для MANI Magic в настройках телефона, раздел «Приложения».';
+    }
+    if (notifyHourSel) {
+      notifyHourSel.value = String(notifyHour());
+      notifyHourSel.classList.toggle('hidden', !on);
+    }
+  }
+
+  async function toggleNotify() {
+    const ln = LN();
+    if (!ln) return;
+    const next = !notifyOn();
+    try { localStorage.setItem(NOTIFY_KEY, next ? '1' : '0'); } catch (e) {}
+    if (next && !(await notifyAllowed())) {
+      try { await ln.requestPermissions(); } catch (e) {}
+      try { localStorage.setItem(NOTIFY_ASKED_KEY, '1'); } catch (e) {}
+    }
+    await paintNotifyUI();
+    await syncNotifications();
+    const allowed = await notifyAllowed();
+    toast(!next ? 'Уведомления выключены'
+      : allowed ? 'Карта дня будет приходить в ' + notifyHour() + ':00'
+        : 'Разрешите уведомления в настройках телефона');
+  }
+
+  if (notifyBtn) notifyBtn.addEventListener('click', toggleNotify);
+  if (notifyItem) notifyItem.addEventListener('click', toggleNotify);
+  if (notifyHourSel) {
+    notifyHourSel.addEventListener('change', async () => {
+      try { localStorage.setItem(NOTIFY_HOUR_KEY, notifyHourSel.value); } catch (e) {}
+      await paintNotifyUI();
+      await syncNotifications();
+      toast('Карта дня — в ' + notifyHour() + ':00');
+    });
+  }
+
+  if (LN()) {
+    // Нажали на уведомление — открываем то, о чём оно.
+    try {
+      LN().addListener('localNotificationActionPerformed', (e) => {
+        const what = e && e.notification && e.notification.extra && e.notification.extra.open;
+        if (what === 'day') showCardOfDay();
+        if (what === 'cabinet') location.href = cabinetHref();
+      });
+    } catch (e) {}
+    paintNotifyUI();
+    syncNotifications();
+  } else {
+    paintNotifyUI();
+  }
+
 
   // Тасуем колоду, а не бросаем кубик каждый раз. При случайном выборе с
   // возвратом повтор из 49 карт выпадает уже в первом десятке примерно в
@@ -2637,6 +2850,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
 
   canBuzz = true;   // дальше уже настоящие вытягивания — можно жужжать
+
+  // Разрешение на уведомления — сразу после первой карты, а не на пустом
+  // экране: секунду человек уже смотрел, о чём приложение. Пауза нужна, чтобы
+  // системное окно не легло поверх анимации вытягивания.
+  setTimeout(askNotifyOnce, 1200);
 
   // Подключение к серверу — только если он задан (?server= или DEFAULT_SERVER_URL).
   // Без этого приложение работает полностью автономно, как прежде.

@@ -36,6 +36,17 @@
     </svg>
   </button>
 
+  <!-- Колокольчик — под кнопкой карты дня, зеркально кнопке «Ещё» справа.
+       В нижний ряд его не поставить: там «Тряхнуть колоду» на весь остаток,
+       и третья круглая кнопка отъела бы у главной кнопки треть ширины. -->
+  <button id="notifyBtn" class="notify-btn hidden" aria-label="Выключить уведомления">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8.5a6 6 0 1 0-12 0c0 6-2 7.5-2 7.5h16s-2-1.5-2-7.5"></path>
+      <path d="M13.7 20a2 2 0 0 1-3.4 0"></path>
+    </svg>
+  </button>
+
   <button id="qrBtn" class="qr-btn" aria-label="QR-код приложения">
     <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -80,6 +91,19 @@
       <p id="installedNote" class="more-note hidden">Приложение установлено. Если значка нет на
         главном экране — откройте список приложений, найдите <b>MANI Magic</b> и перетащите
         значок на главный экран.</p>
+
+      <button id="notifyItem" class="more-item hidden" type="button">Уведомления: включены</button>
+      <select id="notifyHour" class="more-select hidden" aria-label="Время карты дня">
+        <option value="7">Карта дня в 7:00</option>
+        <option value="8">Карта дня в 8:00</option>
+        <option value="9">Карта дня в 9:00</option>
+        <option value="10">Карта дня в 10:00</option>
+        <option value="11">Карта дня в 11:00</option>
+        <option value="12">Карта дня в 12:00</option>
+        <option value="18">Карта дня в 18:00</option>
+        <option value="20">Карта дня в 20:00</option>
+      </select>
+      <p id="notifyNote" class="more-note hidden"></p>
 
       <a id="moreCabinet" class="more-item hidden" href="https://api.mani-magic.ru/master/">Кабинет мастера</a>
 

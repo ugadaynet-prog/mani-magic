@@ -175,6 +175,30 @@ html, body {
   background: var(--surface);
   color: var(--paper);
 }
+/* Колокольчик уведомлений — слева, под картой дня: зеркало кнопки «Ещё».
+   Приглушённый цвет означает «не придёт»: либо выключили сами, либо телефон
+   не пропускает. В браузере кнопки нет вовсе — включать там нечего. */
+.notify-btn {
+  position: fixed;
+  top: calc(46px + var(--sat));
+  left: calc(10px + var(--sal));
+  z-index: 30;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--paper);
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.notify-btn.muted { color: var(--disabled-icon); }
+.notify-btn:active { transform: scale(0.95); }
+body.has-master-bar .notify-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat)); }
+
 /* Высоту плашки замеряет скрипт (--mb-h): у клиента там ещё строка с городом,
    и фиксированный отступ наезжал бы на кнопки. */
 body.has-master-bar .qr-btn,
@@ -245,6 +269,20 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
   color: #fff;
 }
 .more-close { opacity: .7; }
+/* Выбор времени в меню: тот же вид, что у пунктов меню, но это список. */
+.more-select {
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--paper);
+  font: inherit;
+  font-size: 15px;
+}
+.more-select.hidden { display: none; }
+
 .more-note {
   margin: 0;
   font-size: 13px;
