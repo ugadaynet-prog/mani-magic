@@ -51,9 +51,24 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // срезалась на середине слова (видно и в приложении, и в браузере).
   // Подгоняем размер под доступную высоту: уменьшаем, пока текст не поместится.
   const PHRASE_MIN_PX = 11;
+  // Счётчик попыток дождаться раскладки карты — см. ниже, в fitPhrase().
+  let fitTries = 0;
   function fitPhrase() {
     const back = phraseEl && phraseEl.parentElement;
-    if (!back || !back.clientHeight) return;
+    if (!back) return;
+    // Карту дня рисуем на старте, когда рубашка ещё не разложена и её высота
+    // нулевая. Раньше мы тут просто выходили — и фраза так и оставалась
+    // базового кегля навсегда, пересчитать её было уже нечему. Если она в
+    // карту не влезала, край срезал слово: «Находишься на перепутье?»
+    // читалось как «Находишьс». Остальные карты выпадают по «Тряхнуть
+    // колоду», когда размеры уже есть, — поэтому ломалась ровно одна карта,
+    // та, что на экране при запуске. Пробуем на следующем кадре, не дольше
+    // секунды: если карта не показывается вовсе, крутиться незачем.
+    if (!back.clientHeight) {
+      if (fitTries++ < 60) requestAnimationFrame(fitPhrase);
+      return;
+    }
+    fitTries = 0;
     phraseEl.style.fontSize = '';                     // вернуть базовый размер из CSS
     const cs = getComputedStyle(back);
     const logo = back.querySelector('.back-logo');
@@ -87,6 +102,17 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
   // Поворот экрана и смена размера окна меняют доступную высоту — пересчитываем.
   window.addEventListener('resize', fitPhrase);
+  // Размер рубашки меняется не только от поворота экрана: карта может
+  // появиться из скрытого состояния. Наблюдаем за рубашкой, а не за абзацем:
+  // рубашка это .card-face с inset:0, её размер задаёт карта и от кегля фразы
+  // не зависит, так что пересчёт сам себя не вызовет.
+  // Ещё один пересчёт — когда доедет шрифт: Georgia подставляется не сразу,
+  // а у запасного начертания ширина другая, и «влезает» до загрузки не
+  // означает «влезает после».
+  if (window.ResizeObserver && phraseEl && phraseEl.parentElement) {
+    new ResizeObserver(() => fitPhrase()).observe(phraseEl.parentElement);
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitPhrase);
   const shakeBtn = document.getElementById('shakeBtn');
   const permBtn = document.getElementById('permBtn');
   const workBtn = document.getElementById('workBtn');
