@@ -1022,7 +1022,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (!show) { useMasterDeck = false; return; }
     const ours = document.getElementById('deckOurs');
     const theirs = document.getElementById('deckTheirs');
-    ours.textContent = isOwnMaster ? 'Колода MANI Magic' : 'Наша колода';
+    // «MANI Magic», а не «Колода MANI Magic»: на вкладку приходится ~131px, и
+    // длинная подпись при крупном системном шрифте вставала в две строки. Ряд
+    // от этого подрастал, а экран колоды не прокручивается — «Примеры работ»
+    // уезжали под панель навигации. Слово «Колода» здесь и так лишнее: рядом
+    // стоит «Моя колода», и что это выбор колоды, понятно из пары.
+    ours.textContent = isOwnMaster ? 'MANI Magic' : 'Наша колода';
     theirs.textContent = isOwnMaster ? 'Моя колода' : 'Колода мастера';
     ours.classList.toggle('on', !useMasterDeck);
     theirs.classList.toggle('on', useMasterDeck);
