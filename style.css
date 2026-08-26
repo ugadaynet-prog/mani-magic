@@ -1436,6 +1436,59 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   background: linear-gradient(135deg, #e63950, #b5203a);
   border-color: #b5203a;
 }
+
+/* Сохранить работу себе и поделиться ею. Круглые и заметно меньше «Хочу этот»:
+   та кнопка — действие для мастера и главная в этом окне, эти две личные. */
+.work-acts {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.work-act {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.work-act.liked {
+  background: linear-gradient(135deg, #e63950, #b5203a);
+  border-color: #b5203a;
+}
+
+/* Работа в избранном: подпись техники поверх фото — без неё в сетке из карт
+   и работ непонятно, что именно сохранено. */
+.fav-item.fav-work img { aspect-ratio: 1; }
+
+.fav-tag {
+  position: absolute;
+  left: 4px;
+  right: 26px;
+  bottom: 4px;
+  z-index: 1;
+  padding: 3px 6px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  pointer-events: none;
+}
 .work-want.hidden { display: none; }
 
 /* Миниатюра выбранной работы в окне «Показать мастеру» */

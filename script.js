@@ -97,6 +97,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const workCaption = document.getElementById('workCaption');
   const workDots = document.getElementById('workDots');
   const workWant = document.getElementById('workWant');
+  const workFav = document.getElementById('workFav');
+  const workShare = document.getElementById('workShare');
 
   const favBtn = document.getElementById('favBtn');
   const favCount = document.getElementById('favCount');
@@ -1262,23 +1264,43 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
 
   // --- Избранное (сохраняется в памяти телефона) ---
+  // В избранном лежат два вида записей:
+  //   число N          — карта целиком (как было раньше);
+  //   {c: N, d: M}     — конкретная работа M с карты N.
+  // Работы добавились потому, что лайкнуть можно было только карту, а работ в
+  // колоде 245: клиентка листала примеры, ей нравилась одна — и сохранить её
+  // было некуда. Кнопка «Хочу этот» не спасала: она отправляет выбор мастеру и
+  // без него ничего не делает, а при переходе к следующей карте обнуляется.
+  // Старый формат читается как есть — у тех, кто уже что-то лайкнул, ничего
+  // не пропадёт.
   const FAV_KEY = 'maniMagicFavorites';
   let favorites = [];
+  const isCardEntry = (f) => Number.isInteger(f) && f >= 0 && f < CARDS.length;
+  const isWorkEntry = (f) => f && typeof f === 'object'
+    && Number.isInteger(f.c) && f.c >= 0 && f.c < CARDS.length
+    && Number.isInteger(f.d) && f.d >= 1
+    && Array.isArray(CARDS[f.c].works) && f.d <= CARDS[f.c].works.length;
   try {
     const saved = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
     if (Array.isArray(saved)) {
-      favorites = saved.filter((i) => Number.isInteger(i) && i >= 0 && i < CARDS.length);
+      favorites = saved.filter((f) => isCardEntry(f) || isWorkEntry(f));
     }
   } catch (e) { favorites = []; }
+
+  const favWorkAt = (card, design) =>
+    favorites.findIndex((f) => isWorkEntry(f) && f.c === card && f.d === design);
 
   function saveFavorites() {
     try { localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); } catch (e) {}
   }
   function updateFavUI() {
     favCount.textContent = favorites.length;
-    likeBtn.classList.toggle('liked', favorites.indexOf(currentIndex) !== -1);
-    likeBtn.setAttribute('aria-label',
-      favorites.indexOf(currentIndex) !== -1 ? 'Убрать из избранного' : 'Добавить в избранное');
+    // Сердечко на карте отвечает только за карту: работы лайкаются своим
+    // сердечком в окне примеров, иначе непонятно, что именно снимаешь.
+    const liked = favorites.indexOf(currentIndex) !== -1;
+    likeBtn.classList.toggle('liked', liked);
+    likeBtn.setAttribute('aria-label', liked ? 'Убрать из избранного' : 'Добавить в избранное');
+    updateWorkFavUI();
   }
   function toggleFavorite() {
     if (!hasCard) return;
@@ -1289,21 +1311,50 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     updateFavUI();
   }
 
+  // Сердечко в окне примеров — состояние ИМЕННО открытой сейчас работы.
+  function updateWorkFavUI() {
+    if (!workFav) return;
+    const on = favWorkAt(currentIndex, workPos + 1) !== -1;
+    workFav.classList.toggle('liked', on);
+    workFav.textContent = on ? '♥' : '♡';
+    workFav.setAttribute('aria-label', on ? 'Убрать работу из избранного' : 'Сохранить работу');
+  }
+  function toggleWorkFavorite() {
+    if (!currentWorks.length) return;
+    const design = workPos + 1;
+    const at = favWorkAt(currentIndex, design);
+    track(at === -1 ? 'like_work' : 'unlike_work', { card: currentIndex + 1, design });
+    if (at === -1) favorites.push({ c: currentIndex, d: design });
+    else favorites.splice(at, 1);
+    saveFavorites();
+    updateFavUI();
+    toast(at === -1 ? 'Работа сохранена в избранное' : 'Работа убрана из избранного');
+  }
+
   function renderFavorites() {
     favGrid.innerHTML = '';
     favEmpty.classList.toggle('hidden', favorites.length > 0);
     shareSelBtn.classList.toggle('hidden', favorites.length === 0);
-    favorites.forEach((idx) => {
+    favorites.forEach((fav, pos) => {
+      const work = isWorkEntry(fav);
+      const card = work ? fav.c : fav;
       const item = document.createElement('div');
-      item.className = 'fav-item';
+      item.className = 'fav-item' + (work ? ' fav-work' : '');
 
       const img = document.createElement('img');
-      img.src = CARDS[idx].front;
-      img.alt = 'Карта ' + (idx + 1);
+      // У работы показываем саму работу, а не рубашку карты: клиентка сохраняла
+      // конкретный дизайн и по нему же его и ищет.
+      img.src = work ? CARDS[card].works[fav.d - 1] : CARDS[card].front;
+      img.alt = work
+        ? (CARDS[card].workLabels && CARDS[card].workLabels[fav.d - 1]) || 'Работа'
+        : 'Карта ' + (card + 1);
       img.addEventListener('click', () => {
         favOverlay.classList.add('hidden');
         drawSource = 'favorites';
-        drawCard(idx);
+        drawCard(card);
+        // Работу открываем сразу на нужном примере — иначе клиентка попадает
+        // на карту и ищет среди пяти работ ту, что сохранила.
+        if (work) setTimeout(() => { openWork(); showWork(fav.d - 1); }, 0);
       });
 
       const rm = document.createElement('button');
@@ -1312,13 +1363,20 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       rm.setAttribute('aria-label', 'Убрать из избранного');
       rm.innerHTML = '&times;';
       rm.addEventListener('click', () => {
-        const at = favorites.indexOf(idx);
-        if (at !== -1) favorites.splice(at, 1);
+        // Удаляем по позиции: одинаковых записей быть не должно, но искать
+        // объект через indexOf нельзя — он сравнивает по ссылке.
+        favorites.splice(pos, 1);
         saveFavorites();
         updateFavUI();
         renderFavorites();
       });
 
+      if (work) {
+        const tag = document.createElement('span');
+        tag.className = 'fav-tag';
+        tag.textContent = (CARDS[card].workLabels && CARDS[card].workLabels[fav.d - 1]) || 'Работа';
+        item.appendChild(tag);
+      }
       item.appendChild(img);
       item.appendChild(rm);
       favGrid.appendChild(item);
@@ -1381,6 +1439,32 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   shareBtn.addEventListener('click', (e) => { e.stopPropagation(); shareCard(); });
 
+  // Поделиться конкретной работой. Ссылка ведёт не на карту, а на этот пример:
+  // получатель открывает приложение и сразу видит то самое фото, а не ищет его
+  // среди пяти. Текст берём из подписи дизайна — «Хочу такой маникюр» одинаково
+  // звучало бы у всех 245 работ и ничего не сообщало бы получателю.
+  function shareWork() {
+    if (!currentWorks.length) return;
+    const design = workPos + 1;
+    track('share_work', { card: currentIndex + 1, design });
+    const url = shareLink('?card=' + (currentIndex + 1) + '&work=' + design);
+    const label = currentLabels[workPos] || '';
+    const payload = {
+      title: 'MANI Magic',
+      text: label ? 'Хочу такой маникюр: ' + label + ' 💅' : 'Хочу такой маникюр 💅',
+      url,
+    };
+    if (nativeShare(payload)) return;
+    if (navigator.share) { navigator.share(payload).catch(() => {}); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => toast('Ссылка на работу скопирована'))
+        .catch(() => toast(url));
+      return;
+    }
+    toast(url);
+  }
+
   // --- Подборка: несколько карт одной ссылкой (?cards=7,19,33) ---
   function plural(n, one, few, many) {
     const m10 = n % 10, m100 = n % 100;
@@ -1390,11 +1474,18 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   }
 
   function shareSelection() {
-    if (favorites.length === 0) return;
-    track('share_selection', { cards: favorites.length });
-    const nums = favorites.map((i) => i + 1).join(',');
+    // Ссылка-подборка умеет только карты (?cards=7,19,33), работы в неё не
+    // кодируются. Поэтому делимся картами из избранного, а работы пропускаем —
+    // у каждой из них своя кнопка «поделиться» в окне примеров.
+    const cards = favorites.filter(isCardEntry);
+    if (cards.length === 0) {
+      toast('В подборку идут карты. Работой можно поделиться из окна примеров');
+      return;
+    }
+    track('share_selection', { cards: cards.length });
+    const nums = cards.map((i) => i + 1).join(',');
     const url = shareLink('?cards=' + nums);
-    const n = favorites.length;
+    const n = cards.length;
     const text = 'Моя подборка: ' + n + ' ' + plural(n, 'карта', 'карты', 'карт') + ' 💅';
     const payload = { title: 'MANI Magic — подборка', text, url };
 
@@ -2254,10 +2345,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     // на случайной, и мастеру уходила она, а не та, что понравилась.
     if (workWant) {
       const chosen = pickedDesign === i + 1;
-      workWant.classList.remove('hidden');
+      // Показываем только клиентке, пришедшей по QR: без мастера отправлять
+      // выбор некому. Раньше кнопка висела всегда и вела в тупик — нажатие
+      // говорило «Выбрано», но выбор жил в памяти до следующей карты и нигде
+      // не отражался. Для «сохранить себе» рядом теперь есть сердечко.
+      workWant.classList.toggle('hidden', !masterMode() || isOwnMaster);
       workWant.classList.toggle('chosen', chosen);
       workWant.textContent = chosen ? 'Выбрано ✓' : 'Хочу этот';
     }
+    updateWorkFavUI();
     Array.prototype.forEach.call(workDots.children, (d, di) => {
       d.classList.toggle('active', di === workPos);
     });
@@ -2284,6 +2380,13 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         ? 'Выбрано. Нажмите «Показать мастеру»'
         : 'Выбрано');
     });
+  }
+
+  if (workFav) {
+    workFav.addEventListener('click', (e) => { e.stopPropagation(); toggleWorkFavorite(); });
+  }
+  if (workShare) {
+    workShare.addEventListener('click', (e) => { e.stopPropagation(); shareWork(); });
   }
 
   function openWork() {
@@ -2444,6 +2547,13 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   if (cardParam >= 1 && cardParam <= CARDS.length) {
     drawSource = 'link';
     drawCard(cardParam - 1);
+    // ?work=M — ссылка на конкретный пример, а не на карту: сразу открываем
+    // галерею на нём, иначе получатель ищет его среди пяти работ сам.
+    const workParam = parseInt(params.get('work'), 10);
+    const works = CARDS[cardParam - 1].works || [];
+    if (workParam >= 1 && workParam <= works.length) {
+      setTimeout(() => { openWork(); showWork(workParam - 1); }, 0);
+    }
   } else if (selection.length > 0) {
     // пришли по ссылке-подборке: показываем её, за ней открыта первая карта
     drawSource = 'link_selection';
