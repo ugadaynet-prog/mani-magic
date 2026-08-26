@@ -103,6 +103,7 @@
         <option value="18">Карта дня в 18:00</option>
         <option value="20">Карта дня в 20:00</option>
       </select>
+      <button id="notifyTest" class="more-item hidden" type="button">Прислать сейчас для проверки</button>
       <p id="notifyNote" class="more-note hidden"></p>
 
       <a id="moreCabinet" class="more-item hidden" href="https://api.mani-magic.ru/master/">Кабинет мастера</a>
@@ -327,6 +328,20 @@
       <input id="pickName" class="pick-input" type="text" maxlength="40" autocomplete="given-name" placeholder="Например, Марина">
       <button id="pickSend" class="pick-send" type="button">Показать мастеру</button>
       <button id="pickCancel" class="pick-cancel" type="button">Отмена</button>
+    </div>
+  </div>
+
+  <!-- Свой вопрос ПЕРЕД системным запросом разрешения. Смысл не в том, чтобы
+       спрятать системное окно, а в том, чтобы не тратить его впустую: на
+       Android отказ почти необратим, второй раз система окно не покажет. Кто
+       закрыл этот лист, системного окна не увидит вовсе — спросим позже. -->
+  <div id="notifyAsk" class="pick-sheet hidden">
+    <div class="pick-box">
+      <h3>Присылать карту дня?</h3>
+      <p class="pick-hint">Одно уведомление утром: карта дня и её фраза. Больше ничего
+        присылать не будем. Отключить — колокольчиком слева, в любой момент.</p>
+      <button id="notifyAskYes" class="pick-send" type="button">Хорошо, присылайте</button>
+      <button id="notifyAskNo" class="pick-cancel" type="button">Не сейчас</button>
     </div>
   </div>
 

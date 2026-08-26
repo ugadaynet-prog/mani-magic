@@ -2169,6 +2169,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const ID_DAY_FROM = 1000;
   const ID_IDLE = 900;
   const ID_NOCOLOR = 901;
+  const ID_TEST = 902;      // проверочное; расписание его не трогает
+  const NOTIFY_LATER_KEY = 'maniNotifyLater';
+  const ASK_AGAIN_DAYS = 3;
 
   const LN = () => (isNativeApp() && window.Capacitor.Plugins
     ? window.Capacitor.Plugins.LocalNotifications : null);
@@ -2243,23 +2246,70 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     try { await ln.schedule({ notifications: list }); } catch (e) { dbg('уведомления: ' + e.message); }
   }
 
-  // Разрешение спрашиваем ОДИН раз и не на холодном старте, а когда человек уже
-  // увидел первую карту: на Android отказ почти необратим — второй раз система
-  // окно не покажет, — а до первой карты непонятно, о чём вообще речь.
-  // На Android 12 и старше окна нет вовсе, там уведомления разрешены сразу.
+  // Спрашиваем не на холодном старте, а когда человек уже увидел первую карту:
+  // до неё непонятно, о чём вообще речь. И спрашиваем СНАЧАЛА СВОИМ листом.
+  //
+  // Это не способ спрятать системное окно — оно всё равно появится, если
+  // человек согласится. Смысл в другом: на Android отказ почти необратим,
+  // второй раз система окно не покажет. Свой лист можно закрыть без
+  // последствий и вернуться к вопросу позже — системное окно такого не
+  // прощает. На Android 12 и старше системного окна нет вовсе, уведомления
+  // там разрешены сразу, и свой лист тоже не нужен.
   async function askNotifyOnce() {
     const ln = LN();
     if (!ln || !notifyOn()) return;
-    let asked = false;
-    try { asked = localStorage.getItem(NOTIFY_ASKED_KEY) === '1'; } catch (e) {}
-    if (asked) return;
+    try { if (localStorage.getItem(NOTIFY_ASKED_KEY) === '1') return; } catch (e) {}
     try {
-      const cur = await ln.checkPermissions();
-      if (cur.display !== 'granted' && cur.display !== 'denied') await ln.requestPermissions();
+      const later = parseInt(localStorage.getItem(NOTIFY_LATER_KEY), 10);
+      if (later && Date.now() < later) return;
     } catch (e) {}
+    let cur = { display: 'prompt' };
+    try { cur = await ln.checkPermissions(); } catch (e) {}
+    if (cur.display === 'granted') {
+      // Разрешение уже есть (Android 12, обновление, перенос с телефона) —
+      // спрашивать нечего, просто ставим расписание.
+      try { localStorage.setItem(NOTIFY_ASKED_KEY, '1'); } catch (e) {}
+      await syncNotifications();
+      return;
+    }
+    if (cur.display === 'denied') {
+      // Система уже не спросит: показывать свой лист бессмысленно и обидно.
+      try { localStorage.setItem(NOTIFY_ASKED_KEY, '1'); } catch (e) {}
+      await paintNotifyUI();
+      return;
+    }
+    const sheet = document.getElementById('notifyAsk');
+    if (!sheet) { await requestSystemNotify(); return; }
+    sheet.classList.remove('hidden');
+  }
+
+  async function requestSystemNotify() {
+    const ln = LN();
+    if (!ln) return;
+    try { await ln.requestPermissions(); } catch (e) {}
     try { localStorage.setItem(NOTIFY_ASKED_KEY, '1'); } catch (e) {}
     await paintNotifyUI();
     await syncNotifications();
+  }
+
+  {
+    const sheet = document.getElementById('notifyAsk');
+    const yes = document.getElementById('notifyAskYes');
+    const no = document.getElementById('notifyAskNo');
+    if (yes) yes.addEventListener('click', async () => {
+      sheet.classList.add('hidden');
+      await requestSystemNotify();
+      if (await notifyAllowed()) toast('Карта дня будет приходить в ' + notifyHour() + ':00');
+    });
+    if (no) no.addEventListener('click', () => {
+      sheet.classList.add('hidden');
+      // Не «никогда», а «не сейчас»: системного окна мы не тратили, поэтому
+      // через несколько дней можно спросить снова. И колокольчик работает
+      // всегда — по нему запрос уходит сразу.
+      try {
+        localStorage.setItem(NOTIFY_LATER_KEY, String(Date.now() + ASK_AGAIN_DAYS * 86400000));
+      } catch (e) {}
+    });
   }
 
   const notifyBtn = document.getElementById('notifyBtn');
@@ -2275,6 +2325,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (notifyItem) notifyItem.classList.toggle('hidden', !native);
     if (notifyNote) notifyNote.classList.toggle('hidden', !native);
     if (notifyHourSel) notifyHourSel.classList.toggle('hidden', !native);
+    const test = document.getElementById('notifyTest');
+    if (test && !native) test.classList.add('hidden');
     if (!native) return;
     const on = notifyOn();
     const allowed = await notifyAllowed();
@@ -2294,6 +2346,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       notifyHourSel.value = String(notifyHour());
       notifyHourSel.classList.toggle('hidden', !on);
     }
+    if (test) test.classList.toggle('hidden', !(on && allowed));
   }
 
   async function toggleNotify() {
@@ -2312,6 +2365,29 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       : allowed ? 'Карта дня будет приходить в ' + notifyHour() + ':00'
         : 'Разрешите уведомления в настройках телефона');
   }
+
+  const notifyTest = document.getElementById('notifyTest');
+  if (notifyTest) notifyTest.addEventListener('click', async () => {
+    const ln = LN();
+    if (!ln) return;
+    if (!(await notifyAllowed())) { toast('Сначала разрешите уведомления'); return; }
+    const card = CARDS[cardOfDayIndex()];
+    try { await ln.cancel({ notifications: [{ id: ID_TEST }] }); } catch (e) {}
+    try {
+      await ln.schedule({
+        notifications: [{
+          id: ID_TEST,
+          title: 'Карта дня',
+          body: card && card.phrase ? card.phrase : 'Загляните в колоду',
+          // Пятнадцать секунд, чтобы успеть закрыть меню и увидеть уведомление
+          // так, как его увидит человек: шторкой, а не поверх открытого экрана.
+          schedule: { at: new Date(Date.now() + 15000), allowWhileIdle: true },
+          extra: { open: 'day' },
+        }],
+      });
+      toast('Придёт через 15 секунд');
+    } catch (e) { toast('Не удалось поставить проверку'); }
+  });
 
   if (notifyBtn) notifyBtn.addEventListener('click', toggleNotify);
   if (notifyItem) notifyItem.addEventListener('click', toggleNotify);
