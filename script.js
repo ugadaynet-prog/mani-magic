@@ -399,6 +399,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         // только сейчас. Без этой перерисовки мастер видел у себя выбор «наша
         // колода / колода мастера», хотя колода мастера — это его собственная:
         // initMasterMode() успевал отрисовать переключатель раньше ответа.
+        // Здесь же грузим колоду хозяина: до ответа мы не знали, что перед
+        // нами он, а клиентский путь свою колоду мастеру не отдаёт.
+        if (isOwnMaster) initOwnDeck();
         renderDeckSwitch();
         dbg('доступ: ' + plan + (isOwnMaster ? ' (мастер)' : ''));
       })
@@ -946,11 +949,34 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     syncMasterBarHeight();
   }
 
+  // Мастер пришёл из кабинета по кнопке «Моя колода» — открываем её сразу,
+  // а не заставляем искать переключатель.
+  const wantMyDeck = new URLSearchParams(location.search).get('deck') === 'my';
+
+  // Колода мастера ему самому. Профиль студии для этого не годится: он отдаёт
+  // колоду только опубликованную, а посмотреть на неё надо ДО публикации.
+  let ownDeckInited = false;
+  function initOwnDeck() {
+    if (ownDeckInited || !masterSlug) return;
+    ownDeckInited = true;
+    api('/api/m/' + encodeURIComponent(masterSlug) + '/deck?deviceId=' + encodeURIComponent(deviceId))
+      .then((r) => {
+        const abs = (u) => (/^https?:/.test(u) ? u : SERVER_URL + u);
+        masterDeck = (Array.isArray(r.deck) ? r.deck : [])
+          .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
+          .map((c) => ({ color: c.color, works: c.works.map(abs) }));
+        renderDeckSwitch();
+        if (wantMyDeck && masterDeck.length) switchDeck(true);
+      })
+      .catch((e) => dbg('своя колода: ' + e.message));
+  }
+
   let masterInited = false;   // витрину строим один раз, кто бы сюда ни зашёл
   function initMasterMode() {
     // Свою колоду мастер видит с плашкой «В кабинет» — витрина студии ему не нужна,
     // её строим только клиенту, пришедшему по QR.
-    if (!masterMode() || isOwnMaster) { refreshMasterBar(); return; }
+    if (isOwnMaster) { refreshMasterBar(); initOwnDeck(); return; }
+    if (!masterMode()) { refreshMasterBar(); return; }
     if (masterInited) return;
     masterInited = true;
     api('/api/m/' + encodeURIComponent(masterSlug))
@@ -976,16 +1002,22 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       .catch((e) => dbg('мастер: ' + e.message));
   }
 
-  // Переключатель «наша колода / колода мастера». Появляется только у клиентки
-  // по QR и только если мастер свою колоду опубликовал.
+  // Переключатель «наша колода / колода мастера». У клиентки по QR появляется,
+  // если мастер колоду опубликовал; у самого мастера — всегда, когда в колоде
+  // есть карты: это его единственный способ увидеть её глазами клиента.
+  // Подписи разные: «моя колода» у клиентки означала бы чужую.
   function renderDeckSwitch() {
     const row = document.getElementById('deckSwitch');
     if (!row) return;
-    const show = masterDeck.length > 0 && !isOwnMaster;
+    const show = masterDeck.length > 0;
     row.classList.toggle('hidden', !show);
     if (!show) { useMasterDeck = false; return; }
-    document.getElementById('deckOurs').classList.toggle('on', !useMasterDeck);
-    document.getElementById('deckTheirs').classList.toggle('on', useMasterDeck);
+    const ours = document.getElementById('deckOurs');
+    const theirs = document.getElementById('deckTheirs');
+    ours.textContent = isOwnMaster ? 'Колода MANI Magic' : 'Наша колода';
+    theirs.textContent = isOwnMaster ? 'Моя колода' : 'Колода мастера';
+    ours.classList.toggle('on', !useMasterDeck);
+    theirs.classList.toggle('on', useMasterDeck);
   }
 
   function switchDeck(toMaster) {
