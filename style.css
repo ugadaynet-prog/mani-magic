@@ -781,9 +781,16 @@ body.has-master-bar { padding-top: 52px; }
   font-weight: 600;
   cursor: pointer;
   padding: 0 6px;
-  white-space: nowrap;
+  /* Подпись переносится, а не обрезается многоточием: на вкладку приходится
+     около 128px, и «Колода MANI Magic» перестаёт помещаться уже при системном
+     шрифте ×1.16 — читалось как «Колода MAN…». Две строки при 13px занимают
+     30px и в min-height 38px укладываются, поэтому ряд не меняет высоту; при
+     очень крупном системном шрифте кнопка вырастет сама, но текст останется
+     целым. */
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: break-word;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .deck-tab.on {
   /* Запасной цвет — фирменный красный, а НЕ var(--paper). --paper это токен

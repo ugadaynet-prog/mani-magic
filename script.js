@@ -1026,6 +1026,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     theirs.textContent = isOwnMaster ? 'Моя колода' : 'Колода мастера';
     ours.classList.toggle('on', !useMasterDeck);
     theirs.classList.toggle('on', useMasterDeck);
+    fitLabel(ours);
+    fitLabel(theirs);
   }
 
   function switchDeck(toMaster) {
@@ -1948,7 +1950,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }
   }
   const catalogLabel = catalogBtn ? catalogBtn.querySelector('span') : null;
-  function fitRowLabels() { fitLabel(filterLabel); fitLabel(catalogLabel); }
+  // Вкладки колод — та же беда: «Колода MANI Magic» на 128px вкладки перестаёт
+  // помещаться при крупном системном шрифте. Перенос спасает до ×1.35, дальше
+  // нужен кегль.
+  function fitRowLabels() {
+    fitLabel(filterLabel);
+    fitLabel(catalogLabel);
+    fitLabel(document.getElementById('deckOurs'));
+    fitLabel(document.getElementById('deckTheirs'));
+  }
   window.addEventListener('resize', fitRowLabels);
   // Кнопки лежат в подвале, который на старте ещё не разложен: меряем, когда у
   // него появится размер, — иначе clientWidth нулевой и мерить нечего.
