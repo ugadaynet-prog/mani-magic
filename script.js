@@ -332,11 +332,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     let code = '';
     try { code = new URLSearchParams(location.search).get('pass') || ''; } catch (e) {}
     if (!code || !serverOn() || !deviceId) return Promise.resolve();
-    return api('/api/deck-pass/redeem', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code, deviceId: deviceId }),
-    })
+    return redeemPassCode(code)
       .then(() => dbg('пропуск мастера получен'))
       .catch((e) => dbg('пропуск: ' + e.message))
       .then(() => {
@@ -510,6 +506,22 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const MASTER_TOKEN_KEY = 'maniMasterToken';
   const getMasterToken = () => { try { return localStorage.getItem(MASTER_TOKEN_KEY) || ''; } catch (e) { return ''; } };
   const setMasterToken = (t) => { try { localStorage.setItem(MASTER_TOKEN_KEY, t); } catch (e) {} };
+
+  // Обмен одноразового кода из кабинета на пропуск устройства. Сервер отдаёт
+  // вместе с ним и сессию кабинета — сохраняем её сразу, иначе кнопка
+  // «В кабинет» уводит на второй вход по почте (см. cabinetHref).
+  // Точек входа три: код в адресе (?pass=), код, введённый руками, и код,
+  // полученный сразу после входа по почте, — сессию надо класть во всех трёх.
+  function redeemPassCode(code) {
+    return api('/api/deck-pass/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, deviceId: deviceId }),
+    }).then((r) => {
+      if (r && r.token) setMasterToken(r.token);
+      return r;
+    });
+  }
 
   const isStandalone = () =>
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -700,11 +712,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }).catch(() => null)
       .then((dp) => {
         if (!dp || !dp.code) return null;
-        return api('/api/deck-pass/redeem', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: dp.code, deviceId: deviceId }),
-        }).catch(() => null);
+        return redeemPassCode(dp.code).catch(() => null);
       })
       .then(() => refreshAccess())
       .then(() => {
@@ -756,11 +764,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       }
       if (!serverOn()) { showMasterMsg('Нет связи с сервером'); return; }
       masterBtn.disabled = true;
-      api('/api/deck-pass/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code, deviceId: deviceId }),
-      })
+      redeemPassCode(code)
         .then(() => refreshAccess())
         .then(() => {
           if (isPaid()) {
