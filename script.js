@@ -854,9 +854,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   // Ссылка «В кабинет» с передачей входа: мастер уже вошёл в приложении, и
   // просить у него почту второй раз незачем.
+  // В нативной сборке кабинет открывается в том же WebView (см. allowNavigation
+  // в capacitor.config.json) и выглядит частью приложения. Помечаем переход
+  // «?app=1», чтобы кабинет знал, куда возвращать: в браузере он уводит на
+  // веб-версию колоды, а здесь надо шагнуть назад по истории — иначе мастер
+  // из нативного приложения попадёт в его же браузерную копию.
   const cabinetHref = () => {
     const t = getMasterToken();
-    return t ? CABINET_URL + '#t=' + encodeURIComponent(t) : CABINET_URL;
+    const base = CABINET_URL + (isNativeApp() ? '?app=1' : '');
+    return t ? base + '#t=' + encodeURIComponent(t) : base;
   };
   let masterWorks = [];   // фото работ мастера — для витрины клиенту
   let masterDeck = [];    // колода мастера: [{ color, works[] }], пусто = не опубликована
