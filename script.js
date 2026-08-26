@@ -1932,9 +1932,34 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     return pool;
   }
 
+  // Подпись на кнопке должна помещаться целиком, а не обрываться многоточием.
+  // Двух строк хватает почти всегда; не хватило — ужимаем кегль. Так же, как у
+  // фразы на карте: размер шрифта на телефоне задаёт система, и один зашитый
+  // размер под все экраны и все системные масштабы не подобрать.
+  const LABEL_MIN_PX = 8.5;
+  function fitLabel(el) {
+    if (!el || !el.clientWidth) return;
+    el.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(el).fontSize) || 12;
+    const over = () => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+    while (size > LABEL_MIN_PX && over()) {
+      size -= 0.5;
+      el.style.fontSize = size + 'px';
+    }
+  }
+  const catalogLabel = catalogBtn ? catalogBtn.querySelector('span') : null;
+  function fitRowLabels() { fitLabel(filterLabel); fitLabel(catalogLabel); }
+  window.addEventListener('resize', fitRowLabels);
+  // Кнопки лежат в подвале, который на старте ещё не разложен: меряем, когда у
+  // него появится размер, — иначе clientWidth нулевой и мерить нечего.
+  if (window.ResizeObserver && filterLabel && filterLabel.parentElement) {
+    new ResizeObserver(fitRowLabels).observe(filterLabel.parentElement);
+  }
+
   function updateFilterUI() {
     filterLabel.textContent = activeFilter || 'Все цвета';
     filterBtn.classList.toggle('active', !!activeFilter);
+    fitLabel(filterLabel);
   }
 
   function renderFilter() {

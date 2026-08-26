@@ -445,17 +445,26 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
 .catalog-btn {
   font-size: 12px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Отступ задан внутреннему тексту, а не самой кнопке: у <button> отступ
-   прибавляется к доле flex поверх border-box и ломает равные ширины. */
+   прибавляется к доле flex поверх border-box и ломает равные ширины.
+   Перенос разрешён: «Все карты» и «Все цвета» — по два слова, и в одну строку
+   они не влезали, а при крупном системном шрифте телефона обрезались до
+   «Все к…». Две строки в кнопке высотой 44px помещаются свободно; если и
+   этого мало (длинные названия цветов), кегль дожимает fitLabel в script.js. */
 .filter-btn span,
 .catalog-btn span {
   display: block;
   padding: 0 6px;
-  white-space: nowrap;
+  line-height: 1.15;
+  max-height: 40px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 /* Очень узкие экраны (старые маленькие телефоны): ужимаем отступы,
