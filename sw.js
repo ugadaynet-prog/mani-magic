@@ -1,15 +1,17 @@
-const CACHE_NAME = 'mani-magic-v120';
+const CACHE_NAME = 'mani-magic-v121';
 
 const SHELL_FILES = [
   './',
   './index.html',
   './style.css',
   './script.js',
+  './mani-splash.js',
   './data.js',
   './manifest.json',
   './assets/back-bg.webp',
   './assets/qr.svg',
   './assets/logo-mani-magic.png',
+  './assets/logo-splash.png',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
 ];

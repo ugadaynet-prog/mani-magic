@@ -15,29 +15,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   });
 }
 
-// --- Заставка: показываем не меньше секунды, потом плавно убираем ---
-(function () {
-  const splash = document.getElementById('splash');
-  if (!splash) return;
-  const MIN_MS = 1800;          // держим, чтобы успеть прочитать слоган
-  const MAX_MS = 3500;          // страховка, если что-то грузится долго
-  const started = Date.now();
-  let done = false;
-
-  function hide() {
-    if (done) return;
-    done = true;
-    const wait = Math.max(0, MIN_MS - (Date.now() - started));
-    setTimeout(() => {
-      splash.classList.add('hiding');
-      setTimeout(() => { if (splash.parentNode) splash.remove(); }, 500);
-    }, wait);
-  }
-
-  if (document.readyState === 'complete') hide();
-  else window.addEventListener('load', hide);
-  setTimeout(hide, MAX_MS);
-})();
+// Заставка живёт в mani-splash.js: она сама создаёт слой, отыгрывает и
+// снимает себя. Приложение под ней грузится параллельно, ждать её не нужно.
 
 (function () {
   const cardEl = document.getElementById('card');

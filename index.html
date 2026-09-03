@@ -20,10 +20,13 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="splash" class="splash">
-    <img class="splash-logo" src="assets/logo-mani-magic.png" alt="MANI Magic">
-    <p class="splash-slogan">Не можешь выбрать цвет?<br>Тряхни колоду</p>
-  </div>
+  <!-- Заставка: капли жидкого графита стекаются в логотип, следом капля
+       разливается под слоганом и открывает его. Слой создаётся из
+       mani-splash.js и снимается сам, разметка здесь не нужна. -->
+  <script src="mani-splash.js"></script>
+  <script>
+    maniSplash({ logo: 'assets/logo-splash.png', slogan: 'b', speed: 1.8 });
+  </script>
 
   <button id="dayBtn" class="day-btn" aria-label="Карта дня">
     <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
