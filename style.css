@@ -688,7 +688,8 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  min-height: 48px;
+  padding: 6px 14px;
   color: #fff;
   background: var(--master-accent, #b5203a);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
@@ -719,7 +720,7 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
   cursor: pointer;
   font-family: inherit;
 }
-body.has-master-bar { padding-top: 52px; }
+body.has-master-bar { padding-top: 48px; }
 
 /* Выбор колоды: наша или мастера. Две вкладки в одну строку. */
 .deck-switch {
@@ -1115,12 +1116,12 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   background-size: cover;
   background-position: center;
   flex-direction: column;
-  padding: 10% 8%;
+  padding: 8% 10% 10%;
   text-align: center;
 }
 
 .back-logo {
-  width: 46%;
+  width: 42%;
   max-width: 140px;
   height: auto;
   margin-bottom: auto;
@@ -1132,7 +1133,7 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
   font-weight: 600;
-  font-size: clamp(19px, 6.4vw, 26px);
+  font-size: clamp(17px, 5.2vw, 23px);
   line-height: 1.32;
   color: #fdf6f0;
   text-shadow: 0 2px 10px rgba(0,0,0,0.55);
@@ -1145,6 +1146,8 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
      слово читалось как «елеустремленност». С width:100% абзац равен карте,
      переполнение становится видно в scrollWidth — и fitPhrase его лечит. */
   width: 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* Крайняя мера: слово шире карты даже на минимальном кегле. Ставится из

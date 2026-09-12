@@ -1,10 +1,14 @@
-const CACHE_NAME = 'mani-magic-v121';
+const CACHE_NAME = 'mani-magic-v123';
 
 const SHELL_FILES = [
   './',
   './index.html',
   './style.css',
   './script.js',
+  './experience.css',
+  './experience.js',
+  './diary-store.js',
+  './lucide.min.js',
   './mani-splash.js',
   './data.js',
   './manifest.json',

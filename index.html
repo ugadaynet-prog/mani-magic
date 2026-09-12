@@ -18,14 +18,16 @@
 <!-- Применяем сохранённую тему сразу, до отрисовки — иначе мигнёт тёмным -->
 <script>try{var t=localStorage.getItem('maniMagicTheme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="experience.css">
 </head>
 <body>
+  <header class="brand-header"><a class="brand" href="./" aria-label="MANI Magic"><img class="brand-logo" src="assets/logo-mani-magic.png" alt="MANI Magic"></a><span class="brand-mark">Твой цвет. Твоя история.</span></header>
   <!-- Заставка: капли жидкого графита стекаются в логотип, следом капля
        разливается под слоганом и открывает его. Слой создаётся из
        mani-splash.js и снимается сам, разметка здесь не нужна. -->
   <script src="mani-splash.js"></script>
   <script>
-    maniSplash({ logo: 'assets/logo-splash.png', slogan: 'b', speed: 1.8 });
+    maniSplash({ logo: 'assets/logo-splash.png', slogan: 'b', speed: 1 });
   </script>
 
   <button id="dayBtn" class="day-btn" aria-label="Карта дня">
@@ -240,7 +242,7 @@
     <button id="favClose" class="work-close" aria-label="Закрыть">&times;</button>
     <h2 class="fav-title">Понравилось</h2>
     <div id="favGrid" class="fav-grid"></div>
-    <button id="shareSelBtn" class="sel-share-btn hidden">Поделиться подборкой</button>
+    <button id="shareSelBtn" class="sel-share-btn hidden">Помоги выбрать</button>
     <p id="favEmpty" class="fav-empty hidden">Пока пусто.<br>Нажмите &#10084; на карте, которая понравилась.</p>
   </div>
 
@@ -388,7 +390,11 @@
     <button id="mwWant" class="work-want mw-want hidden" type="button">Показать мастеру</button>
   </div>
 
+  <div id="experienceRoot"></div>
+  <script src="lucide.min.js"></script>
+  <script src="diary-store.js"></script>
   <script src="data.js"></script>
   <script src="script.js"></script>
+  <script src="experience.js"></script>
 </body>
 </html>
