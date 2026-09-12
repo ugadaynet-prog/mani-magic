@@ -176,6 +176,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // ?server=https://адрес (этим же пользуемся при локальном тесте).
   const DEFAULT_SERVER_URL = 'https://api.mani-magic.ru';
   let SERVER_URL = DEFAULT_SERVER_URL;
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !window.Capacitor?.isNativePlatform?.()) SERVER_URL = location.origin;
   try {
     const s = new URLSearchParams(location.search).get('server');
     // ?server= разрешаем только для локальной проверки (localhost) или если это тот же
@@ -1240,7 +1241,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   ];
   const isOpen = (id) => {
     const el = document.getElementById(id);
-    return el && !el.classList.contains('hidden');
+    return el && (el.tagName === 'DIALOG' ? el.open : !el.classList.contains('hidden'));
   };
   const anyOpen = () => OVERLAYS.some(([id]) => isOpen(id));
   let backEntryPushed = false;   // лежит ли в истории наша запись под открытое окно
@@ -1575,7 +1576,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     toast(url);
   }
 
-  shareSelBtn.addEventListener('click', shareSelection);
+  shareSelBtn.addEventListener('click', () => {
+    if (window.ManiExperience) window.ManiExperience.choose();
+    else shareSelection();
+  });
 
   // Разбор ссылки: только существующие номера, без повторов, максимум 49
   function parseSelection(raw) {
@@ -1987,7 +1991,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         filterOverlay.classList.add('hidden');
         drawSource = 'filter';
 
-        drawCard();               // сразу показываем карту из выбранной группы
+        if (!catalogOverlay.classList.contains('hidden')) renderCatalog();
+        else drawCard();
       });
       filterList.appendChild(row);
     });
@@ -2579,6 +2584,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     });
 
     hasCard = true;
+    window.dispatchEvent(new CustomEvent('mani:card', { detail: { index: currentIndex } }));
     likeBtn.classList.remove('hidden');
     shareBtn.classList.remove('hidden');
     updateFavUI();
@@ -2596,6 +2602,22 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     setHint(isFlipped ? 'Потрясите телефон для новой карты' : 'Нажмите на карту, чтобы увидеть послание');
   }
 
+  window.ManiDeck = {
+    registerOverlay(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === 'DIALOG') OVERLAYS.unshift([id, () => el.close()]);
+      else OVERLAYS.push([id, null]);
+      overlayWatcher.observe(el, { attributes: true, attributeFilter: ['class', 'open'] });
+    },
+    get apiUrl() { return SERVER_URL; },
+    get currentIndex() { return currentIndex; },
+    get favorites() { return favorites.slice(); },
+    get cards() { return CARDS; },
+    openCard(index) { drawSource = 'diary'; drawCard(index); },
+    notify: toast,
+    shareLink,
+  };
   cardEl.addEventListener('click', flipCard);
   shakeBtn.addEventListener('click', () => { drawSource = 'button'; drawCard(); });
   backBtn.addEventListener('click', goBack);
