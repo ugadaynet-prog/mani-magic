@@ -23,7 +23,9 @@
       <div class="dialog-heading"><h2 id="diaryEditorTitle">Новый маникюр</h2>${closeButton('diaryEditor')}</div>
       <label class="photo-picker"><img id="diaryPhotoPreview" class="hidden" alt="Фото маникюра"><span id="diaryPhotoLabel">${icon('image-plus')}Добавить фото</span><input id="diaryPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"></label>
       <div class="form-row"><label>Дата<input id="diaryDate" type="date" required></label><label>Цвет<input id="diaryColor" maxlength="60" placeholder="Малиновый"></label></div>
-      <label>Карта<select id="diaryCard"><option value="">Без карты</option></select></label>
+      <label>Карта и цвет<select id="diaryCard"><option value="">Без карты</option></select>
+        <span id="diaryCardChoice" class="diary-card-choice hidden"><img id="diaryCardPreview" alt="Предпросмотр выбранной карты"><span><b id="diaryCardName"></b><small id="diaryCardPhrase"></small></span></span>
+      </label>
       <label>Заметка<textarea id="diaryNote" rows="3" maxlength="1000" placeholder="Что понравилось, какой оттенок повторить"></textarea></label>
       <label class="check-row"><input id="diaryRepeat" type="checkbox">Хочу повторить</label>
       <p id="diaryError" class="form-error" role="status"></p><button id="diarySave" type="submit" class="action-button">Сохранить в дневник</button>
@@ -137,8 +139,21 @@
   }
   const formatDate = value => new Date(value + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
   deck.cards.forEach((card, index) => {
-    $('diaryCard').append(new Option(`Карта ${index + 1} · ${(card.colors || []).join(', ')}`, index));
+    const colors = (card.colors || []).join(' / ') || 'цвет не указан';
+    $('diaryCard').append(new Option(`Карта №${String(index + 1).padStart(2, '0')} · ${colors}`, index));
   });
+  function updateDiaryCardChoice() {
+    const value = $('diaryCard').value;
+    const choice = $('diaryCardChoice');
+    if (value === '') { choice.classList.add('hidden'); return; }
+    const index = Number(value), card = deck.cards[index];
+    if (!card) { choice.classList.add('hidden'); return; }
+    $('diaryCardPreview').src = card.front;
+    $('diaryCardName').textContent = `Карта №${String(index + 1).padStart(2, '0')} · ${(card.colors || []).join(' / ') || 'цвет не указан'}`;
+    $('diaryCardPhrase').textContent = card.phrase || '';
+    choice.classList.remove('hidden');
+  }
+  $('diaryCard').addEventListener('change', updateDiaryCardChoice);
   let editing = null, photo = null, photoUrl = null, photoSequence = 0;
   let entryUrls = [], diarySequence = 0;
   function showPhoto(blob) {
@@ -158,6 +173,7 @@
     $('diaryDate').max = today();
     $('diaryColor').value = entry?.color || (card !== null ? deck.cards[card]?.colors?.[0] || '' : '');
     $('diaryCard').value = entry?.card ?? card ?? '';
+    updateDiaryCardChoice();
     $('diaryNote').value = entry?.note || '';
     $('diaryRepeat').checked = !!entry?.repeat;
     $('diaryError').textContent = '';
