@@ -75,7 +75,7 @@ button:disabled { opacity: .45; cursor: default; }
 .fav-diary:active { background:var(--accent-soft); }
 .catalog-tools { display: flex; gap: 8px; margin: -4px 0 18px; flex-wrap: wrap; }
 .catalog-tools #filterBtn, .catalog-tools #fitBtn { width: auto; min-height: 44px; border-radius: 8px; padding: 8px 14px; max-width: 100%; }
-.catalog-tools #fitBtn.active { border-color: var(--accent); color: var(--accent); }
+.catalog-tools #fitBtn.active { background: var(--surface); border: 1px solid var(--accent); color: var(--accent); }
 #fitOverlay { z-index: 80; }
 .fit-note { color: var(--muted); line-height: 1.5; margin: -8px 0 20px; }
 .fit-form { display: grid; gap: 22px; }

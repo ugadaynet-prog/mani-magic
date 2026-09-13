@@ -381,8 +381,6 @@
   // Короткие подписи только для списка на плитке. В списке загрузки, где места
   // хватает, остаются полные названия — они совпадают с фильтром в приложении.
   const SHORT = { 'Зелёные и бирюзовые': 'Зелёные', 'Нюд и бежевые': 'Нюд' };
-  const NAIL_LENGTHS = [['', 'длина?'], ['short', 'короткие'], ['medium', 'средние'], ['long', 'длинные']];
-  const NAIL_SHAPES = [['', 'форма?'], ['square', 'квадрат'], ['soft-square', 'мягкий квадрат'], ['oval', 'овал'], ['almond', 'миндаль'], ['stiletto', 'стилет']];
   const MAX_WORKS = 250;
 
   // --- Распознавание цвета работы -----------------------------------------
@@ -643,61 +641,12 @@
       const b = document.createElement('button'); b.textContent = '×'; b.title = 'Удалить';
       b.addEventListener('click', async () => { await api('/api/master/photos/' + w.id, { method: 'DELETE' }); loadWorks(true); refreshDeck(); });
 
-      // цвет прямо на плитке — чтобы разобрать по группам уже загруженное
-      const sel = document.createElement('select');
-      sel.className = 'work-color';
-      // Плитка узкая (треть ширины экрана), и длинные названия в ней обрезаются:
-      // «Нюд и бежевые» превращалось в «Нюд и бе», «без цвета» — в «без цвет».
-      // Значение оставляем полным — сервер ждёт именно его, укорачиваем подпись.
-      const none = document.createElement('option'); none.value = ''; none.textContent = 'цвет?';
-      sel.appendChild(none);
-      COLORS.forEach((c) => {
-        const o = document.createElement('option'); o.value = c;
-        o.textContent = SHORT[c] || c;
-        sel.appendChild(o);
-      });
-      sel.value = w.color || '';
+      // На миниатюре оставляем только фото и удаление: параметры разметки
+      // редактируются в альбоме, где работу можно рассмотреть крупно.
       d.classList.toggle('nocolor', !w.color);
-      sel.addEventListener('change', async () => {
-        const res = await api('/api/master/photos/' + w.id + '/color', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ color: sel.value }),
-        });
-        if (!res.ok) { toast('Не удалось сохранить цвет'); return; }
-        // Список работ в памяти держит разбор по цветам. Без этой строки он
-        // оставался прежним: сняли цвет на плитке, предупреждение и кнопка
-        // появлялись, а разбор смотрел в старые данные, работ без цвета там
-        // не находил и молча закрывался. Выглядело как «кнопка не работает»,
-        // и лечилось только перезагрузкой страницы.
-        w.color = sel.value;
-        d.classList.toggle('nocolor', !sel.value);
-        paintNoColor();
-        refreshDeck();
-      });
-
-      const makeFitSelect = (items, className, value) => {
-        const fit = document.createElement('select');
-        fit.className = 'work-fit ' + className;
-        items.forEach(([key, label]) => { const o = document.createElement('option'); o.value = key; o.textContent = label; fit.appendChild(o); });
-        fit.value = value || '';
-        fit.addEventListener('change', async () => {
-          const length = className === 'work-length' ? fit.value : (d.querySelector('.work-length')?.value || '');
-          const shape = className === 'work-shape' ? fit.value : (d.querySelector('.work-shape')?.value || '');
-          const res = await api('/api/master/photos/' + w.id + '/fit', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ length, shape }),
-          });
-          if (!res.ok) { toast('Не удалось сохранить подбор'); return; }
-          w.length = length; w.shape = shape;
-          refreshDeck();
-        });
-        return fit;
-      };
-      const lengthSel = makeFitSelect(NAIL_LENGTHS, 'work-length', w.length);
-      const shapeSel = makeFitSelect(NAIL_SHAPES, 'work-shape', w.shape);
 
       img.addEventListener('click', () => openAlbum(i));
-      d.appendChild(img); d.appendChild(b); d.appendChild(sel); d.appendChild(lengthSel); d.appendChild(shapeSel); box.appendChild(d);
+      d.appendChild(img); d.appendChild(b); box.appendChild(d);
     });
     paintNoColor();
     refreshDeck(works);
@@ -963,6 +912,19 @@
   // ничего. Мастер показывает работы клиентке и проверяет их сам — для этого
   // нужен нормальный размер. Отдельная кнопка и касание по плитке ведут сюда.
   let albumPos = 0;
+  const ALBUM_LENGTHS = [['', 'Не указана'], ['short', 'Короткие'], ['medium', 'Средние'], ['long', 'Длинные']];
+  const ALBUM_SHAPES = [['', 'Не указана'], ['square', 'Квадрат'], ['soft-square', 'Мягкий квадрат'], ['oval', 'Овал'], ['almond', 'Миндаль'], ['stiletto', 'Стилет']];
+
+  function fillAlbumSelect(id, items, value) {
+    const select = $(id);
+    select.replaceChildren();
+    items.forEach(([key, label]) => {
+      const option = document.createElement('option');
+      option.value = key; option.textContent = label;
+      select.appendChild(option);
+    });
+    select.value = value || '';
+  }
 
   function openAlbum(pos) {
     if (!lastWorks.length) { toast('Пока нет ни одной работы'); return; }
@@ -984,15 +946,58 @@
     $('albumImg').src = abs(w.url);
     $('albumCount').textContent = (albumPos + 1) + ' из ' + lastWorks.length;
     $('albumCap').textContent = w.color || 'без цвета — в колоду не попадёт';
+    fillAlbumSelect('albumColor', [['', 'Не указан'], ...COLORS.map((c) => [c, SHORT[c] || c])], w.color);
+    fillAlbumSelect('albumLength', ALBUM_LENGTHS, w.length);
+    fillAlbumSelect('albumShape', ALBUM_SHAPES, w.shape);
+    $('albumStatus').textContent = '';
     // Соседний кадр в кеш: иначе при листании белый экран на полсекунды.
     const next = lastWorks[(albumPos + 1) % lastWorks.length];
     if (next) new Image().src = abs(next.url);
+  }
+
+  async function saveAlbumMeta() {
+    const w = lastWorks[albumPos];
+    if (!w) return;
+    const color = $('albumColor').value;
+    const length = $('albumLength').value;
+    const shape = $('albumShape').value;
+    const changes = [];
+    if ((w.color || '') !== color) changes.push(['/api/master/photos/' + w.id + '/color', { color }]);
+    if ((w.length || '') !== length || (w.shape || '') !== shape) {
+      changes.push(['/api/master/photos/' + w.id + '/fit', { length, shape }]);
+    }
+    if (!changes.length) return;
+    const controls = [$('albumColor'), $('albumLength'), $('albumShape')];
+    controls.forEach((control) => { control.disabled = true; });
+    $('albumStatus').textContent = 'Сохраняем…';
+    try {
+      for (const [path, body] of changes) {
+        const res = await api(path, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('save failed');
+      }
+      w.color = color; w.length = length; w.shape = shape;
+      $('albumCap').textContent = color || 'без цвета — в колоду не попадёт';
+      paintNoColor();
+      refreshDeck();
+      $('albumStatus').textContent = 'Сохранено';
+    } catch (e) {
+      $('albumStatus').textContent = 'Не удалось сохранить';
+      toast('Не удалось сохранить параметры работы');
+    } finally {
+      controls.forEach((control) => { control.disabled = false; });
+    }
   }
 
   $('albumBtn').addEventListener('click', () => openAlbum(0));
   $('albumClose').addEventListener('click', closeAlbum);
   $('albumPrev').addEventListener('click', () => albumStep(-1));
   $('albumNext').addEventListener('click', () => albumStep(1));
+  $('albumColor').addEventListener('change', saveAlbumMeta);
+  $('albumLength').addEventListener('change', saveAlbumMeta);
+  $('albumShape').addEventListener('change', saveAlbumMeta);
   document.addEventListener('keydown', (e) => {
     if ($('album').classList.contains('hidden')) return;
     if (e.key === 'Escape') closeAlbum();

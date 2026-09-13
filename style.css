@@ -440,7 +440,7 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
   .fav-btn { padding: 0 9px; }
 }
 
-.filter-btn.active {
+.filter-btn#filterBtn.active {
   background: rgba(230, 57, 80, 0.85);
   border-color: transparent;
 }

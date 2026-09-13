@@ -88,26 +88,17 @@
   .deck-colors{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
   .deck-colors span{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--soft,#faf6f8)}
   .deck-colors b{font-weight:700}
-  /* Селект цвета лежит ВНУТРИ .work, а у той aspect-ratio:1 и overflow:hidden —
-     в потоке он оказывался целиком ниже плитки и обрезался, то есть был не
-     виден вообще. Поэтому он не в потоке, а поверх нижнего края картинки. */
-  .work-color{position:absolute;left:4px;right:4px;bottom:4px;width:auto;margin:0;
-    font-size:11px;padding:4px 5px;border:1px solid var(--line);border-radius:8px;
-    background:rgba(255,255,255,.94)}
   /* Работа без цвета не попадает в колоду, а раньше это было видно только тем,
-     кто заметил серую кнопку публикации. Теперь плитка сама просит цвет. */
+     кто заметил серую кнопку публикации. Теперь это видно по рамке и в альбоме. */
   .warnbox{background:#fff5f6;border:1px solid #f2c6cd;border-left:3px solid var(--pink-d);
     border-radius:10px;padding:11px 13px;margin:12px 0 0;font-size:13.5px;line-height:1.45}
   .warnbox b{font-weight:700}
   .warnbox button{width:auto;margin-top:9px;padding:8px 14px;font-size:13.5px}
   .work.nocolor{outline:2px solid var(--pink-d);outline-offset:-2px}
-  .work.nocolor .work-color{border-color:var(--pink-d);background:#fff5f6;font-weight:600}
   .upload-fit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
   .upload-fit-row label{display:flex;flex-direction:column;gap:5px}
   .upload-fit-row select{width:100%;padding:10px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
   .fit-cabinet-note{margin:6px 0 0}
-  .work-fit{position:absolute;left:4px;right:4px;width:auto;margin:0;padding:4px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:10px}
-  .work-length{bottom:34px}.work-shape{bottom:62px}
   .stats-colors{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
   .stats-colors i{width:30px;height:30px;border-radius:8px;display:block;border:1px solid rgba(0,0,0,.08)}
   .stats-sub{font-size:14px;font-weight:600;margin:14px 0 4px}
@@ -188,7 +179,17 @@
   .album-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;
     border:none;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:26px;line-height:1;padding:0}
   .album-prev{left:0} .album-next{right:0}
+  .album-layout{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;gap:12px}
+  .album-stage{min-height:180px}
+  .album-side{display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
   .album-cap{margin:0;text-align:center;font-size:13.5px;color:#e7e2ee;flex:0 0 auto}
+  .album-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;flex:0 0 auto}
+  .album-control{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .album-control span{font-size:11px;color:#b9b2c2}
+  .album-control select{width:100%;min-height:42px;padding:8px 9px;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:#231f2a;color:#fff;font-size:14px}
+  .album-status{margin:0;text-align:center;font-size:12px;color:#b9b2c2;min-height:16px}
+  @media(max-width:560px){.album-controls{grid-template-columns:1fr 1fr}.album-control:first-child{grid-column:1/-1}}
+  @media(min-width:720px){.album-layout{max-width:1100px;width:100%;display:grid;grid-template-columns:minmax(0,1fr) 290px;align-items:center;margin:auto;gap:24px}.album-controls{grid-template-columns:1fr}.album-stage{height:calc(100vh - 110px);min-height:300px}.album-side{gap:10px}.album-cap{font-size:15px}.album-status{text-align:left}}
   .sorter{position:fixed;inset:0;z-index:210;background:#14111a;color:#fff;
     display:flex;flex-direction:column;padding:10px 14px calc(14px + env(safe-area-inset-bottom));gap:10px}
   .sorter.hidden{display:none}
@@ -568,12 +569,22 @@
     <span id="albumCount" class="album-count"></span>
     <button id="albumClose" class="album-x" type="button" aria-label="Закрыть">&times;</button>
   </div>
-  <div id="albumStage" class="album-stage">
-    <img id="albumImg" alt="Работа">
-    <button id="albumPrev" class="album-nav album-prev" type="button" aria-label="Предыдущая">&lsaquo;</button>
-    <button id="albumNext" class="album-nav album-next" type="button" aria-label="Следующая">&rsaquo;</button>
+  <div class="album-layout">
+    <div id="albumStage" class="album-stage">
+      <img id="albumImg" alt="Работа">
+      <button id="albumPrev" class="album-nav album-prev" type="button" aria-label="Предыдущая">&lsaquo;</button>
+      <button id="albumNext" class="album-nav album-next" type="button" aria-label="Следующая">&rsaquo;</button>
+    </div>
+    <div class="album-side">
+      <p id="albumCap" class="album-cap"></p>
+      <div class="album-controls">
+        <label class="album-control"><span>Цвет</span><select id="albumColor" aria-label="Цвет"></select></label>
+        <label class="album-control"><span>Длина</span><select id="albumLength" aria-label="Длина ногтей"></select></label>
+        <label class="album-control"><span>Форма</span><select id="albumShape" aria-label="Форма ногтей"></select></label>
+      </div>
+      <p id="albumStatus" class="album-status" role="status"></p>
+    </div>
   </div>
-  <p id="albumCap" class="album-cap"></p>
 </div>
 <div id="toast" class="toast"></div>
 <!-- Колода берётся из приложения, а не дублируется здесь: одна копия данных на проект.
