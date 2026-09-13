@@ -1456,6 +1456,14 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         item.appendChild(tag);
       }
       item.appendChild(img);
+      const diary = document.createElement('button');
+      diary.type = 'button'; diary.className = 'fav-diary'; diary.textContent = 'В дневник';
+      diary.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (window.ManiDiary?.open) window.ManiDiary.open(card, work ? fav.d : null);
+        else toast('Откройте дневник и выберите карту');
+      });
+      item.appendChild(diary);
       item.appendChild(rm);
       favGrid.appendChild(item);
     });

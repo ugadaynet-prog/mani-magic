@@ -178,7 +178,7 @@
     if (blob) $('diaryPhotoPreview').src = photoUrl;
     else $('diaryPhotoPreview').removeAttribute('src');
   }
-  function editDiary(entry = null, card = null) {
+  function editDiary(entry = null, card = null, design = null) {
     editing = entry;
     photoSequence++;
     photo = entry?.photo || null;
@@ -187,7 +187,7 @@
     $('diaryDate').max = today();
     $('diaryColor').value = entry?.color || (card !== null ? deck.cards[card]?.colors?.[0] || '' : '');
     $('diaryCard').value = entry?.card ?? card ?? '';
-    updateDiaryCardChoice(entry?.design ?? '');
+    updateDiaryCardChoice(entry?.design ?? design ?? '');
     $('diaryNote').value = entry?.note || '';
     $('diaryRepeat').checked = !!entry?.repeat;
     $('diaryError').textContent = '';
@@ -197,6 +197,9 @@
   }
   $('newDiaryBtn').onclick = () => editDiary();
   resultButton.onclick = () => editDiary(null, deck.currentIndex >= 0 ? deck.currentIndex : null);
+  // Избранное вызывает эту точку входа с номером карты и, если сохранена
+  // отдельная работа, с номером дизайна. Так клиентка не ищет карту повторно.
+  window.ManiDiary = { open(card = null, design = null) { navigate('diary'); editDiary(null, card, design); } };
   $('diaryPhoto').onchange = async () => {
     const file = $('diaryPhoto').files[0];
     if (!file) return;
