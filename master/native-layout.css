@@ -1,0 +1,10 @@
+:root { --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px); --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px); }
+.wrap { padding:calc(12px + var(--sat)) max(16px,var(--sar)) calc(32px + var(--sab)) max(16px,var(--sal)); }
+.tabs { top:var(--sat); }
+.cc, .album, .sorter, .pick-photo { inset:var(--sat) var(--sar) var(--sab) var(--sal); }
+.sorter { padding-bottom:14px; }
+.toast { bottom:calc(22px + var(--sab)); }
+body::before { content:""; position:fixed; inset:0 0 auto; height:var(--sat); background:var(--bg); z-index:250; pointer-events:none; }
+.row2, .tab, .cc-top { min-width:0; }
+.cc-name { overflow-wrap:anywhere; }
+@media(max-width:360px) { .card { padding:14px; } .tab { font-size:12px; padding-inline:3px; } }

@@ -53,7 +53,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     const logo = back.querySelector('.back-logo');
     const avail = back.clientHeight
       - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
-      - (logo ? logo.getBoundingClientRect().height : 0)
+      - (logo ? logo.offsetHeight : 0)
+      - (parseFloat(cs.rowGap) || 0)
       - (parseFloat(getComputedStyle(phraseEl).marginBottom) || 0);
     if (!(avail > 0)) return;
     let size = parseFloat(getComputedStyle(phraseEl).fontSize) || 22;
@@ -210,15 +211,17 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // инициатива у страницы, поэтому промахнуться по времени невозможно.
   if (isNativeApp()) {
     document.documentElement.classList.add('native-insets');
+    // До ответа Android оставляем место под строку состояния уже на первом кадре.
+    document.documentElement.style.setProperty('--sat', '28px');
 
     const applyInsets = (tries) => {
       const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Insets;
-      if (!plugin) return;
+      if (!plugin?.get) { if (tries > 0) setTimeout(() => applyInsets(tries - 1), 150); return; }
       plugin.get().then((r) => {
         // ready:false — окно ещё не отдало размеры панелей. Отличаем это от
         // честного «панелей нет», иначе застряли бы на нулях навсегда.
-        if (!r || (!r.ready && tries > 0)) {
-          setTimeout(() => applyInsets(tries - 1), 150);
+        if (!r?.ready) {
+          if (tries > 0) setTimeout(() => applyInsets(tries - 1), 150);
           return;
         }
         const num = (v) => Math.max(0, Math.round(Number(v) || 0));
@@ -279,7 +282,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const EMAIL_KEY = 'maniMagicEmail';       // email для чека — запоминаем, чтобы не вводить каждый раз
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let accessPass = null;                    // JWT-пропуск активной подписки
-  let selectedPlanKey = 'full_year';        // какой тариф выбран в окне подписки
+  let selectedPlanKey = isNativeApp() && new URLSearchParams(location.search).get('buy') === 'pro' ? 'pro_year' : 'full_year';
 
   function api(path, opts) {
     return fetch(SERVER_URL + path, opts).then((r) => {
@@ -873,8 +876,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // веб-версию колоды, а здесь надо шагнуть назад по истории — иначе мастер
   // из нативного приложения попадёт в его же браузерную копию.
   const cabinetHref = () => {
+    // Кабинет входит в APK: не покидаем origin приложения и его хранилище.
+    if (isNativeApp()) return new URL('master/index.html', location.href).href;
     const t = getMasterToken();
-    const base = CABINET_URL + (isNativeApp() ? '?app=1' : '');
+    const base = CABINET_URL;
     return t ? base + '#t=' + encodeURIComponent(t) : base;
   };
   let masterWorks = [];   // фото работ мастера — для витрины клиенту
@@ -2535,6 +2540,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
     isFlipped = false;
     cardEl.classList.remove('flipped');
+    cardEl.parentElement.classList.remove('reading');
+    document.querySelector('.app').classList.remove('reading');
 
     cardEl.classList.remove('drawing');
     // force reflow to restart animation
@@ -2600,6 +2607,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (!hasCard || isAnimating) return;
     isFlipped = !isFlipped;
     cardEl.classList.toggle('flipped', isFlipped);
+    cardEl.parentElement.classList.toggle('reading', isFlipped);
+    document.querySelector('.app').classList.toggle('reading', isFlipped);
+    requestAnimationFrame(fitPhrase);
     setHint(isFlipped ? 'Потрясите телефон для новой карты' : 'Нажмите на карту, чтобы увидеть послание');
   }
 
@@ -2948,6 +2958,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // Прямой переход к карте по ссылке ?card=N — открыть нужную карту без тряски (для просмотра).
   // Если ссылки нет — встречаем пользователя картой дня.
   const params = new URLSearchParams(window.location.search);
+  if (isNativeApp() && params.get('buy') === 'pro') {
+    openPaywall('master_cabinet');
+    const clean = new URL(location.href); clean.searchParams.delete('buy');
+    window.history.replaceState(null, '', clean.href);
+  }
   const cardParam = parseInt(params.get('card'), 10);
   const selection = parseSelection(params.get('cards'));
   if (cardParam >= 1 && cardParam <= CARDS.length) {

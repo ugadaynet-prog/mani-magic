@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кабинет мастера — MANI Magic</title>
+<style>
+  /* Кабинет свёрстан только в светлой теме, и об этом надо сказать браузеру явно:
+     иначе при системной тёмной он вправе сам перекрасить системные контролы
+     (select, чекбоксы) — тёмный текст на нашем белом фоне превращался бы в
+     светлый на светлом. Та же болезнь, что была с невидимыми кнопками. */
+  :root{color-scheme:light;--pink:#d6336c;--pink-d:#b02455;--bg:#f6f2f4;--card:#fff;--ink:#26212a;--muted:#8a8290;--line:#eadfe4;--ok:#2f9e5f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+  .wrap{max-width:520px;margin:0 auto;padding:22px 16px 64px}
+  /* Возврат к колоде — только внутри приложения, где нет адресной строки */
+  .back-deck{display:inline-flex;align-items:center;min-height:40px;padding:0 14px 0 10px;
+    margin:0 0 10px;border:1px solid var(--line);border-radius:20px;background:#fff;
+    color:var(--ink);font-size:14px;font-weight:500;line-height:1}
+  h1{font-size:21px;margin:6px 0 2px}
+  /* Вкладки. Липкие: при трёхстах работах панель иначе уезжает вверх, и
+     вернуться к остальному кабинету можно только прокруткой обратно. */
+  .tabs{position:sticky;top:0;z-index:50;display:flex;gap:6px;margin:0 0 14px;padding:8px 0;
+    background:var(--bg)}
+  .tab{flex:1;position:relative;min-height:42px;padding:9px 6px;border:1px solid var(--line);
+    border-radius:11px;background:#fff;color:var(--muted);font-size:14px;font-weight:600}
+  .tab-on{background:linear-gradient(135deg,var(--pink),var(--pink-d));border-color:var(--pink-d);color:#fff}
+  /* Точка на вкладке «Работы»: предупреждение «без цвета» теперь лежит на
+     другой вкладке, и без метки мастер о нём не узнает вовсе. */
+  .tab-dot{position:absolute;top:6px;right:8px;width:8px;height:8px;border-radius:50%;
+    background:var(--pink-d);box-shadow:0 0 0 2px #fff}
+  .tab-on .tab-dot{background:#fff;box-shadow:0 0 0 2px var(--pink-d)}
+  .tab-dot.hidden{display:none}
+  .tab-pane.hidden{display:none}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input[type=text],input[type=tel],input[type=url],input[type=email]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--pink)}
+  /* У select цвет текста раньше не задавался вовсе и брался у браузера —
+     единственный контрол в кабинете без явного цвета. */
+  select{color:var(--ink);background:#fff}
+  /* Список цвета для загрузки не был оформлен вовсе: ширину ему давало
+     содержимое, и с длинной подписью он растягивался на всю карточку и
+     обрезал текст вбок. Теперь он всегда во всю ширину и выглядит как
+     остальные поля. */
+  #uploadColor{width:100%;padding:11px 12px;border:1px solid var(--line);
+    border-radius:10px;font-size:15px}
+  .consent-row{display:flex;align-items:flex-start;gap:8px;margin:14px 0 0;font-size:13px;line-height:1.45;color:var(--muted)}
+  .consent-row input{width:auto;margin:2px 0 0;flex-shrink:0}
+  .consent-row a{color:var(--pink)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button{font-family:inherit;cursor:pointer}
+  .btn{width:100%;padding:12px 16px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--pink),var(--pink-d));color:#fff;font-size:15px;font-weight:600}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink);font-weight:500}
+  .hidden{display:none}
+  .err{color:#c0263c;font-size:13px;margin-top:8px}
+  .note{color:var(--muted);font-size:12px;margin-top:8px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.on{background:#e7f6ee;color:var(--ok)}
+  .pill.off{background:#f3eef1;color:var(--muted)}
+  .qr{display:flex;flex-direction:column;align-items:center;gap:10px}
+  #qrBox svg{width:220px;height:220px;background:#fff;border-radius:12px;display:block}
+  .linkbox{display:flex;gap:8px;width:100%}
+  .linkbox input{flex:1;font-size:12px}
+  .works{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .work{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f3eef1}
+  .work img{width:100%;height:100%;object-fit:cover}
+  .work button{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;padding:0}
+  .picks{list-style:none;padding:0;margin:8px 0 0}
+  .picks li{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .picks li:last-child{border-bottom:none}
+  /* строка выбора: миниатюра карты + что именно выбрали + когда */
+  .pick-row{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+  .pick-row:last-child{border-bottom:none}
+  .pick-thumb{width:46px;height:69px;border-radius:8px;object-fit:cover;flex:0 0 auto;background:#f3eef1}
+  .pick-main{flex:1 1 auto;min-width:0}
+  .pick-title{font-size:14.5px;font-weight:600}
+  .pick-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .pick-dots{display:flex;gap:4px;margin-top:5px}
+  .pick-dots i{width:14px;height:14px;border-radius:4px;display:block;border:1px solid rgba(0,0,0,.08)}
+  .pick-when{font-size:12px;color:var(--muted);white-space:nowrap;align-self:flex-start}
+  .pick-name{display:inline-block;background:var(--accent,#b5203a);color:#fff;font-size:11px;
+    font-weight:700;border-radius:999px;padding:2px 8px;margin-right:6px;vertical-align:1px}
+  /* цвета колоды мастера: сколько работ в каждой группе */
+  .deck-colors{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+  .deck-colors span{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--soft,#faf6f8)}
+  .deck-colors b{font-weight:700}
+  /* Селект цвета лежит ВНУТРИ .work, а у той aspect-ratio:1 и overflow:hidden —
+     в потоке он оказывался целиком ниже плитки и обрезался, то есть был не
+     виден вообще. Поэтому он не в потоке, а поверх нижнего края картинки. */
+  .work-color{position:absolute;left:4px;right:4px;bottom:4px;width:auto;margin:0;
+    font-size:11px;padding:4px 5px;border:1px solid var(--line);border-radius:8px;
+    background:rgba(255,255,255,.94)}
+  /* Работа без цвета не попадает в колоду, а раньше это было видно только тем,
+     кто заметил серую кнопку публикации. Теперь плитка сама просит цвет. */
+  .warnbox{background:#fff5f6;border:1px solid #f2c6cd;border-left:3px solid var(--pink-d);
+    border-radius:10px;padding:11px 13px;margin:12px 0 0;font-size:13.5px;line-height:1.45}
+  .warnbox b{font-weight:700}
+  .warnbox button{width:auto;margin-top:9px;padding:8px 14px;font-size:13.5px}
+  .work.nocolor{outline:2px solid var(--pink-d);outline-offset:-2px}
+  .work.nocolor .work-color{border-color:var(--pink-d);background:#fff5f6;font-weight:600}
+  .stats-colors{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+  .stats-colors i{width:30px;height:30px;border-radius:8px;display:block;border:1px solid rgba(0,0,0,.08)}
+  .stats-sub{font-size:14px;font-weight:600;margin:14px 0 4px}
+  /* Лента долей. Отрезки на flex-grow, поэтому редкий оттенок сам становится
+     тонкой полоской у края и ничего не ломает — в отличие от круговой, где он
+     превратился бы в неразличимый лепесток. */
+  .stats-ribbon{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:10px 0 8px;
+    background:rgba(0,0,0,.06)}
+  .stats-ribbon i{display:block;height:100%;min-width:0}
+  .stats-ribbon.hidden{display:none}
+  /* Оттенок с числом под ним: один квадрат без подписи ни о чём не говорит */
+  .stats-color{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .stats-color span{font-size:12px;color:#6b6b73}
+  .pick-clickable{cursor:pointer}
+  .pick-clickable:active{opacity:.85}
+  /* Фото выбора на весь экран. Отступы снизу — под панель навигации телефона. */
+  /* touch-action: pinch-zoom — жест на этом слое НЕ считается прокруткой, иначе
+     свайп вниз тянул за собой и страницу кабинета под фото. Щипок оставляем:
+     он к прокрутке не относится и может пригодиться, чтобы разглядеть работу. */
+  .pick-photo{position:fixed;inset:0;z-index:200;background:rgba(12,10,12,.96);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;
+    touch-action:pinch-zoom;overscroll-behavior:contain}
+  /* Пока фото открыто, страница под ним не скроллится вовсе — одного
+     touch-action мало: жест может начаться и за пределами слоя. */
+  body.photo-open{overflow:hidden}
+  .pick-photo.hidden{display:none}
+  /* Разбор по цветам */
+  /* Список клиентов */
+  .clients{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .client-row{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;
+    border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;
+    color:var(--ink);font:inherit;min-height:52px}
+  .client-name{font-weight:600;font-size:15px}
+  .client-sub{font-size:12.5px;color:var(--muted)}
+  .client-when{margin-left:auto;flex:0 0 auto;font-size:12px;color:var(--muted);text-align:right}
+  .client-when b{display:block;color:var(--pink-d);font-size:12.5px}
+
+  /* Карточка клиента: отдельный экран поверх кабинета, а не окно — внутри
+     список визитов, который на телефоне листается целиком. Светлая, как весь
+     кабинет: тут форма, а не фотографии. */
+  .cc{position:fixed;inset:0;z-index:200;background:var(--bg);overflow-y:auto;
+    -webkit-overflow-scrolling:touch}
+  .cc.hidden{display:none}
+  .cc-wrap{max-width:520px;margin:0 auto;padding:14px 16px 40px}
+  .cc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .cc-back{min-height:40px;padding:0 14px 0 10px;border:1px solid var(--line);border-radius:20px;
+    background:#fff;color:var(--ink);font-size:14px;font-weight:500}
+  .cc-name{font-size:20px;font-weight:700;margin:0}
+  .visit{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+  .visit:first-child{border-top:none}
+  .visit img{width:64px;height:64px;object-fit:cover;border-radius:10px;flex:0 0 auto;
+    background:var(--bg)}
+  .visit-main{min-width:0;flex:1}
+  .visit-when{font-size:12.5px;color:var(--muted)}
+  .visit-what{font-weight:600;font-size:14.5px}
+  .visit-note{font-size:13px;color:var(--muted);white-space:pre-wrap}
+  .visit-del{margin-left:auto;flex:0 0 auto;width:30px;height:30px;border-radius:50%;
+    border:1px solid var(--line);background:#fff;color:var(--muted);font-size:15px;line-height:1;padding:0}
+  .cc-pick{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+  .cc-pick:first-child{border-top:none}
+  .cc-pick img{width:46px;height:46px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--bg)}
+  .cc-pick-t{font-size:14px}
+  .cc-pick-d{font-size:12px;color:var(--muted)}
+  .danger{background:#fff;border:1px solid #f0c9d5;color:#b02455;font-weight:500}
+
+  /* Альбом: тот же тёмный полноэкранный слой, что и разбор — фото на нём
+     читается вернее, чем на светлой карточке кабинета. */
+  .album{position:fixed;inset:0;z-index:210;background:#14111a;color:#fff;
+    display:flex;flex-direction:column;gap:10px;padding:10px 12px 14px}
+  .album.hidden{display:none}
+  .album-top{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto}
+  .album-count{font-size:13px;color:#b9b2c2}
+  .album-x{width:40px;height:40px;border:none;border-radius:50%;background:rgba(255,255,255,.12);
+    color:#fff;font-size:22px;line-height:1;padding:0}
+  .album-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center}
+  .album-stage img{max-width:100%;max-height:100%;border-radius:14px;display:block;
+    box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  .album-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;
+    border:none;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:26px;line-height:1;padding:0}
+  .album-prev{left:0} .album-next{right:0}
+  .album-cap{margin:0;text-align:center;font-size:13.5px;color:#e7e2ee;flex:0 0 auto}
+  .sorter{position:fixed;inset:0;z-index:210;background:#14111a;color:#fff;
+    display:flex;flex-direction:column;padding:10px 14px calc(14px + env(safe-area-inset-bottom));gap:10px}
+  .sorter.hidden{display:none}
+  .sorter-top{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto}
+  .sorter-count{font-size:13px;color:#b9b2c2}
+  .sorter-x{width:40px;height:40px;border:none;border-radius:50%;background:rgba(255,255,255,.12);
+    color:#fff;font-size:22px;line-height:1;padding:0}
+  /* Фото — единственный тянущийся блок: кнопки внизу не должны уезжать
+     за экран на длинных телефонах и не должны прыгать на коротких. */
+  .sorter-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center}
+  .sorter-stage img{max-width:100%;max-height:100%;border-radius:14px;display:block;cursor:crosshair;
+    touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  /* Лупа. pointer-events:none — иначе кружок перехватывал бы у фото
+     движение пальца, и увеличение застывало бы на первой точке. */
+  .sorter-loupe{position:fixed;z-index:220;width:108px;height:108px;margin:-54px 0 0 -54px;
+    border-radius:50%;overflow:visible;border:3px solid rgba(255,255,255,.9);
+    box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;background:#000}
+  .sorter-loupe.hidden{display:none}
+  .sorter-loupe canvas{width:108px;height:108px;border-radius:50%;display:block}
+  .sorter-loupe-cross{position:absolute;left:50%;top:50%;width:16px;height:16px;
+    margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,.95);border-radius:50%;
+    box-shadow:0 0 0 1px rgba(0,0,0,.5) inset,0 0 0 1px rgba(0,0,0,.5)}
+  .sorter-loupe-name{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-8px);
+    white-space:nowrap;background:rgba(0,0,0,.8);color:#fff;font-size:12.5px;font-weight:600;
+    padding:3px 9px;border-radius:999px}
+  .sorter-hint{margin:0;font-size:12.5px;color:#b9b2c2;text-align:center;flex:0 0 auto}
+  .sorter-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;flex:0 0 auto}
+  .sorter-chips.hidden{display:none}
+  .sorter-chip{padding:11px 15px;min-height:44px;border-radius:12px;border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.1);color:#fff;font-size:14.5px;font-weight:600}
+  .sorter-all .sorter-chip{font-weight:500;background:rgba(255,255,255,.05)}
+  .sorter-plain .sorter-chip{font-weight:500;background:rgba(255,255,255,.05);border-style:dashed}
+  .sorter-chip.sorter-picked{background:linear-gradient(135deg,#e63950,#b5203a);border-color:#b5203a}
+  .sorter-acts{display:flex;gap:8px;flex:0 0 auto}
+  .sorter-btn{flex:1;padding:12px;min-height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+    background:transparent;color:#d9d3e0;font-size:14px}
+  /* Содержимое отдельным слоем: его тянем за пальцем при свайпе вниз, а фон
+     остаётся на месте и гасится по мере оттягивания. */
+  .pick-photo-body{display:flex;flex-direction:column;align-items:center;gap:12px;
+    max-width:100%;will-change:transform}
+  .pick-photo img{max-width:100%;max-height:74vh;border-radius:12px;object-fit:contain}
+  .pick-photo-meta{color:#fff;text-align:center;max-width:92%}
+  .pick-photo-title{font-size:17px;font-weight:600;line-height:1.3}
+  .pick-photo-sub{font-size:14px;opacity:.75;margin-top:4px}
+  .pick-photo-hint{font-size:13px;opacity:.5;margin-top:8px}
+  .muted{color:var(--muted)}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#26212a;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .25s;z-index:9;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+<link rel="stylesheet" href="native-layout.css">
+<script src="native-layout.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <!-- Видна только когда кабинет открыт изнутри приложения: там нет ни
+       адресной строки, ни кнопки «назад» браузера, и без неё единственный
+       путь обратно — системная кнопка телефона. Ставится из cabinet.js. -->
+  <button id="backToDeck" class="back-deck hidden" type="button">&#8249;&nbsp;К колоде</button>
+  <h1>Кабинет мастера</h1>
+  <p class="sub">MANI Magic · для профессионалов</p>
+
+  <!-- ВХОД -->
+  <div id="loginView">
+    <div class="card">
+      <h2>Вход по коду</h2>
+      <div id="step1">
+        <label>Email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="email">
+        <label class="consent-row">
+          <input id="consent" type="checkbox">
+          <span>Согласен(на) на <a href="https://mani-magic.ru/privacy.html" target="_blank" rel="noopener">обработку данных</a> и получение информации о MANI Magic</span>
+        </label>
+        <button id="reqBtn" class="btn" style="margin-top:14px" disabled>Получить код</button>
+      </div>
+      <div id="step2" class="hidden">
+        <label>Код из письма</label>
+        <input id="code" type="text" inputmode="numeric" placeholder="123456" autocomplete="one-time-code">
+        <button id="verBtn" class="btn" style="margin-top:14px">Войти</button>
+        <div id="devCode" class="note"></div>
+        <button id="backBtn" class="btn btn-ghost" style="margin-top:8px">Другая почта</button>
+      </div>
+      <div id="loginErr" class="err"></div>
+    </div>
+  </div>
+
+  <!-- КАБИНЕТ -->
+  <div id="dashView" class="hidden">
+    <!-- Вкладки. Витрина работ и список выборов растут без предела (250 работ
+         — наш потолок), и в одной ленте всё, что стоит ниже них, становится
+         недостижимо: чтобы дойти до расхода по цветам, надо было промотать
+         три сотни фотографий. -->
+    <div class="tabs" role="tablist">
+      <button class="tab tab-on" data-tab="main" type="button" role="tab">Главное</button>
+      <button class="tab" data-tab="works" type="button" role="tab">Работы<span id="tabWorksDot" class="tab-dot hidden"></span></button>
+      <button class="tab" data-tab="clients" type="button" role="tab">Клиенты</button>
+    </div>
+
+    <div class="tab-pane" data-pane="main">
+    <div class="card">
+      <h2>Подписка Pro <span id="proPill" class="pill off">проверяю…</span></h2>
+      <p id="proText" class="note"></p>
+      <div id="proPhoneBox" class="hidden">
+        <label>Телефон для связи (не показывается клиентам — только для нас, по вопросам сервиса)</label>
+        <input id="proPhone" type="tel" placeholder="+7 900 000-00-00">
+      </div>
+      <button id="proBtn" class="btn hidden" style="margin-top:12px">Оформить Pro</button>
+      <div id="proErr" class="err"></div>
+      <div id="promoBox" class="hidden" style="margin-top:14px">
+        <label>Есть промокод?</label>
+        <input id="promoCode" type="text" placeholder="Код от MANI Magic" style="text-transform:uppercase">
+        <button id="promoBtn" class="btn" style="margin-top:8px">Активировать код</button>
+        <div id="promoErr" class="err"></div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="deckBox">
+      <h2>Колода</h2>
+      <p class="note" style="margin-top:0">Открыть все 49 карт на своём телефоне — показать клиенту, выбрать дизайн, посмотреть галереи.</p>
+      <button id="deckBtn" class="btn">Колода MANI Magic</button>
+      <button id="myDeckBtn" class="btn btn-ghost" style="margin-top:8px" type="button">Моя колода</button>
+      <p class="note" id="myDeckNote" style="margin-top:6px">Ваши работы, разложенные по цветам, — ровно так, как их видит клиентка. Проверить можно и до того, как включите показ.</p>
+      <div id="deckErr" class="err"></div>
+
+      <p class="note" style="margin-top:18px">Установили приложение на телефон (иконка на экране)? Откройте его и введите там код мастера — колода откроется и в приложении.</p>
+      <button id="codeBtn" class="btn btn-ghost">Показать код для приложения</button>
+      <div id="codeBox" class="hidden" style="margin-top:10px">
+        <div id="codeVal" style="font-size:26px;font-weight:700;letter-spacing:.08em;text-align:center;padding:12px;border-radius:12px;background:rgba(0,0,0,.05)"></div>
+        <p class="note" style="text-align:center;margin:8px 0 0">Действует 15 минут, вводится один раз</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Ваш QR для клиентов</h2>
+      <div class="qr">
+        <div id="qrBox"></div>
+        <p class="note" style="text-align:center;margin-top:0">Клиент наводит камеру — приложение открывается под вашу студию, а вы видите, что он выбрал. Пока у вас активен Pro, клиенту колода открыта целиком на сутки.</p>
+        <div class="linkbox">
+          <input id="qrLink" type="text" readonly>
+          <button id="copyBtn" class="btn btn-ghost" style="width:auto;padding:10px 14px">Копировать</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="pushCard">
+      <h2>Уведомления <span id="pushPill" class="pill off">выкл</span></h2>
+      <p class="note" id="pushNote">Приходит уведомление, когда клиент вытянул карту по вашему QR — даже если кабинет закрыт.</p>
+      <p id="pushOff" class="warnbox hidden">Сейчас выключены. Клиентка выберет карту — вы об этом не узнаете, пока сами не откроете кабинет.</p>
+      <div id="pushIos" class="warnbox hidden">
+        <b>На iPhone уведомления включаются в два шага.</b>
+        <ol style="margin:6px 0 0;padding-left:20px">
+          <li>В Safari нажмите «Поделиться» и выберите «На экран „Домой“».</li>
+          <li>Откройте кабинет с новой иконки и вернитесь сюда — кнопка появится.</li>
+        </ol>
+        <p style="margin:8px 0 0">Это требование Apple: в обычной вкладке Safari веб-уведомления не работают ни у кого.</p>
+      </div>
+      <button id="pushBtn" class="btn btn-ghost" style="margin-top:6px">Включить уведомления</button>
+      <!-- Проверка на месте: цепочка браузер → подписка → сервер → push-сервис
+           длинная, и до этой кнопки её нельзя было проверить, не позвав клиента. -->
+      <button id="pushTest" class="btn btn-ghost hidden" style="margin-top:6px">Проверить уведомление</button>
+    </div>
+
+    <div class="card">
+      <h2>Профиль студии</h2>
+      <label>Адрес страницы (латиница, цифры, дефис)</label>
+      <input id="slug" type="text" placeholder="anna-nails">
+      <label>Название студии</label>
+      <input id="studioName" type="text" placeholder="Анна · nail studio">
+      <div class="row2">
+        <div><label>Город</label><input id="city" type="text" placeholder="Казань"></div>
+        <div><label>Цвет бренда</label><input id="accent" type="text" placeholder="#d6336c"></div>
+      </div>
+      <div class="row2">
+        <div><label>WhatsApp</label><input id="whatsapp" type="text" placeholder="+7900..."></div>
+        <div><label>Telegram</label><input id="telegram" type="text" placeholder="@anna"></div>
+      </div>
+      <div class="row2">
+        <div><label>MAX</label><input id="max" type="text" placeholder="+7900... или @anna"></div>
+        <div><label>Instagram</label><input id="instagram" type="text" placeholder="@anna_nails" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      </div>
+      <label>Ссылка «Записаться»</label>
+      <input id="bookingUrl" type="url" placeholder="https://wa.me/7900...">
+      <button id="saveBtn" class="btn" style="margin-top:14px">Сохранить профиль</button>
+      <div id="profErr" class="err"></div>
+    </div>
+
+    </div><!-- /главное -->
+
+    <div class="tab-pane hidden" data-pane="works">
+    <div class="card">
+      <h2>Витрина работ <span id="workCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
+      <p class="note" style="margin-top:0">Грузите сразу все фото — цвет спросим после загрузки и подскажем его сами. Если пачка одноцветная, выберите цвет заранее: так быстрее. «Без цвета» — фото останется только в витрине и в колоду не попадёт.</p>
+      <label for="uploadColor">Цвет для новых фото</label>
+      <select id="uploadColor"></select>
+      <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
+      <button id="addWorkBtn" class="btn btn-ghost" style="margin-top:8px">Добавить фото работы</button>
+      <button id="albumBtn" class="btn btn-ghost hidden" style="margin-top:8px" type="button">Смотреть альбом крупно</button>
+      <p id="noColorWarn" class="warnbox hidden"></p>
+      <div id="works" class="works"></div>
+      <button id="worksMore" class="btn btn-ghost hidden" style="margin-top:10px" type="button"></button>
+    </div>
+
+    <div class="card hidden" id="deckBoxOwn">
+      <h2>Ваша колода</h2>
+      <p class="note" style="margin-top:0">Клиентка по вашему QR сможет переключиться с нашей колоды на вашу и вытянуть карту из ваших работ.</p>
+      <div id="deckColors" class="deck-colors"></div>
+      <p id="deckEmpty" class="note hidden">Пока не из чего собрать колоду — проставьте цвета работам выше.</p>
+      <label class="row" style="margin-top:12px">
+        <input id="deckPublish" type="checkbox">
+        <span>Показывать мою колоду клиентам</span>
+      </label>
+      <label class="row" style="margin-top:10px">
+        <input id="catalogOptIn" type="checkbox">
+        <span>Участвовать в общей колоде мастеров <span class="pill off" style="vertical-align:middle">готовится</span></span>
+      </label>
+      <p class="note" style="margin-top:6px">Сейчас вашу колоду видят только клиенты, пришедшие по вашей ссылке или QR. Мы готовим общий раздел, где клиент выбирает мастера из списка и смотрит его колоду. С этой галочкой вы попадёте туда сразу на запуске — пока раздела нет, она ничего не публикует. Выключить можно в любой момент.</p>
+      <div id="deckOwnErr" class="err"></div>
+      <div id="workErr" class="err"></div>
+    </div>
+
+    </div><!-- /работы -->
+
+    <div class="tab-pane hidden" data-pane="clients">
+    <!-- Сводка стоит ВЫШЕ ленты выборов. Ради неё сюда и заходят: что брать,
+         чего берут чаще. Лента — фоновое «кто что выбрал сегодня», её листают
+         глазами. Раньше порядок был обратный, и до сводки приходилось мотать
+         через полсотни строк с миниатюрами — около четырёх тысяч пикселей. -->
+    <div class="card">
+      <h2>Клиенты <span id="clientCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
+      <p class="note" style="margin-top:0">Клиентка называется при выборе карты — карточка заводится сама.
+        Внутри: что выбирала, что вы делали и когда придёт снова.</p>
+      <label for="clientSearch">Найти клиента</label>
+      <input id="clientSearch" type="text" placeholder="Имя или телефон" autocomplete="off">
+      <ul id="clientList" class="clients"></ul>
+      <p id="clientsEmpty" class="note hidden">Пока пусто. Как только клиентка назовётся при выборе карты,
+        она появится здесь сама.</p>
+      <button id="clientMore" class="btn btn-ghost hidden" style="margin-top:10px" type="button"></button>
+      <button id="clientAdd" class="btn btn-ghost" style="margin-top:8px" type="button">Добавить клиента</button>
+    </div>
+
+    <div class="card hidden" id="statsBox">
+      <h2>Что выбирают чаще</h2>
+      <p class="note" style="margin-top:0">
+        За последние 30 дней. Цифра под квадратом — сколько раз выбрали этот оттенок.
+      </p>
+
+      <!-- Только цвета. Разрез по материалам («Сахар», «Опал/космос», «Желе»)
+           убран по решению пользователя: это наша внутренняя разметка колоды, а
+           не то, чем мастер оперирует при закупке. Цвет однозначен и понятен без
+           перевода, номера карт для закупки бесполезны — их тут тоже нет. -->
+      <!-- Лента долей: одна полоса, отрезки пропорциональны числу выборов.
+           Круговую не делаем — оттенков за месяц набирается двадцать и больше,
+           и она превращается в конфетти из неразличимых лепестков; к тому же
+           углы на глаз сравнивать труднее, чем длины. -->
+      <div id="statsRibbon" class="stats-ribbon"></div>
+      <div id="statsColors" class="stats-colors"></div>
+      <p id="statsDesignShare" class="note" style="margin:6px 0 0"></p>
+    </div>
+
+    <div class="card">
+      <h2>Что выбирали клиенты</h2>
+      <ul id="picks" class="picks"></ul>
+      <button id="picksMore" class="btn btn-ghost hidden" style="margin-top:10px" type="button"></button>
+      <p id="picksEmpty" class="note hidden">Пока пусто. Когда клиент нажмёт «Показать мастеру» — выбор появится здесь.</p>
+    </div>
+
+    </div><!-- /клиенты -->
+
+    <button id="logoutBtn" class="btn btn-ghost">Выйти</button>
+  </div>
+
+  <!-- Фото выбора клиента на весь экран: по тапу на строку в «что выбрали». -->
+  <div id="pickPhoto" class="pick-photo hidden">
+    <div id="pickPhotoBody" class="pick-photo-body">
+      <img id="pickPhotoImg" alt="Выбор клиента">
+      <div class="pick-photo-meta">
+        <div id="pickPhotoTitle" class="pick-photo-title"></div>
+        <div id="pickPhotoSub" class="pick-photo-sub"></div>
+        <div class="pick-photo-hint">свайп вниз — закрыть</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Разбор работ по цветам: по одной крупно, вместо возни с крошечными
+       списками на плитках. Подсказка сверху, последнее слово за мастером. -->
+  <div id="sorter" class="sorter hidden">
+    <div class="sorter-top">
+      <span id="sorterCount" class="sorter-count"></span>
+      <button id="sorterClose" class="sorter-x" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <div class="sorter-stage">
+      <img id="sorterImg" alt="Работа">
+    </div>
+    <!-- Лупа: висит над пальцем, пока он на фото. Перекрестие в центре
+         показывает точку, из которой берётся цвет. -->
+    <div id="sorterLoupe" class="sorter-loupe hidden">
+      <canvas id="sorterLoupeCv" width="108" height="108"></canvas>
+      <span class="sorter-loupe-cross"></span>
+      <span id="sorterLoupeName" class="sorter-loupe-name"></span>
+    </div>
+    <p id="sorterHint" class="sorter-hint"></p>
+    <div id="sorterGuess" class="sorter-chips"></div>
+    <div id="sorterPlain" class="sorter-chips sorter-plain hidden"></div>
+      <div id="sorterAll" class="sorter-chips sorter-all hidden"></div>
+    <div class="sorter-acts">
+      <button id="sorterMore" class="sorter-btn" type="button">Другой цвет</button>
+      <button id="sorterSkip" class="sorter-btn" type="button">Без цвета</button>
+    </div>
+  </div>
+</div>
+<div id="clientCard" class="cc hidden">
+  <div class="cc-wrap">
+    <div class="cc-top">
+      <button id="ccBack" class="cc-back" type="button">&#8249;&nbsp;К клиентам</button>
+    </div>
+
+    <div class="card">
+      <h2 id="ccName" class="cc-name">—</h2>
+      <label for="ccNameIn">Имя</label>
+      <input id="ccNameIn" type="text" maxlength="40" autocomplete="off">
+      <label for="ccPhone">Телефон</label>
+      <input id="ccPhone" type="tel" maxlength="32" inputmode="tel" autocomplete="off"
+             placeholder="+7 912 345-67-89">
+      <p id="ccPhoneWarn" class="note hidden" style="color:var(--pink-d)"></p>
+      <label for="ccContact">Ещё связь <span class="muted">(телеграм, инстаграм — необязательно)</span></label>
+      <input id="ccContact" type="text" maxlength="80" autocomplete="off">
+      <label for="ccNext">Придёт снова</label>
+      <input id="ccNext" type="date">
+      <label for="ccNote">Заметка <span class="muted">(аллергия, форма, что просила в прошлый раз)</span></label>
+      <input id="ccNote" type="text" maxlength="300" autocomplete="off">
+      <button id="ccSave" class="btn" style="margin-top:10px" type="button">Сохранить</button>
+      <div id="ccErr" class="err"></div>
+    </div>
+
+    <div class="card">
+      <h2>Что делали <span id="ccVisitCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
+      <div id="ccVisits"></div>
+      <p id="ccVisitsEmpty" class="note">Ещё ни одного визита. Отметьте первый — дальше будет видно,
+        чем красили в прошлый раз и как это выглядело.</p>
+      <button id="ccVisitToggle" class="btn btn-ghost" style="margin-top:10px" type="button">Отметить визит</button>
+      <div id="ccVisitForm" class="hidden" style="margin-top:10px">
+        <label for="ccVisitDate">Когда</label>
+        <input id="ccVisitDate" type="date">
+        <label for="ccVisitWhat">Что делали</label>
+        <input id="ccVisitWhat" type="text" maxlength="80" placeholder="Например: гель-лак" autocomplete="off">
+        <label for="ccVisitColor">Цвет</label>
+        <select id="ccVisitColor"></select>
+        <label for="ccVisitNote">Заметка</label>
+        <input id="ccVisitNote" type="text" maxlength="300" autocomplete="off">
+        <input id="ccVisitPhoto" type="file" accept="image/*" class="hidden">
+        <button id="ccVisitPhotoBtn" class="btn btn-ghost" style="margin-top:8px" type="button">Фото результата</button>
+        <p id="ccVisitPhotoName" class="note hidden"></p>
+        <button id="ccVisitSave" class="btn" style="margin-top:8px" type="button">Сохранить визит</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Что выбирала <span id="ccPickCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
+      <div id="ccPicks"></div>
+      <p id="ccPicksEmpty" class="note">Пока ничего не выбирала по вашему QR.</p>
+    </div>
+
+    <button id="ccDelete" class="btn danger" type="button">Удалить клиента</button>
+  </div>
+</div>
+
+<div id="album" class="album hidden">
+  <div class="album-top">
+    <span id="albumCount" class="album-count"></span>
+    <button id="albumClose" class="album-x" type="button" aria-label="Закрыть">&times;</button>
+  </div>
+  <div id="albumStage" class="album-stage">
+    <img id="albumImg" alt="Работа">
+    <button id="albumPrev" class="album-nav album-prev" type="button" aria-label="Предыдущая">&lsaquo;</button>
+    <button id="albumNext" class="album-nav album-next" type="button" aria-label="Следующая">&rsaquo;</button>
+  </div>
+  <p id="albumCap" class="album-cap"></p>
+</div>
+<div id="toast" class="toast"></div>
+<!-- Колода берётся из приложения, а не дублируется здесь: одна копия данных на проект.
+     Грузится необязательно — если не подтянется, кабинет просто покажет номер карты. -->
+<script src="../data.js"></script>
+<script src="cabinet.js"></script>
+</body>
+</html>

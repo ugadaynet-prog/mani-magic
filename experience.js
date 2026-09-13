@@ -41,9 +41,9 @@
 
   const heading = document.createElement('div');
   heading.className = 'deck-heading';
-  heading.innerHTML = '<div><p class="eyebrow">АТЕЛЬЕ ЦВЕТА · КОЛОДА</p><h1>Какой цвет сегодня?</h1></div>';
-  heading.append($('dayBtn'));
-  document.querySelector('.app').prepend(heading);
+  heading.innerHTML = '<div><p class="eyebrow">АТЕЛЬЕ ЦВЕТА</p><h1>Какой цвет сегодня?</h1></div>';
+  document.querySelector('.brand-mark')?.remove();
+  document.querySelector('.brand-header').append(heading);
   const meta = document.createElement('div');
   meta.className = 'deck-meta';
   meta.innerHTML = '<span id="cardCaption"></span>';
@@ -56,7 +56,7 @@
   document.querySelector('.foot-row').append(resultButton);
   const settings = document.createElement('div');
   settings.className = 'settings-tools';
-  settings.append($('soundBtn'), $('themeBtn'), $('notifyBtn'));
+  settings.append($('dayBtn'), $('soundBtn'), $('themeBtn'), $('notifyBtn'));
   document.querySelector('.more-title').after(settings);
   settings.after($('permBtn'));
   const catalogTools = document.createElement('div');

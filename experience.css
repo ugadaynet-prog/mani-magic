@@ -2,7 +2,7 @@
   --bg: #151316; --paper: #f5f0ed; --overlay: #151316;
   --accent: #d73562; --accent-soft: #342129; --muted: #aeacb1;
   --surface: #211e22; --surface-soft: #1c1a1e; --border: #403b42;
-  --border-soft: #333438; --nav-h: 64px; --header-h: 48px;
+  --border-soft: #333438; --nav-h: 64px; --header-h: 64px;
 }
 :root[data-theme="light"] {
   --bg: #fafafa; --paper: #202125; --overlay: #fafafa;
@@ -154,7 +154,7 @@ body.has-master-bar .experience-page, body.has-master-bar #favOverlay, body.has-
 }
 @media (max-width: 360px) { .form-row { grid-template-columns: 1fr; gap: 0; } .dialog-heading h2 { font-size: 20px; } }
 @media (max-height: 740px) {
-  :root { --header-h: 48px; --nav-h: 64px; }
+  :root { --header-h: 64px; --nav-h: 64px; }
   .deck-heading { padding-top: 10px; padding-bottom: 2px; }
   .deck-heading h1 { font-size: 19px; }
   .deck-meta { min-height: 32px; }
@@ -190,3 +190,34 @@ body.has-master-bar #catalogOverlay { top: calc(var(--header-h) + var(--mb-h, 48
 .qr-btn, .more-btn { top: calc(var(--sat) + (var(--header-h) - 44px) / 2); }
 body.has-master-bar .qr-btn, body.has-master-bar .more-btn { top: calc(var(--sat) + var(--mb-h, 48px) + (var(--header-h) - 44px) / 2); }
 .deck-heading { padding-top: 8px; padding-bottom: 4px; }
+
+/* Название и вопрос занимают шапку, а действия не перекрывают оборот карты. */
+.brand-header { gap:10px; padding-left:max(14px,var(--sal)); padding-right:108px; }
+.brand-header .brand { flex:0 0 38px; }
+.brand-logo { width:38px; height:44px; }
+.brand-header .deck-heading { min-width:0; max-width:none; width:auto; padding:0; flex:1; }
+.brand-header .eyebrow { font-size:10px; line-height:1.2; margin:0 0 3px; }
+.brand-header h1 { font-size:clamp(14px,4vw,18px); line-height:1.15; margin:0; }
+.stage { padding-inline:52px; }
+.card-wrap { max-width:min(100%,360px); }
+.card-wrap .like-btn, .card-wrap .share-btn { width:44px; height:44px; top:calc(50% - 22px); border:1px solid var(--border-soft); background:var(--surface); color:var(--paper); }
+.card-wrap .share-btn { left:-50px; right:auto; }
+.card-wrap .like-btn { right:-50px; left:auto; }
+.card-wrap .like-btn.liked { color:var(--accent); }
+.deck-meta { min-height:32px; }
+.controls { gap:3px; padding-bottom:4px; }
+.controls .btn { min-height:44px; padding:8px 10px; font-size:15px; }
+.controls .foot-row { gap:6px; }
+.controls .foot-row .btn { min-height:44px; padding:6px 4px; font-size:13px; }
+.deck-switch { padding:2px; gap:2px; }
+.deck-switch button { min-height:40px; padding:6px 12px; font-size:13px; }
+#cardCaption { min-width:0; line-height:1.25; }
+.card-back { padding:12px; gap:8px; }
+.card-back .back-logo { height:36px; width:auto; max-width:80px; flex:0 0 auto; margin:0; }
+.card-back .phrase { flex:0 0 auto; margin:0; line-height:1.25; overflow-wrap:normal; }
+.card-wrap.reading { width:100%; aspect-ratio:auto; }
+@media(max-height:680px) { .app.reading { overflow-y:auto; } .app.reading .stage { flex:1 0 240px; } }
+
+/* Полноэкранные окна выше шапки мастера: иначе она перехватывает «Закрыть». */
+#qrOverlay, #filterOverlay, #selOverlay, #paywallOverlay, .work-overlay, .pick-sheet { z-index:80; }
+.experience-dialog { top:calc(var(--sat) + 12px); bottom:auto; margin:0 auto; max-height:calc(100dvh - var(--sat) - var(--sab) - 24px); }
