@@ -26,6 +26,7 @@
       <label>Карта и цвет<select id="diaryCard"><option value="">Без карты</option></select>
         <span id="diaryCardChoice" class="diary-card-choice hidden"><img id="diaryCardPreview" alt="Предпросмотр выбранной карты"><span><b id="diaryCardName"></b><small id="diaryCardPhrase"></small></span></span>
       </label>
+      <label id="diaryDesignLabel" class="hidden">Дизайн<select id="diaryDesign"><option value="">Вся карта</option></select></label>
       <label>Заметка<textarea id="diaryNote" rows="3" maxlength="1000" placeholder="Что понравилось, какой оттенок повторить"></textarea></label>
       <label class="check-row"><input id="diaryRepeat" type="checkbox">Хочу повторить</label>
       <p id="diaryError" class="form-error" role="status"></p><button id="diarySave" type="submit" class="action-button">Сохранить в дневник</button>
@@ -142,18 +143,31 @@
     const colors = (card.colors || []).join(' / ') || 'цвет не указан';
     $('diaryCard').append(new Option(`Карта №${String(index + 1).padStart(2, '0')} · ${colors}`, index));
   });
-  function updateDiaryCardChoice() {
+  function updateDiaryCardChoice(preferredDesign = '') {
     const value = $('diaryCard').value;
     const choice = $('diaryCardChoice');
-    if (value === '') { choice.classList.add('hidden'); return; }
+    const designLabel = $('diaryDesignLabel');
+    if (value === '') { choice.classList.add('hidden'); designLabel.classList.add('hidden'); return; }
     const index = Number(value), card = deck.cards[index];
-    if (!card) { choice.classList.add('hidden'); return; }
-    $('diaryCardPreview').src = card.front;
-    $('diaryCardName').textContent = `Карта №${String(index + 1).padStart(2, '0')} · ${(card.colors || []).join(' / ') || 'цвет не указан'}`;
+    if (!card) { choice.classList.add('hidden'); designLabel.classList.add('hidden'); return; }
+    const works = Array.isArray(card.works) ? card.works : [];
+    const labels = Array.isArray(card.workLabels) ? card.workLabels : [];
+    const design = preferredDesign === '' ? '' : Number(preferredDesign);
+    const designSelect = $('diaryDesign');
+    designSelect.replaceChildren(new Option('Вся карта', ''));
+    works.forEach((_, i) => designSelect.append(new Option(`Дизайн ${i + 1}${labels[i] ? ' · ' + labels[i] : ''}`, i + 1)));
+    designSelect.value = design > 0 && design <= works.length ? String(design) : '';
+    designLabel.classList.toggle('hidden', works.length === 0);
+    designSelect.disabled = works.length === 0;
+    const selectedDesign = Number(designSelect.value) || 0;
+    const image = selectedDesign ? works[selectedDesign - 1] : card.front;
+    $('diaryCardPreview').src = image;
+    $('diaryCardName').textContent = `Карта №${String(index + 1).padStart(2, '0')} · ${(card.colors || []).join(' / ') || 'цвет не указан'}${selectedDesign ? ` · Дизайн ${selectedDesign}` : ''}`;
     $('diaryCardPhrase').textContent = card.phrase || '';
     choice.classList.remove('hidden');
   }
   $('diaryCard').addEventListener('change', updateDiaryCardChoice);
+  $('diaryDesign').addEventListener('change', () => updateDiaryCardChoice($('diaryDesign').value));
   let editing = null, photo = null, photoUrl = null, photoSequence = 0;
   let entryUrls = [], diarySequence = 0;
   function showPhoto(blob) {
@@ -173,7 +187,7 @@
     $('diaryDate').max = today();
     $('diaryColor').value = entry?.color || (card !== null ? deck.cards[card]?.colors?.[0] || '' : '');
     $('diaryCard').value = entry?.card ?? card ?? '';
-    updateDiaryCardChoice();
+    updateDiaryCardChoice(entry?.design ?? '');
     $('diaryNote').value = entry?.note || '';
     $('diaryRepeat').checked = !!entry?.repeat;
     $('diaryError').textContent = '';
@@ -212,7 +226,8 @@
     $('diarySave').disabled = true;
     try {
       const card = $('diaryCard').value === '' ? null : Number($('diaryCard').value);
-      const entry = { id: editing?.id || crypto.randomUUID(), createdAt: editing?.createdAt || Date.now(), date: $('diaryDate').value, color: $('diaryColor').value.trim(), card, note: $('diaryNote').value.trim(), repeat: $('diaryRepeat').checked, photo };
+      const design = card === null || $('diaryDesign').value === '' ? null : Number($('diaryDesign').value);
+      const entry = { id: editing?.id || crypto.randomUUID(), createdAt: editing?.createdAt || Date.now(), date: $('diaryDate').value, color: $('diaryColor').value.trim(), card, design, note: $('diaryNote').value.trim(), repeat: $('diaryRepeat').checked, photo };
       await window.ManiDiaryStore.save(entry);
       $('diaryEditor').close(); navigate('diary');
       deck.notify('Сохранено в дневник');
@@ -245,7 +260,7 @@
         if (entry.note) article.append(element('p', '', entry.note));
         const actions = element('div', 'entry-actions');
         actions.append(tool('pencil', 'Редактировать маникюр', () => editDiary(entry)));
-        if (entry.card !== null && deck.cards[entry.card]) actions.append(tool('layers', `Открыть карту ${entry.card + 1}`, () => { navigate('deck'); deck.openCard(entry.card); }));
+        if (entry.card !== null && deck.cards[entry.card]) actions.append(tool('layers', `Открыть карту №${String(entry.card + 1).padStart(2, '0')}${entry.design ? ` · дизайн ${entry.design}` : ''}`, () => { navigate('deck'); deck.openCard(entry.card); }));
         actions.append(tool('image', 'Карта и результат', () => composeResult(entry)));
         actions.append(tool('trash-2', 'Удалить маникюр', async () => {
           if (!window.confirm('Удалить эту запись и фото из дневника?')) return;
@@ -280,11 +295,14 @@
       context.fillStyle = '#f5f4f3'; context.font = '52px Georgia'; context.fillText('MANI Magic', 64, 100);
       context.fillStyle = '#e95880'; context.font = '26px sans-serif'; context.fillText('МОЯ ИСТОРИЯ ЦВЕТА', 64, 154);
       if (entry.card !== null && deck.cards[entry.card]) {
-        const image = await loadImage(deck.cards[entry.card].front);
+        const card = deck.cards[entry.card];
+        const design = Number(entry.design) || 0;
+        const source = design > 0 && card.works?.[design - 1] ? card.works[design - 1] : card.front;
+        const image = await loadImage(source);
         contain(context, image, 64, 220, 340, 800);
         contain(context, photoBitmap, 444, 220, 572, 800);
         context.fillStyle = '#aeacb1'; context.font = '24px sans-serif';
-      context.fillText(`Карта ${entry.card + 1}`, 64, 1070); context.fillText('Мой маникюр', 444, 1070);
+        context.fillText(`Карта №${String(entry.card + 1).padStart(2, '0')}${design ? ` · дизайн ${design}` : ''}`, 64, 1070); context.fillText('Мой маникюр', 444, 1070);
       } else { contain(context, photoBitmap, 64, 220, 952, 860); }
       photoBitmap.close();
       context.fillStyle = '#f5f4f3';

@@ -94,6 +94,7 @@ button:disabled { opacity: .45; cursor: default; }
 .diary-card-choice span { min-width:0; display:flex; flex-direction:column; gap:4px; }
 .diary-card-choice b { font-size:13px; overflow-wrap:anywhere; }
 .diary-card-choice small { color:var(--muted); line-height:1.3; max-height:34px; overflow:hidden; }
+.experience-dialog #diaryDesignLabel { margin-top:2px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .photo-picker { position: relative; width: 100%; min-height: 140px; border: 1px dashed var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; align-items: center; justify-content: center; }
 .photo-picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
