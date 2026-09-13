@@ -52,7 +52,7 @@
   const resultButton = document.createElement('button');
   resultButton.id = 'addResultBtn';
   resultButton.className = 'btn';
-  resultButton.innerHTML = icon('camera') + 'Мой результат';
+  resultButton.innerHTML = icon('camera') + 'Мой маникюр';
   document.querySelector('.foot-row').append(resultButton);
   const settings = document.createElement('div');
   settings.className = 'settings-tools';
@@ -268,7 +268,7 @@
         contain(context, image, 64, 220, 340, 800);
         contain(context, photoBitmap, 444, 220, 572, 800);
         context.fillStyle = '#aeacb1'; context.font = '24px sans-serif';
-        context.fillText(`Карта ${entry.card + 1}`, 64, 1070); context.fillText('Мой результат', 444, 1070);
+      context.fillText(`Карта ${entry.card + 1}`, 64, 1070); context.fillText('Мой маникюр', 444, 1070);
       } else { contain(context, photoBitmap, 64, 220, 952, 860); }
       photoBitmap.close();
       context.fillStyle = '#f5f4f3';
