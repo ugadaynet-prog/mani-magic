@@ -889,6 +889,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     const bar = document.querySelector('.master-bar');
     document.documentElement.style.setProperty('--mb-h', bar ? bar.offsetHeight + 'px' : '0px');
   }
+  window.addEventListener('resize', syncMasterBarHeight);
 
   function refreshMasterBar() {
     const own = document.querySelector('.master-bar.mb-own');
