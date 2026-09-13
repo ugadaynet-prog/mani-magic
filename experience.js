@@ -64,7 +64,8 @@
   settings.after($('permBtn'));
   const catalogTools = document.createElement('div');
   catalogTools.className = 'catalog-tools';
-  catalogTools.append($('filterBtn'));
+  catalogTools.append($('filterBtn'), $('fitBtn'));
+  $('catalogFitTools')?.remove();
   $('catalogTitle').after(catalogTools);
   const pollHistory = document.createElement('section');
   pollHistory.className = 'poll-history';
@@ -74,7 +75,7 @@
   [$('soundBtn'), $('themeBtn'), $('notifyBtn'), $('moreBtn'), $('qrBtn'), $('dayBtn')].forEach(button => button.title = button.getAttribute('aria-label'));
 
   const pages = { catalog: 'catalogOverlay', favorites: 'favOverlay', diary: 'diaryOverlay', tryon: 'tryonOverlay' };
-  ['diaryOverlay', 'tryonOverlay', 'diaryEditor', 'resultDialog', 'pollDialog'].forEach(id => deck.registerOverlay(id));
+  ['diaryOverlay', 'tryonOverlay', 'diaryEditor', 'resultDialog', 'pollDialog', 'fitOverlay'].forEach(id => deck.registerOverlay(id));
   let currentPage = 'deck';
   function markPage(page) {
     currentPage = page;
@@ -97,6 +98,7 @@
       if (overlay && !overlay.classList.contains('hidden')) button.click();
     });
     $('filterOverlay').classList.add('hidden');
+    $('fitOverlay')?.classList.add('hidden');
     if (page === 'catalog') $('catalogBtn').click();
     if (page === 'favorites') { $('favBtn').click(); renderPollHistory(); }
     if (page === 'diary') { $('diaryOverlay').classList.remove('hidden'); renderDiary(); }

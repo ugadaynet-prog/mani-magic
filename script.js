@@ -129,6 +129,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const filterOverlay = document.getElementById('filterOverlay');
   const filterClose = document.getElementById('filterClose');
   const filterList = document.getElementById('filterList');
+  const fitBtn = document.getElementById('fitBtn');
+  const fitSelectionLabel = document.getElementById('fitLabel');
+  const fitOverlay = document.getElementById('fitOverlay');
+  const fitClose = document.getElementById('fitClose');
+  const fitForm = document.getElementById('fitForm');
+  const fitApply = document.getElementById('fitApply');
   const catalogBtn = document.getElementById('catalogBtn');
   const catalogOverlay = document.getElementById('catalogOverlay');
   const catalogClose = document.getElementById('catalogClose');
@@ -950,7 +956,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         const abs = (u) => (/^https?:/.test(u) ? u : SERVER_URL + u);
         masterDeck = (Array.isArray(r.deck) ? r.deck : [])
           .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
-          .map((c) => ({ color: c.color, works: c.works.map(abs) }));
+          .map((c) => ({ color: c.color, works: c.works.map(abs), workMeta: c.workMeta || [] }));
         renderDeckSwitch();
         // Напоминание про работы без цвета ставится локально, поэтому число
         // нужно здесь: сервер прислать уведомление в приложение пока не может.
@@ -978,7 +984,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         // если мастер сам её опубликовал, иначе массив пустой и выбора не будет.
         masterDeck = (Array.isArray(m.deck) ? m.deck : [])
           .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
-          .map((c) => ({ color: c.color, works: c.works.map(abs) }));
+          .map((c) => ({ color: c.color, works: c.works.map(abs), workMeta: c.workMeta || [] }));
         renderDeckSwitch();
         // Флаг мог перевернуться, пока шёл этот запрос: /api/access отвечает
         // независимо, и у мастера он ставит isOwnMaster уже после того, как мы
@@ -1187,7 +1193,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         pickPreviewImg.src = pickedWorkUrl;
         pickPreviewLabel.textContent = 'Работа из витрины студии';
       } else if (has) {
-        pickPreviewImg.src = currentWorks[pickedDesign - 1] || '';
+        const pickedViewIndex = currentWorkIndices.indexOf(pickedDesign - 1);
+        pickPreviewImg.src = currentWorks[pickedViewIndex >= 0 ? pickedViewIndex : pickedDesign - 1] || '';
         pickPreviewLabel.textContent = pickedLabel || ('Дизайн № ' + pickedDesign);
       }
     }
@@ -1335,6 +1342,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         front: SERVER_URL + d.front,
         // берём столько работ, сколько реально есть у карты (сервер отдаёт до 5)
         works: (Array.isArray(d.works) ? d.works : []).slice(0, bundleWorks).map((w) => SERVER_URL + w),
+        workMeta: Array.isArray(CARDS[index].workMeta) ? CARDS[index].workMeta : [],
       };
       serverMediaCache[index] = media;
       return media;
@@ -1392,14 +1400,14 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // Сердечко в окне примеров — состояние ИМЕННО открытой сейчас работы.
   function updateWorkFavUI() {
     if (!workFav) return;
-    const on = favWorkAt(currentIndex, workPos + 1) !== -1;
+    const on = favWorkAt(currentIndex, currentDesignNumber()) !== -1;
     workFav.classList.toggle('liked', on);
     workFav.textContent = on ? '♥' : '♡';
     workFav.setAttribute('aria-label', on ? 'Убрать работу из избранного' : 'Сохранить работу');
   }
   function toggleWorkFavorite() {
     if (!currentWorks.length) return;
-    const design = workPos + 1;
+    const design = currentDesignNumber();
     const at = favWorkAt(currentIndex, design);
     track(at === -1 ? 'like_work' : 'unlike_work', { card: currentIndex + 1, design });
     if (at === -1) favorites.push({ c: currentIndex, d: design });
@@ -1531,7 +1539,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // звучало бы у всех 245 работ и ничего не сообщало бы получателю.
   function shareWork() {
     if (!currentWorks.length) return;
-    const design = workPos + 1;
+    const design = currentDesignNumber();
     track('share_work', { card: currentIndex + 1, design });
     const url = shareLink('?card=' + (currentIndex + 1) + '&work=' + design);
     const label = currentLabels[workPos] || '';
@@ -1637,7 +1645,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   let isFlipped = false;
   let isAnimating = false;
   let currentWorks = [];
+  let currentWorkIndices = [];
   let workPos = 0;
+  function currentDesignNumber() { return (currentWorkIndices[workPos] ?? workPos) + 1; }
   let drawSource = 'shake';   // откуда пришло вытягивание: shake/button/catalog/favorites/selection/day/link/filter
 
   // --- Отладочный экран: открыть приложение со ссылкой ?debug=1 ---
@@ -1908,6 +1918,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     { name: 'Светлые',             dots: ['#f7f7ef', '#e8f5fd', '#fbe5e7'] },
   ];
   let activeFilter = null;   // null = все цвета
+  let activeFit = window.ManiFit ? window.ManiFit.read() : { length: 'any', shape: 'any' };
 
   const cardsInGroup = (g) =>
     CARDS.reduce((n, c) => n + (c.colors && c.colors.indexOf(g) !== -1 ? 1 : 0), 0);
@@ -1923,6 +1934,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       });
       if (!pool.length) pool = CARDS.map((_, i) => i);
     }
+    const fitPool = pool.filter((i) => !window.ManiFit || ManiFit.cardMatches(CARDS[i], activeFit));
+    if (fitPool.length) pool = fitPool;
     // без подписки тряска достаёт только из бесплатных карт;
     // карта дня и открытые по ссылке карты этим не ограничены — они как раз показывают, чего не хватает
     if (!isPaid()) {
@@ -1968,6 +1981,74 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     filterLabel.textContent = activeFilter || 'Все цвета';
     filterBtn.classList.toggle('active', !!activeFilter);
     fitLabel(filterLabel);
+  }
+
+  function renderFit() {
+    if (!fitForm || !window.ManiFit) return;
+    fitForm.replaceChildren();
+    const groups = [
+      ['length', 'Длина', [{ key: ManiFit.ANY, label: 'Любая' }, ...ManiFit.lengths]],
+      ['shape', 'Форма', [{ key: ManiFit.ANY, label: 'Любая' }, ...ManiFit.shapes]],
+    ];
+    groups.forEach(([kind, title, options]) => {
+      const group = document.createElement('fieldset');
+      group.className = 'fit-group';
+      const legend = document.createElement('legend');
+      legend.textContent = title;
+      group.appendChild(legend);
+      const row = document.createElement('div');
+      row.className = 'fit-options';
+      options.forEach((option) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'fit-option';
+        button.textContent = option.label;
+        button.classList.toggle('chosen', activeFit[kind] === option.key);
+        button.addEventListener('click', () => {
+          activeFit = { ...activeFit, [kind]: option.key };
+          row.querySelectorAll('.fit-option').forEach((item) => item.classList.remove('chosen'));
+          button.classList.add('chosen');
+          const status = fitForm.querySelector('.fit-selection');
+          if (status) status.textContent = 'Сейчас: ' + ManiFit.summary(activeFit);
+        });
+        row.appendChild(button);
+      });
+      group.appendChild(row);
+      fitForm.appendChild(group);
+    });
+    const note = document.createElement('p');
+    note.className = 'fit-selection';
+    note.textContent = 'Сейчас: ' + ManiFit.summary(activeFit);
+    fitForm.appendChild(note);
+  }
+
+  function updateFitUI() {
+    if (!fitSelectionLabel || !window.ManiFit) return;
+    const isDefault = activeFit.length === ManiFit.ANY && activeFit.shape === ManiFit.ANY;
+    fitSelectionLabel.textContent = isDefault ? 'Форма и длина' : ManiFit.summary(activeFit);
+    fitBtn?.classList.toggle('active', !isDefault);
+  }
+
+  if (fitBtn && fitOverlay && window.ManiFit) {
+    fitBtn.addEventListener('click', () => {
+      activeFit = { ...activeFit };
+      renderFit();
+      fitOverlay.classList.remove('hidden');
+    });
+    fitClose?.addEventListener('click', () => fitOverlay.classList.add('hidden'));
+    fitOverlay.addEventListener('click', (event) => {
+      if (event.target === fitOverlay) fitOverlay.classList.add('hidden');
+    });
+    fitApply?.addEventListener('click', () => {
+      activeFit = ManiFit.write(activeFit);
+      catalogBuilt = null;
+      track('fit_apply', { length: activeFit.length, shape: activeFit.shape });
+      updateFitUI();
+      fitOverlay.classList.add('hidden');
+      if (!catalogOverlay.classList.contains('hidden')) renderCatalog();
+      else { drawSource = 'fit'; drawCard(); }
+    });
+    updateFitUI();
   }
 
   function renderFilter() {
@@ -2021,7 +2102,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // вперемешку.
   let catalogBuilt = null;
   function renderCatalog() {
-    const key = plan + '|' + (activeFilter || 'all');
+    const key = plan + '|' + (activeFilter || 'all') + '|' + activeFit.length + '|' + activeFit.shape;
     if (catalogBuilt === key) return;
     catalogGrid.innerHTML = '';
 
@@ -2041,6 +2122,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
             return A.indexOf(activeFilter) - B.indexOf(activeFilter) || A.length - B.length || a - b;
           })
       : CARDS.map((_, i) => i);
+    const fitShown = shown.filter((i) => !window.ManiFit || ManiFit.cardMatches(CARDS[i], activeFit));
+    shown.splice(0, shown.length, ...fitShown);
 
     shown.forEach((idx) => {
       const card = CARDS[idx];
@@ -2065,6 +2148,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       item.appendChild(img);
       catalogGrid.appendChild(item);
     });
+    if (!shown.length) {
+      const empty = document.createElement('p');
+      empty.className = 'fit-empty';
+      empty.textContent = 'Для такого сочетания пока нет размеченных примеров.';
+      catalogGrid.appendChild(empty);
+    }
 
     // Заголовок называет то, что видно сейчас, иначе «Все карты» над десятью
     // красными читается как ошибка.
@@ -2473,14 +2562,27 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // колоды (у мастера их нет), а работы под ней подставляются его собственные.
   let lastMasterColor = null;
   function pickMasterIndex() {
-    const colors = masterDeck.map((c) => c.color);
+    const eligibleDeck = masterDeck.filter((group) => {
+      const indices = window.ManiFit
+        ? ManiFit.matchingIndices({ works: group.works, workMeta: group.workMeta || [] }, activeFit)
+        : group.works.map((_, i) => i);
+      return indices.length > 0;
+    });
+    const colors = eligibleDeck.map((c) => c.color);
     if (!colors.length) return null;
     // не повторяем цвет подряд, если их больше одного
     let color;
     do { color = colors[Math.floor(Math.random() * colors.length)]; }
     while (colors.length > 1 && color === lastMasterColor);
     lastMasterColor = color;
-    const ours = CARDS.map((c, i) => ((c.colors || []).includes(color) ? i : -1)).filter((i) => i >= 0);
+    const group = eligibleDeck.find((item) => item.color === color);
+    const ours = CARDS.map((c, i) => {
+      if (!(c.colors || []).includes(color)) return -1;
+      const fits = window.ManiFit
+        ? ManiFit.matchingIndices({ works: group.works, workMeta: group.workMeta || [] }, activeFit)
+        : group.works.map((_, j) => j);
+      return fits.length ? i : -1;
+    }).filter((i) => i >= 0);
     if (!ours.length) return null;
     return ours[Math.floor(Math.random() * ours.length)];
   }
@@ -2573,10 +2675,17 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       ? masterDeck.find((c) => c.color === lastMasterColor && (data.colors || []).includes(c.color))
         || masterDeck.find((c) => (data.colors || []).includes(c.color))
       : null;
-    currentWorks = own ? own.works.slice()
+    const allWorks = own ? own.works.slice()
       : (Array.isArray(data.works) ? data.works.slice() : []);
-    currentLabels = own ? own.works.map(() => 'Работа мастера')
+    const allLabels = own ? own.works.map(() => 'Работа мастера')
       : (Array.isArray(data.workLabels) ? data.workLabels : []);
+    const allMeta = own ? (Array.isArray(own.workMeta) ? own.workMeta : [])
+      : (Array.isArray(data.workMeta) ? data.workMeta : []);
+    currentWorkIndices = window.ManiFit
+      ? ManiFit.matchingIndices({ works: allWorks, workMeta: allMeta, workLabels: allLabels }, activeFit)
+      : allWorks.map((_, i) => i);
+    currentWorks = currentWorkIndices.map((i) => allWorks[i]);
+    currentLabels = currentWorkIndices.map((i) => allLabels[i] || '');
     if (currentWorks.length > 0) {
       workBtn.classList.remove('hidden');
     } else {
@@ -2592,7 +2701,15 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       p.src = media.front;
       // В колоде мастера работы под картой — его собственные, серверными их
       // подменять нельзя: иначе на платных картах снова показывались бы наши.
-      if (media.works.length && !useMasterDeck) currentWorks = media.works;
+      if (media.works.length && !useMasterDeck) {
+        const mediaMeta = Array.isArray(media.workMeta) ? media.workMeta : allMeta;
+        currentWorkIndices = window.ManiFit
+          ? ManiFit.matchingIndices({ works: media.works, workMeta: mediaMeta, workLabels: allLabels }, activeFit)
+          : media.works.map((_, i) => i);
+        currentWorks = currentWorkIndices.map((i) => media.works[i]);
+        currentLabels = currentWorkIndices.map((i) => allLabels[i] || '');
+        workBtn.classList.toggle('hidden', currentWorks.length === 0);
+      }
     });
 
     hasCard = true;
@@ -2643,12 +2760,14 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     currentWorks.forEach((_, i) => {
       const d = document.createElement('button');
       d.type = 'button';
-      d.setAttribute('aria-label', 'Дизайн ' + (i + 1));
+      d.setAttribute('aria-label', 'Дизайн ' + currentDesignNumberFor(i));
       if (i === workPos) d.classList.add('active');
       d.addEventListener('click', () => showWork(i));
       workDots.appendChild(d);
     });
   }
+
+  function currentDesignNumberFor(index) { return (currentWorkIndices[index] ?? index) + 1; }
 
   // --- Зум фото: щипок двумя пальцами, двойной тап, перетаскивание ---
   const workStage = document.querySelector('.work-stage');
@@ -2764,9 +2883,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     workPos = i;
     resetZoom();
     workImg.src = currentWorks[i];
-    const label = currentLabels[i] || ('Дизайн ' + (i + 1));
+    const label = currentLabels[i] || ('Дизайн ' + currentDesignNumberFor(i));
     workCaption.innerHTML = label +
-      '<span class="work-counter">' + (i + 1) + ' / ' + currentWorks.length + '</span>';
+      '<span class="work-counter">' + currentDesignNumberFor(i) + ' · ' + (i + 1) + ' / ' + currentWorks.length + '</span>';
     workPrev.disabled = (i === 0);
     workNext.disabled = (i === currentWorks.length - 1);
     // Раньше здесь стояло likedDesign = i + 1 — то есть выбором считалось просто
@@ -2794,7 +2913,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   if (workWant) {
     workWant.addEventListener('click', (e) => {
       e.stopPropagation();
-      pickedDesign = workPos + 1;
+      pickedDesign = currentDesignNumber();
       pickedLabel = currentLabels[workPos] || '';
       pickedWorkUrl = '';        // выбор из колоды, а не из витрины мастера
       closeWork();

@@ -257,11 +257,24 @@
   <div id="catalogOverlay" class="fav-overlay hidden">
     <button id="catalogClose" class="work-close" aria-label="Закрыть">&times;</button>
     <h2 id="catalogTitle" class="fav-title">Все карты</h2>
+    <div id="catalogFitTools" class="catalog-fit-tools">
+      <button id="fitBtn" class="filter-btn" type="button" aria-label="Подбор по длине и форме">
+        <span id="fitLabel">Форма и длина</span>
+      </button>
+    </div>
     <button id="lockBanner" class="lock-banner hidden">
       <span id="lockBannerText">Открыто 15 из 49 карт</span>
       <span class="lock-banner-cta">Открыть все</span>
     </button>
     <div id="catalogGrid" class="fav-grid"></div>
+  </div>
+
+  <div id="fitOverlay" class="fav-overlay hidden">
+    <button id="fitClose" class="work-close" aria-label="Закрыть">&times;</button>
+    <h2 class="fav-title">Подбор под ногти</h2>
+    <p class="fit-note">Выберите длину и форму, чтобы увидеть подходящие примеры. Для встроенной колоды подбор ориентировочный, а метки мастера точнее.</p>
+    <div id="fitForm" class="fit-form"></div>
+    <button id="fitApply" class="sel-share-btn" type="button">Показать варианты</button>
   </div>
 
   <div id="paywallOverlay" class="fav-overlay hidden">
@@ -393,6 +406,7 @@
   <div id="experienceRoot"></div>
   <script src="lucide.min.js"></script>
   <script src="diary-store.js"></script>
+  <script src="fit.js"></script>
   <script src="data.js"></script>
   <script src="script.js"></script>
   <script src="experience.js"></script>

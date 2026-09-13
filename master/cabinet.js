@@ -381,6 +381,8 @@
   // Короткие подписи только для списка на плитке. В списке загрузки, где места
   // хватает, остаются полные названия — они совпадают с фильтром в приложении.
   const SHORT = { 'Зелёные и бирюзовые': 'Зелёные', 'Нюд и бежевые': 'Нюд' };
+  const NAIL_LENGTHS = [['', 'длина?'], ['short', 'короткие'], ['medium', 'средние'], ['long', 'длинные']];
+  const NAIL_SHAPES = [['', 'форма?'], ['square', 'квадрат'], ['soft-square', 'мягкий квадрат'], ['oval', 'овал'], ['almond', 'миндаль'], ['stiletto', 'стилет']];
   const MAX_WORKS = 250;
 
   // --- Распознавание цвета работы -----------------------------------------
@@ -590,7 +592,11 @@
       $('addWorkBtn').textContent = 'Загружаю ' + (done + 1) + ' из ' + files.length + '…';
       const { blob, type } = await compress(f);
       // цвет — параметром адреса: в заголовки кириллицу класть нельзя
-      const path = '/api/master/photos' + (color ? '?color=' + encodeURIComponent(color) : '');
+      const params = new URLSearchParams();
+      if (color) params.set('color', color);
+      if ($('uploadLength').value) params.set('length', $('uploadLength').value);
+      if ($('uploadShape').value) params.set('shape', $('uploadShape').value);
+      const path = '/api/master/photos' + (params.toString() ? '?' + params.toString() : '');
       const r = await api(path, { method: 'POST', headers: { 'Content-Type': type || 'image/jpeg' }, body: blob });
       if (r.status === 415) { err = 'Одно из фото — не картинка (нужен jpg, png или webp)'; break; }
       if (r.status === 409) { err = 'Достигнут предел — ' + MAX_WORKS + ' работ'; break; }
@@ -669,8 +675,29 @@
         refreshDeck();
       });
 
+      const makeFitSelect = (items, className, value) => {
+        const fit = document.createElement('select');
+        fit.className = 'work-fit ' + className;
+        items.forEach(([key, label]) => { const o = document.createElement('option'); o.value = key; o.textContent = label; fit.appendChild(o); });
+        fit.value = value || '';
+        fit.addEventListener('change', async () => {
+          const length = className === 'work-length' ? fit.value : (d.querySelector('.work-length')?.value || '');
+          const shape = className === 'work-shape' ? fit.value : (d.querySelector('.work-shape')?.value || '');
+          const res = await api('/api/master/photos/' + w.id + '/fit', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ length, shape }),
+          });
+          if (!res.ok) { toast('Не удалось сохранить подбор'); return; }
+          w.length = length; w.shape = shape;
+          refreshDeck();
+        });
+        return fit;
+      };
+      const lengthSel = makeFitSelect(NAIL_LENGTHS, 'work-length', w.length);
+      const shapeSel = makeFitSelect(NAIL_SHAPES, 'work-shape', w.shape);
+
       img.addEventListener('click', () => openAlbum(i));
-      d.appendChild(img); d.appendChild(b); d.appendChild(sel); box.appendChild(d);
+      d.appendChild(img); d.appendChild(b); d.appendChild(sel); d.appendChild(lengthSel); d.appendChild(shapeSel); box.appendChild(d);
     });
     paintNoColor();
     refreshDeck(works);

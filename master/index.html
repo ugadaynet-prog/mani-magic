@@ -102,6 +102,12 @@
   .warnbox button{width:auto;margin-top:9px;padding:8px 14px;font-size:13.5px}
   .work.nocolor{outline:2px solid var(--pink-d);outline-offset:-2px}
   .work.nocolor .work-color{border-color:var(--pink-d);background:#fff5f6;font-weight:600}
+  .upload-fit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .upload-fit-row label{display:flex;flex-direction:column;gap:5px}
+  .upload-fit-row select{width:100%;padding:10px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  .fit-cabinet-note{margin:6px 0 0}
+  .work-fit{position:absolute;left:4px;right:4px;width:auto;margin:0;padding:4px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-size:10px}
+  .work-length{bottom:34px}.work-shape{bottom:62px}
   .stats-colors{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
   .stats-colors i{width:30px;height:30px;border-radius:8px;display:block;border:1px solid rgba(0,0,0,.08)}
   .stats-sub{font-size:14px;font-weight:600;margin:14px 0 4px}
@@ -376,6 +382,15 @@
       <p class="note" style="margin-top:0">Грузите сразу все фото — цвет спросим после загрузки и подскажем его сами. Если пачка одноцветная, выберите цвет заранее: так быстрее. «Без цвета» — фото останется только в витрине и в колоду не попадёт.</p>
       <label for="uploadColor">Цвет для новых фото</label>
       <select id="uploadColor"></select>
+      <div class="upload-fit-row">
+        <label for="uploadLength">Длина ногтей
+          <select id="uploadLength"><option value="">Не указывать</option><option value="short">Короткие</option><option value="medium">Средние</option><option value="long">Длинные</option></select>
+        </label>
+        <label for="uploadShape">Форма ногтей
+          <select id="uploadShape"><option value="">Не указывать</option><option value="square">Квадрат</option><option value="soft-square">Мягкий квадрат</option><option value="oval">Овал</option><option value="almond">Миндаль</option><option value="stiletto">Стилет</option></select>
+        </label>
+      </div>
+      <p class="note fit-cabinet-note">Эти метки помогают клиентке найти подходящие примеры. Их можно проставить и позже.</p>
       <input id="fileInput" type="file" accept="image/*" multiple class="hidden">
       <button id="addWorkBtn" class="btn btn-ghost" style="margin-top:8px">Добавить фото работы</button>
       <button id="albumBtn" class="btn btn-ghost hidden" style="margin-top:8px" type="button">Смотреть альбом крупно</button>
