@@ -899,7 +899,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   function refreshMasterBar() {
     const own = document.querySelector('.master-bar.mb-own');
     if (isOwnMaster) {
-      if (!own) {
+      if (!own || !document.querySelector('.cabinet-corner')) {
         // витрину студии (её строит клиентский путь) при этом не трогаем
         const other = document.querySelector('.master-bar');
         if (other) other.remove();
@@ -913,29 +913,25 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       document.body.classList.remove('has-master-bar');
       syncMasterBarHeight();
     }
+    document.querySelector('.cabinet-corner')?.remove();
+    document.body.classList.remove('is-own-master');
   }
 
   // У мастера может быть ещё не задан адрес студии — плашку клиента тогда
   // не построить, но выход в кабинет нужен в любом случае.
   function renderOwnMasterBar() {
-    const bar = document.createElement('div');
-    bar.className = 'master-bar mb-own';
-    const info = document.createElement('div');
-    info.className = 'mb-info';
-    const name = document.createElement('span');
-    name.className = 'mb-name';
-    name.textContent = 'Ваша колода';
-    info.appendChild(name);
-    const actions = document.createElement('div');
-    actions.className = 'mb-actions';
+    // Старую плашку удаляем, чтобы после возвращения из кабинета не оставался
+    // красный ряд с «Ваша колода», закрывающий заголовок «Ателье цвета».
+    document.querySelector('.master-bar.mb-own')?.remove();
+    document.querySelector('.cabinet-corner')?.remove();
+    document.body.classList.remove('has-master-bar');
+
     const back = document.createElement('a');
-    back.className = 'mb-back';
+    back.className = 'cabinet-corner';
     back.href = cabinetHref();
     back.textContent = 'В кабинет';
-    actions.appendChild(back);
-    bar.appendChild(info); bar.appendChild(actions);
-    document.body.appendChild(bar);
-    document.body.classList.add('has-master-bar');
+    document.querySelector('.brand-header')?.appendChild(back);
+    document.body.classList.add('is-own-master');
     syncMasterBarHeight();
   }
 

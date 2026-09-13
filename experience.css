@@ -215,9 +215,24 @@ body.has-master-bar .qr-btn, body.has-master-bar .more-btn { top: calc(var(--sat
 .card-back { padding:12px; gap:8px; }
 .card-back .back-logo { height:36px; width:auto; max-width:80px; flex:0 0 auto; margin:0; }
 .card-back .phrase { flex:0 0 auto; margin:0; line-height:1.25; overflow-wrap:normal; }
-.card-wrap.reading { width:100%; aspect-ratio:auto; }
+/* При перевороте сохраняем тот же габарит, что и у лицевой стороны.
+   width:100% здесь растягивал оборот на всю сцену и визуально увеличивал карту. */
+.card-wrap.reading { width:auto; aspect-ratio:70 / 120; max-width:min(86vw,360px); }
 @media(max-height:680px) { .app.reading { overflow-y:auto; } .app.reading .stage { flex:1 0 240px; } }
 
 /* Полноэкранные окна выше шапки мастера: иначе она перехватывает «Закрыть». */
 #qrOverlay, #filterOverlay, #selOverlay, #paywallOverlay, .work-overlay, .pick-sheet { z-index:80; }
 .experience-dialog { top:calc(var(--sat) + 12px); bottom:auto; margin:0 auto; max-height:calc(100dvh - var(--sat) - var(--sab) - 24px); }
+
+/* У мастера нет отдельной красной плашки: вход в кабинет живёт в правом
+   верхнем углу общей шапки. Оставляем место под кнопку и переносим QR/«Ещё»
+   на нижнюю строку шапки, чтобы ни один элемент не перекрывал заголовок. */
+body.is-own-master { --header-h: 88px; }
+.cabinet-corner { position:absolute; top:6px; right:max(14px,var(--sar)); z-index:2;
+  display:inline-flex; align-items:center; justify-content:center; min-height:34px;
+  padding:6px 14px; border-radius:999px; background:var(--accent); color:#fff;
+  font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap; }
+body.is-own-master .qr-btn, body.is-own-master .more-btn {
+  top:calc(var(--sat) + 48px);
+}
+body.is-own-master .brand-header { padding-right:108px; }
