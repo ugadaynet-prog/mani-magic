@@ -681,8 +681,8 @@
   // бы работать без единой ошибки в консоли.
   let lastWorks = [];
 
-  function openSorter(works) {
-    sortQueue = works.filter((w) => !w.color);
+  function openSorter(works, includeColored) {
+    sortQueue = includeColored ? works.filter(Boolean) : works.filter((w) => !w.color);
     if (!sortQueue.length) return;
     sortPos = 0;
     $('sorter').classList.remove('hidden');
@@ -998,6 +998,12 @@
   $('albumColor').addEventListener('change', saveAlbumMeta);
   $('albumLength').addEventListener('change', saveAlbumMeta);
   $('albumShape').addEventListener('change', saveAlbumMeta);
+  $('albumSuggest').addEventListener('click', () => {
+    const w = lastWorks[albumPos];
+    if (!w) return;
+    closeAlbum();
+    openSorter([w], true);
+  });
   document.addEventListener('keydown', (e) => {
     if ($('album').classList.contains('hidden')) return;
     if (e.key === 'Escape') closeAlbum();
