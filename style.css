@@ -575,6 +575,27 @@ body.has-master-bar .more-btn { top: calc(var(--mb-h, 53px) + 46px + var(--sat))
   max-width: 520px;
 }
 
+.fit-result-note {
+  width: 100%;
+  max-width: 520px;
+  color: var(--muted);
+  font-size: 13px;
+  margin: -8px 0 14px;
+  text-align: center;
+}
+
+.fit-result-item { min-width: 0; }
+
+.fit-result-caption {
+  display: block;
+  min-height: 2.5em;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
 .fav-item { position: relative; }
 
 .fav-item img {

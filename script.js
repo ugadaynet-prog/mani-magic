@@ -140,6 +140,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const catalogClose = document.getElementById('catalogClose');
   const catalogGrid = document.getElementById('catalogGrid');
   const catalogTitle = document.getElementById('catalogTitle');
+  const catalogResultNote = document.getElementById('catalogResultNote');
   const lockBanner = document.getElementById('lockBanner');
   const lockBannerText = document.getElementById('lockBannerText');
   const paywallOverlay = document.getElementById('paywallOverlay');
@@ -2045,8 +2046,8 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       track('fit_apply', { length: activeFit.length, shape: activeFit.shape });
       updateFitUI();
       fitOverlay.classList.add('hidden');
-      if (!catalogOverlay.classList.contains('hidden')) renderCatalog();
-      else { drawSource = 'fit'; drawCard(); }
+      catalogOverlay.classList.remove('hidden');
+      renderCatalog();
     });
     updateFitUI();
   }
@@ -2105,6 +2106,74 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     const key = plan + '|' + (activeFilter || 'all') + '|' + activeFit.length + '|' + activeFit.shape;
     if (catalogBuilt === key) return;
     catalogGrid.innerHTML = '';
+
+    const fitMode = window.ManiFit
+      && (activeFit.length !== ManiFit.ANY || activeFit.shape !== ManiFit.ANY);
+
+    // При активном подборе показываем сами дизайны, а не целые карты. Иначе
+    // один подходящий пример превращал всю карту в результат, и пользователь
+    // видел тот же экран «Все карты».
+    if (fitMode) {
+      const allResults = [];
+      CARDS.forEach((card, cardIndex) => {
+        if (activeFilter && !(card.colors || []).includes(activeFilter)) return;
+        const works = Array.isArray(card.works) ? card.works : [];
+        const labels = Array.isArray(card.workLabels) ? card.workLabels : [];
+        const meta = Array.isArray(card.workMeta) ? card.workMeta : [];
+        works.forEach((src, workIndex) => {
+          if (!ManiFit.matches({ works, workMeta: meta, workLabels: labels }, workIndex, activeFit)) return;
+          allResults.push({ cardIndex, workIndex, src, label: labels[workIndex] || '' });
+        });
+      });
+
+      const results = isPaid() ? allResults : allResults.filter((item) => isFree(item.cardIndex));
+      catalogTitle.textContent = 'Подборка · ' + ManiFit.summary(activeFit);
+      if (catalogResultNote) {
+        catalogResultNote.textContent = 'Подходящих дизайнов: ' + results.length
+          + (!isPaid() && allResults.length > results.length
+            ? ' · ещё ' + (allResults.length - results.length) + ' по подписке' : '');
+        catalogResultNote.classList.remove('hidden');
+      }
+      lockBanner.classList.toggle('hidden', isPaid() || allResults.length <= results.length);
+      lockBannerText.textContent = 'Открыто ' + results.length + ' из ' + allResults.length + ' дизайнов';
+
+      results.forEach((result) => {
+        const item = document.createElement('div');
+        item.className = 'fav-item fit-result-item';
+        const img = document.createElement('img');
+        img.src = result.src;
+        img.alt = result.label || ('Дизайн ' + (result.workIndex + 1));
+        img.addEventListener('click', () => {
+          catalogOverlay.classList.add('hidden');
+          drawSource = 'catalog';
+          drawCard(result.cardIndex);
+          const position = currentWorkIndices.indexOf(result.workIndex);
+          if (position >= 0) {
+            openWork();
+            showWork(position);
+          }
+        });
+        item.appendChild(img);
+        const caption = document.createElement('span');
+        caption.className = 'fit-result-caption';
+        caption.textContent = result.label || ('Дизайн ' + (result.workIndex + 1));
+        item.appendChild(caption);
+        catalogGrid.appendChild(item);
+      });
+      if (!results.length) {
+        const empty = document.createElement('p');
+        empty.className = 'fit-empty';
+        empty.textContent = 'Для такого сочетания пока нет подходящих дизайнов.';
+        catalogGrid.appendChild(empty);
+      }
+      catalogBuilt = key;
+      return;
+    }
+
+    if (catalogResultNote) {
+      catalogResultNote.textContent = '';
+      catalogResultNote.classList.add('hidden');
+    }
 
     // Фильтр отбирает карты, у которых нужный цвет ЕСТЬ в палитре из пяти
     // оттенков, — а не только те, что целиком в нём. Поэтому среди «Красных»
