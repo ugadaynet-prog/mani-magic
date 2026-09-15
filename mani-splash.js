@@ -34,8 +34,8 @@
     'uniform float u_dropY;',      // куда падает капля, в экранных единицах
     'uniform float u_dropX; uniform float u_dropW;',
     'uniform sampler2D u_logo;',
-    'const vec3 BRAND = vec3(0.173,0.180,0.208);',
-    'const vec3 PAPER = vec3(1.0);',
+    'const vec3 BRAND = vec3(.90,.88,.93);',
+    'const vec3 PAPER = vec3(.106,.047,.133);',
     'const int NB = 7;',
 
     'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
@@ -82,20 +82,19 @@
     '  gr+=-2.*r*r*d/(q*q)*vec2(1.,1.25);}',
     ' return vec3(f,gr);}',
 
-    // Графит: тёмная масса с яркой полосой горизонта. Издали знак читается
-    // своим фирменным цветом, вблизи видно, что он металлический.
+    // Перламутровый знак: мягкая тень по металлу и один чистый блик.
     'vec3 graphite(vec2 uv,vec2 n,float sweep){',
     ' float h=(uv.y-.44)*2.2+n.y*.45+sweep;',
-    ' vec3 c=mix(vec3(.50,.52,.57), BRAND*.85, smoothstep(-.12,.26,h));',
-    ' c+=pow(max(0.,1.-abs(h)*4.5),3.)*.75;',
-    ' c+=pow(max(0.,n.y*.5-n.x*.35),2.)*.18;',
+    ' vec3 c=mix(vec3(.68,.64,.72), BRAND*.97, smoothstep(-.12,.26,h));',
+    ' c+=pow(max(0.,1.-abs(h)*4.5),3.)*.24;',
+    ' c+=pow(max(0.,n.y*.5-n.x*.35),2.)*.08;',
     ' return c;}',
 
     'void main(){',
     ' vec2 p=(gl_FragCoord.xy-.5*u_res)/min(u_res.x,u_res.y);',
     ' float t=clamp(u_t,0.,1.);',
-    // Фон — тот же белый, что в приложении, с еле заметным затемнением к краю.
-    ' vec3 col=mix(PAPER,vec3(.955,.955,.965),smoothstep(.25,.85,length(p)));',
+    // Едва заметная глубина повторяет баклажановый фон фирменных обложек.
+    ' vec3 col=mix(PAPER,vec3(.13,.066,.16),smoothstep(.25,.85,length(p)));',
 
     ' float gather=smoothstep(.04,.50,t);',
     ' float form  =smoothstep(.44,.86,t);',
@@ -135,8 +134,8 @@
     '  float fld=r*r/max(dot(q,q),1e-6);',
     '  float db=smoothstep(.75,1.35,fld);',
     '  float ny=q.y*2.4;',
-    '  vec3 pc=mix(vec3(.50,.52,.57), BRAND*.85, smoothstep(-.5,.5,ny));',
-    '  pc+=pow(max(0.,1.-abs(ny+.35)*3.),3.)*.5;',
+    '  vec3 pc=mix(vec3(.68,.64,.72), BRAND*.97, smoothstep(-.5,.5,ny));',
+    '  pc+=pow(max(0.,1.-abs(ny+.35)*3.),3.)*.18;',
     '  col=mix(col,pc,db);',
     ' }',
     ' gl_FragColor=vec4(col,1.);}'
@@ -211,7 +210,7 @@
 
     var root = document.createElement('div');
     root.setAttribute('aria-hidden', 'true');
-    root.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;' +
+    root.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#1b0c22;' +
       'transition:opacity .26s ease;contain:strict;touch-action:none';
     var canvas = document.createElement('canvas');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
@@ -254,8 +253,8 @@
     function staticFallback(ms) {
       var img = new Image();
       img.src = o.logo;
-      img.style.cssText = 'position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);' +
-        'width:52%;max-width:420px';
+      img.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);' +
+        'width:52%;max-width:420px;filter:brightness(0) invert(1)';
       root.appendChild(img);
       if (text) {
         text.style.top = '62%';

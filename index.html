@@ -6,7 +6,7 @@
 <title>MANI Magic — карта цвета</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#1b0c22">
 
 <!-- iOS: превращает страницу в приложение на весь экран без адресной строки -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,12 +22,10 @@
 </head>
 <body>
   <header class="brand-header"><a class="brand" href="./" aria-label="MANI Magic"><img class="brand-logo" src="assets/logo-mani-magic.png" alt="MANI Magic"></a><span class="brand-mark">Твой цвет. Твоя история.</span></header>
-  <!-- Заставка: капли жидкого графита стекаются в логотип, следом капля
-       разливается под слоганом и открывает его. Слой создаётся из
-       mani-splash.js и снимается сам, разметка здесь не нужна. -->
+  <!-- Капли собираются в перламутровый логотип на баклажановом фоне. -->
   <script src="mani-splash.js"></script>
   <script>
-    maniSplash({ logo: 'assets/logo-splash.png', slogan: 'b', speed: 1 });
+    maniSplash({ logo: 'assets/logo-splash.png', slogan: 'none', duration: 1750, hold: 370 });
   </script>
 
   <button id="dayBtn" class="day-btn" aria-label="Карта дня">
