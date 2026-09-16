@@ -243,7 +243,7 @@ body.has-master-bar .qr-btn, body.has-master-bar .more-btn { top: calc(var(--sat
 /* Кнопка карты дня живёт рядом с QR и «Ещё»: в DOM она стоит до приложения,
    поэтому static-позиционирование прятало её в обычном потоке страницы. */
 .day-btn, body.has-master-bar .day-btn {
-  position: fixed;
+  position: fixed !important;
   left: auto;
   right: calc(112px + var(--sar));
   top: calc(var(--sat) + (var(--header-h) - 44px) / 2);

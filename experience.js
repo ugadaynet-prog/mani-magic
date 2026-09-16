@@ -59,7 +59,8 @@
   document.querySelector('.foot-row').append(resultButton);
   const settings = document.createElement('div');
   settings.className = 'settings-tools';
-  settings.append($('dayBtn'), $('soundBtn'), $('themeBtn'), $('notifyBtn'));
+  // «Карта дня» остаётся в верхней панели; в «Ещё» складываем только настройки.
+  settings.append($('soundBtn'), $('themeBtn'), $('notifyBtn'));
   document.querySelector('.more-title').after(settings);
   settings.after($('permBtn'));
   const catalogTools = document.createElement('div');
