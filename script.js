@@ -1751,9 +1751,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (res === false && touched === false) showTouchHint();
   }
 
-  // --- Звук при вытягивании ---
-  // Синтезируем короткий «свист» карты через Web Audio — внешний файл не нужен.
-  // Как и вибрация, звук доступен только после первого касания страницы.
+  // --- Мягкое звуковое оформление -----------------------------------------
+  // Все отклики синтезируются здесь: внешние аудиофайлы не нужны, а одна
+  // кнопка звука управляет ими всеми. Запуск заставки намеренно беззвучный.
   const SOUND_KEY = 'maniMagicMuted';
   let muted = false;
   try { muted = localStorage.getItem(SOUND_KEY) === '1'; } catch (e) {}
@@ -1801,7 +1801,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
       // общий выход
       const master = ctx.createGain();
-      master.gain.value = 0.85;
+      master.gain.value = 0.22;
       master.connect(ctx.destination);
 
       // Мягкий «шелест» колоды: несколько тихих слоёв фильтрованного шума с
@@ -1824,11 +1824,76 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       }
 
       // два слоя со сдвигом — как несколько карт, скользящих друг за другом
-      rustle(0.00, 0.34, 2600, 1500, 0.30);
-      rustle(0.06, 0.30, 3300, 1900, 0.20);
+      rustle(0.00, 0.34, 2600, 1500, 0.14);
+      rustle(0.06, 0.30, 3300, 1900, 0.09);
 
       dbg('звук: играю (state=' + audioCtx.state + ')');
     } catch (e) { dbg('звук: ошибка ' + e.message); }
+  }
+
+  // Короткий жемчужный отклик для выбора цветовой группы. Он заметен, но не
+  // похож на клик: одна мягкая нота быстро поднимается и растворяется.
+  function playColorSelect() {
+    if (muted) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    try {
+      const ctx = audioCtx, now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.value = 0.12;
+      master.connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, now);
+      osc.frequency.exponentialRampToValueAtTime(820, now + 0.13);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.055, now + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
+      osc.connect(gain); gain.connect(master);
+      osc.start(now); osc.stop(now + 0.2);
+      dbg('звук: выбор цвета');
+    } catch (e) { dbg('звук цвета: ошибка ' + e.message); }
+  }
+
+  // Переворот карты звучит как очень короткий шелест страницы с тёплой
+  // нотой внизу. В обратную сторону не повторяем, чтобы не утомлять.
+  function playPhraseFlip() {
+    if (muted) return;
+    ensureAudio();
+    if (!audioCtx) return;
+    try {
+      const ctx = audioCtx, now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.gain.value = 0.12;
+      master.connect(ctx.destination);
+
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.24), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource(); src.buffer = buffer;
+      const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.Q.value = 0.55;
+      filter.frequency.setValueAtTime(1700, now);
+      filter.frequency.exponentialRampToValueAtTime(650, now + 0.22);
+      const rustleGain = ctx.createGain();
+      rustleGain.gain.setValueAtTime(0.0001, now);
+      rustleGain.gain.exponentialRampToValueAtTime(0.06, now + 0.055);
+      rustleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.23);
+      src.connect(filter); filter.connect(rustleGain); rustleGain.connect(master);
+      src.start(now); src.stop(now + 0.24);
+
+      const tone = ctx.createOscillator();
+      const toneGain = ctx.createGain();
+      tone.type = 'sine';
+      tone.frequency.setValueAtTime(280, now);
+      tone.frequency.exponentialRampToValueAtTime(220, now + 0.22);
+      toneGain.gain.setValueAtTime(0.0001, now);
+      toneGain.gain.exponentialRampToValueAtTime(0.032, now + 0.045);
+      toneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.27);
+      tone.connect(toneGain); toneGain.connect(master);
+      tone.start(now); tone.stop(now + 0.28);
+      dbg('звук: фраза дня');
+    } catch (e) { dbg('звук фразы: ошибка ' + e.message); }
   }
 
   updateSoundIcon();
@@ -1838,7 +1903,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     updateSoundIcon();
     dbg('звук: ' + (muted ? 'выключен' : 'включён') + ' пользователем');
     ensureAudio();
-    if (!muted) playDraw();   // при включении сразу проигрываем — слышно, что заработало
+    if (!muted) playColorSelect();   // мягко подтверждаем включение звука
   });
 
   // --- Тема оформления: тёмная / светлая ---
@@ -2083,8 +2148,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         filterOverlay.classList.add('hidden');
         drawSource = 'filter';
 
-        if (!catalogOverlay.classList.contains('hidden')) renderCatalog();
-        else drawCard();
+        if (!catalogOverlay.classList.contains('hidden')) {
+          playColorSelect();
+          renderCatalog();
+        } else drawCard();
       });
       filterList.appendChild(row);
     });
@@ -2681,6 +2748,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   function drawCard(forcedIndex, fromHistory) {
     const forced = (typeof forcedIndex === 'number');
+    const currentDrawSource = drawSource;
     // защита от «дребезга» нужна только для случайной тряски;
     // явный выбор (избранное, ссылка ?card=N) должен срабатывать всегда
     if (isAnimating && !forced) return;
@@ -2710,7 +2778,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     updateHistoryUI();
 
     // отклик только когда карта именно выпала; шаги назад/вперёд — молча
-    if (!fromHistory) { buzz(); playDraw(); }
+    if (!fromHistory) {
+      // Выбор цветового фильтра сам является осознанным действием, поэтому
+      // ему нужен жемчужный отклик, а не звук вытягивания и вибрация.
+      if (currentDrawSource === 'filter') playColorSelect();
+      else { buzz(); playDraw(); }
+    }
 
     // если карта была перевёрнута - сначала вернуть на лицевую сторону
     isFlipped = false;
@@ -2799,6 +2872,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     cardEl.classList.toggle('flipped', isFlipped);
     cardEl.parentElement.classList.toggle('reading', isFlipped);
     document.querySelector('.app').classList.toggle('reading', isFlipped);
+    if (isFlipped) playPhraseFlip();
     requestAnimationFrame(fitPhrase);
     setHint(isFlipped ? 'Потрясите телефон для новой карты' : 'Нажмите на карту, чтобы увидеть послание');
   }
