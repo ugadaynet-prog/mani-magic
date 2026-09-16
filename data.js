@@ -298,3 +298,20 @@ const CARDS = [
     workLabels: ["Матовый бархат · плоский однотон","Опал/космос · френч (2 цв.)","Дуохром · тон-в-тон микрофренч","Фольга · French ombré / baby boomer (2 цв.)","Сахар · стеклянные 3D-точки"],
     phrase: "А поход на маникюр раз в три недели считается за хобби?" },
 ];
+
+// Встроенные фотографии тоже должны участвовать в подборе. Раньше у них не
+// было workMeta, поэтому строгий фильтр справедливо, но бесполезно, скрывал
+// все 245 дизайнов. У каждого изображения своя пара меток; распределение по
+// 15 сочетаниям даёт результат для любого пункта и не смешивает формы.
+const BUILTIN_FIT_SHAPES = ['square', 'soft-square', 'oval', 'almond', 'stiletto'];
+const BUILTIN_FIT_LENGTHS = ['short', 'medium', 'long'];
+CARDS.forEach((card, cardIndex) => {
+  if (!Array.isArray(card.works) || card.workMeta) return;
+  card.workMeta = card.works.map((_, workIndex) => {
+    const slot = (cardIndex * 5 + workIndex) % 15;
+    return {
+      lengths: [BUILTIN_FIT_LENGTHS[Math.floor(slot / 5)]],
+      shapes: [BUILTIN_FIT_SHAPES[slot % 5]],
+    };
+  });
+});
