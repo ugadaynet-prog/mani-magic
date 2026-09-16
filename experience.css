@@ -239,6 +239,27 @@ body.has-master-bar .qr-btn, body.has-master-bar .more-btn { top: calc(var(--sat
 .card-wrap.reading { width:auto; aspect-ratio:70 / 120; max-width:min(86vw,360px); }
 @media(max-height:680px) { .app.reading { overflow-y:auto; } .app.reading .stage { flex:1 0 240px; } }
 
+/* Кнопка карты дня живёт рядом с QR и «Ещё»: в DOM она стоит до приложения,
+   поэтому static-позиционирование прятало её в обычном потоке страницы. */
+.day-btn, body.has-master-bar .day-btn {
+  position: fixed;
+  left: auto;
+  right: calc(112px + var(--sar));
+  top: calc(var(--sat) + (var(--header-h) - 44px) / 2);
+  z-index: 62;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body.has-master-bar .day-btn {
+  top: calc(var(--sat) + var(--mb-h, 48px) + (var(--header-h) - 44px) / 2);
+}
+
+/* На обороте карта остаётся узкой, поэтому боковые действия должны быть
+   внутри её границ, а не за пределами экрана телефона. */
+.card-wrap.reading .share-btn { left: 10px; right: auto; top: 12px; }
+.card-wrap.reading .like-btn { right: 10px; left: auto; top: 12px; }
+
 /* Полноэкранные окна выше шапки мастера: иначе она перехватывает «Закрыть». */
 #qrOverlay, #filterOverlay, #selOverlay, #paywallOverlay, .work-overlay, .pick-sheet { z-index:80; }
 .experience-dialog { top:calc(var(--sat) + 12px); bottom:auto; margin:0 auto; max-height:calc(100dvh - var(--sat) - var(--sab) - 24px); }
