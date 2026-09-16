@@ -1,6 +1,6 @@
 // Подбор по длине и форме ногтей.
-// Метки у работы необязательны: старые фото считаются универсальными и не
-// исчезают из каталога, пока мастер не разметит их точнее.
+// При активном фильтре показываем только работы с явными метками мастера.
+// Неразмеченное фото нельзя честно назвать квадратом, овалом или миндалём.
 (() => {
   'use strict';
 
@@ -48,26 +48,12 @@
 
   function metaFor(card, index) {
     const explicit = card?.workMeta?.[index] || card?.workFit?.[index];
-    if (!explicit || typeof explicit !== 'object') {
-      // Для встроенной колоды используем мягкую подсказку по названию техники.
-      // Это не запрет: неизвестные сочетания остаются универсальными, а
-      // точные метки мастера всегда имеют приоритет.
-      const label = String(card?.workLabels?.[index] || '').toLowerCase();
-      if (!label) return null;
-      const longHints = /френч|омбре|baby boomer|кружево|3d|цветоч|мотив|полос|колор-блок|леопард|звезд|космос/;
-      const shortHints = /однотон|микрофренч|негатив|точк/;
-      const shapeHints = /френч|омбре|baby boomer|микрофренч/;
-      return {
-        lengths: longHints.test(label) ? ['medium', 'long'] : shortHints.test(label) ? ['short', 'medium'] : [...lengthKeys],
-        shapes: shapeHints.test(label) ? ['square', 'soft-square', 'oval', 'almond'] : [...shapeKeys],
-        tagged: false,
-      };
-    }
+    if (!explicit || typeof explicit !== 'object') return null;
     const allowedLengths = cleanList(explicit.lengths ?? explicit.length, lengthKeys);
     const allowedShapes = cleanList(explicit.shapes ?? explicit.shape, shapeKeys);
     return {
-      lengths: allowedLengths.length ? allowedLengths : [...lengthKeys],
-      shapes: allowedShapes.length ? allowedShapes : [...shapeKeys],
+      lengths: allowedLengths,
+      shapes: allowedShapes,
       tagged: true,
     };
   }
@@ -75,7 +61,7 @@
   function matches(card, index, preferences) {
     const prefs = normalize(preferences);
     const meta = metaFor(card, index);
-    if (!meta) return true;
+    if (!meta) return prefs.length === ANY && prefs.shape === ANY;
     return (prefs.length === ANY || meta.lengths.includes(prefs.length))
       && (prefs.shape === ANY || meta.shapes.includes(prefs.shape));
   }
