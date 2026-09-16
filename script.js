@@ -2023,8 +2023,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       });
       if (!pool.length) pool = CARDS.map((_, i) => i);
     }
+    const fitActive = window.ManiFit
+      && (activeFit.length !== ManiFit.ANY || activeFit.shape !== ManiFit.ANY);
     const fitPool = pool.filter((i) => !window.ManiFit || ManiFit.cardMatches(CARDS[i], activeFit));
-    if (fitPool.length) pool = fitPool;
+    // При активном подборе нельзя молча возвращаться к полной колоде: иначе
+    // тряска показывала бы карту, которая не соответствует выбору пользователя.
+    if (fitActive) pool = fitPool;
     // Тряска достаёт из всех 49 карт и без подписки. Раньше — только из 15
     // бесплатных, и человек не узнавал, что колода больше: случайная карта из 15
     // ощущается так же, как из 49, а окно оплаты жило в стороне, в каталоге.
@@ -2251,7 +2255,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       if (!results.length) {
         const empty = document.createElement('p');
         empty.className = 'fit-empty';
-        empty.textContent = 'Для такого сочетания пока нет подходящих дизайнов.';
+        empty.textContent = 'Точных совпадений нет — попробуйте другую длину или форму.';
         catalogGrid.appendChild(empty);
       }
       catalogBuilt = key;
@@ -2774,8 +2778,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (useMasterDeck) {
       const i = pickMasterIndex();
       if (i !== null) return i;
+      return null;
     }
     const pool = filteredPool();
+    if (!pool.length) return null;
     if (pool.length === 1) return pool[0];
 
     // сменился фильтр или подписка — стопку пересобираем
@@ -2804,6 +2810,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     dayBadge.classList.add('hidden');   // любое вытягивание снимает бейдж «Карта дня»
 
     currentIndex = forced ? forcedIndex : pickNewIndex();
+    if (currentIndex === null || currentIndex === undefined || !CARDS[currentIndex]) {
+      isAnimating = false;
+      toast('Точных совпадений нет — попробуйте другую длину или форму.');
+      return;
+    }
     const data = CARDS[currentIndex];
 
     // главное событие воронки: как именно человек получил карту

@@ -299,19 +299,68 @@ const CARDS = [
     phrase: "А поход на маникюр раз в три недели считается за хобби?" },
 ];
 
-// Встроенные фотографии тоже должны участвовать в подборе. Раньше у них не
-// было workMeta, поэтому строгий фильтр справедливо, но бесполезно, скрывал
-// все 245 дизайнов. У каждого изображения своя пара меток; распределение по
-// 15 сочетаниям даёт результат для любого пункта и не смешивает формы.
-const BUILTIN_FIT_SHAPES = ['square', 'soft-square', 'oval', 'almond', 'stiletto'];
-const BUILTIN_FIT_LENGTHS = ['short', 'medium', 'long'];
+// Фоторазметка встроенной колоды: [форма, длина]. Каждая строка — одна карта,
+// пять значений — пять фотографий этой карты. Метки просмотрены по самим
+// изображениям; форма не выводится из номера файла или названия техники.
+const BUILTIN_FIT = [
+  [['almond','long'], ['oval','medium'], ['soft-square','short'], ['oval','short'], ['almond','medium']], // 01
+  [['almond','long'], ['oval','medium'], ['square','short'], ['soft-square','medium'], ['almond','long']], // 02
+  [['oval','medium'], ['almond','long'], ['soft-square','medium'], ['soft-square','medium'], ['stiletto','long']], // 03
+  [['almond','long'], ['almond','medium'], ['oval','short'], ['oval','medium'], ['almond','medium']], // 04
+  [['almond','medium'], ['oval','medium'], ['almond','long'], ['oval','medium'], ['almond','long']], // 05
+  [['soft-square','short'], ['oval','medium'], ['oval','medium'], ['oval','medium'], ['stiletto','long']], // 06
+  [['almond','medium'], ['almond','long'], ['soft-square','short'], ['oval','medium'], ['stiletto','long']], // 07
+  [['almond','medium'], ['almond','long'], ['oval','medium'], ['oval','short'], ['almond','medium']], // 08
+  [['soft-square','short'], ['almond','long'], ['almond','medium'], ['soft-square','medium'], ['almond','long']], // 09
+  [['almond','long'], ['oval','short'], ['almond','medium'], ['oval','short'], ['almond','medium']], // 10
+  [['almond','medium'], ['almond','medium'], ['square','medium'], ['oval','medium'], ['almond','long']], // 11
+  [['almond','medium'], ['almond','medium'], ['square','medium'], ['soft-square','medium'], ['almond','long']], // 12
+  [['almond','long'], ['almond','long'], ['soft-square','short'], ['oval','medium'], ['almond','long']], // 13
+  [['oval','medium'], ['stiletto','long'], ['square','medium'], ['almond','medium'], ['almond','long']], // 14
+  [['oval','short'], ['oval','medium'], ['almond','long'], ['oval','medium'], ['almond','long']], // 15
+  [['almond','medium'], ['almond','long'], ['almond','medium'], ['oval','medium'], ['almond','long']], // 16
+  [['soft-square','medium'], ['oval','medium'], ['square','medium'], ['soft-square','short'], ['almond','medium']], // 17
+  [['almond','long'], ['almond','long'], ['almond','long'], ['oval','medium'], ['almond','long']], // 18
+  [['almond','long'], ['almond','medium'], ['almond','medium'], ['almond','medium'], ['stiletto','long']], // 19
+  [['oval','medium'], ['almond','long'], ['almond','medium'], ['oval','medium'], ['almond','long']], // 20
+  [['almond','medium'], ['almond','long'], ['soft-square','short'], ['soft-square','short'], ['stiletto','long']], // 21
+  [['oval','short'], ['soft-square','medium'], ['oval','short'], ['almond','medium'], ['stiletto','long']], // 22
+  [['soft-square','short'], ['oval','medium'], ['oval','short'], ['oval','short'], ['stiletto','long']], // 23
+  [['oval','short'], ['oval','short'], ['soft-square','short'], ['soft-square','short'], ['oval','medium']], // 24
+  [['almond','long'], ['stiletto','long'], ['oval','short'], ['square','medium'], ['almond','medium']], // 25
+  [['almond','medium'], ['square','medium'], ['oval','medium'], ['oval','medium'], ['almond','medium']], // 26
+  [['almond','medium'], ['oval','medium'], ['soft-square','short'], ['almond','medium'], ['stiletto','long']], // 27
+  [['almond','medium'], ['stiletto','long'], ['soft-square','short'], ['oval','medium'], ['oval','short']], // 28
+  [['soft-square','short'], ['oval','medium'], ['oval','short'], ['oval','medium'], ['stiletto','long']], // 29
+  [['oval','medium'], ['almond','medium'], ['oval','medium'], ['soft-square','short'], ['oval','medium']], // 30
+  [['oval','medium'], ['oval','medium'], ['stiletto','long'], ['oval','medium'], ['almond','medium']], // 31
+  [['soft-square','medium'], ['oval','medium'], ['oval','medium'], ['oval','medium'], ['soft-square','short']], // 32
+  [['oval','medium'], ['oval','short'], ['oval','short'], ['oval','medium'], ['stiletto','long']], // 33
+  [['almond','medium'], ['square','medium'], ['oval','medium'], ['almond','medium'], ['almond','long']], // 34
+  [['oval','short'], ['oval','medium'], ['stiletto','long'], ['soft-square','short'], ['almond','medium']], // 35
+  [['square','medium'], ['oval','medium'], ['stiletto','long'], ['oval','short'], ['stiletto','long']], // 36
+  [['almond','medium'], ['stiletto','long'], ['soft-square','short'], ['oval','medium'], ['oval','short']], // 37
+  [['oval','short'], ['oval','medium'], ['soft-square','short'], ['oval','medium'], ['stiletto','long']], // 38
+  [['soft-square','short'], ['oval','medium'], ['oval','short'], ['oval','short'], ['stiletto','long']], // 39
+  [['oval','medium'], ['oval','medium'], ['square','medium'], ['oval','short'], ['stiletto','long']], // 40
+  [['oval','short'], ['oval','medium'], ['stiletto','long'], ['oval','short'], ['stiletto','long']], // 41
+  [['oval','medium'], ['oval','medium'], ['square','medium'], ['oval','medium'], ['oval','short']], // 42
+  [['oval','medium'], ['oval','medium'], ['soft-square','short'], ['oval','medium'], ['oval','medium']], // 43
+  [['square','medium'], ['oval','short'], ['oval','medium'], ['oval','medium'], ['oval','short']], // 44
+  [['oval','short'], ['oval','medium'], ['oval','short'], ['oval','short'], ['almond','medium']], // 45
+  [['oval','medium'], ['oval','medium'], ['soft-square','medium'], ['oval','medium'], ['stiletto','long']], // 46
+  [['oval','short'], ['oval','medium'], ['square','medium'], ['oval','medium'], ['oval','medium']], // 47
+  [['oval','medium'], ['oval','medium'], ['oval','medium'], ['soft-square','short'], ['oval','medium']], // 48
+  [['oval','medium'], ['almond','medium'], ['square','medium'], ['square','medium'], ['almond','medium']], // 49
+];
 CARDS.forEach((card, cardIndex) => {
   if (!Array.isArray(card.works) || card.workMeta) return;
   card.workMeta = card.works.map((_, workIndex) => {
-    const slot = (cardIndex * 5 + workIndex) % 15;
+    const [shape, length] = BUILTIN_FIT[cardIndex]?.[workIndex] || [];
     return {
-      lengths: [BUILTIN_FIT_LENGTHS[Math.floor(slot / 5)]],
-      shapes: [BUILTIN_FIT_SHAPES[slot % 5]],
+      lengths: length ? [length] : [],
+      shapes: shape ? [shape] : [],
+      source: 'photo-review',
     };
   });
 });
