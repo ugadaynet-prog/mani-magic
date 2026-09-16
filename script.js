@@ -289,7 +289,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const EMAIL_KEY = 'maniMagicEmail';       // email для чека — запоминаем, чтобы не вводить каждый раз
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let accessPass = null;                    // JWT-пропуск активной подписки
-  let selectedPlanKey = isNativeApp() && new URLSearchParams(location.search).get('buy') === 'pro' ? 'pro_year' : 'full_year';
+  let selectedPlanKey = isNativeApp() && new URLSearchParams(location.search).get('buy') === 'pro' ? 'pro_year' : 'full_forever';
 
   function api(path, opts) {
     return fetch(SERVER_URL + path, opts).then((r) => {
@@ -313,6 +313,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     catalogBuilt = null;
     if (catalogOverlay && !catalogOverlay.classList.contains('hidden')) renderCatalog();
     lockBanner.classList.toggle('hidden', isPaid());
+    // Купили, глядя на закрытую карту, — её дизайны открываются сразу, без новой тряски.
+    if (designsLocked && isPaid()) {
+      designsLocked = false;
+      workBtn.textContent = 'Примеры работ';
+    }
   }
 
   // Одноразовый код из кабинета мастера (?pass=...) — меняем на пропуск для
@@ -481,6 +486,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     code_expired: 'Код истёк. Возьмите новый в кабинете',
     no_pro: 'Подписка Pro не активна',
     no_device: 'Не удалось определить устройство',
+    // коды на полную колоду (перенос покупки на новый телефон, подарок)
+    code_exhausted: 'Этот код уже использован',
+    already_redeemed: 'Этот код уже активирован на этом телефоне',
+    master_code: 'Это промокод мастера — он активируется в кабинете после входа по почте',
   };
 
   // Вход мастера по почте прямо в приложении. Нужен тем, кто пришёл из RuStore:
@@ -510,6 +519,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }).then((r) => {
       if (r && r.token) setMasterToken(r.token);
       return r;
+    });
+  }
+
+  // Код на полную колоду для этого устройства. Выдаём его по чеку, когда
+  // «навсегда» надо перенести на новый телефон, — и он же подарочный.
+  function redeemDeviceCode(code) {
+    return api('/api/access/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, deviceId: deviceId }),
     });
   }
 
@@ -748,13 +767,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       // а здесь ждём одноразовый код устройства из кнопки «Показать код для приложения».
       // Без подсказки человек упирается в «Код не подошёл» и не понимает, куда идти.
       if (/^MASTER-/i.test(code)) {
-        showMasterMsg('Это промокод — активируйте его по ссылке из сообщения, в кабинете мастера. ' +
-          'А сюда нужен код вида XXXX-XXXX: в кабинете кнопка «Показать код для приложения».');
+        showMasterMsg('Это промокод мастера — активируйте его по ссылке из сообщения, в кабинете. ' +
+          'Здесь вводится код вида XXXX-XXXX из кабинета или код на полную колоду от нас.');
         return;
       }
       if (!serverOn()) { showMasterMsg('Нет связи с сервером'); return; }
       masterBtn.disabled = true;
-      redeemPassCode(code)
+      // XXXX-XXXX — одноразовый код устройства из кабинета мастера. Всё остальное —
+      // код на полную колоду: перенос покупки на новый телефон или подарок.
+      const deckPass = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(code);
+      (deckPass ? redeemPassCode(code) : redeemDeviceCode(code))
         .then(() => refreshAccess())
         .then(() => {
           if (isPaid()) {
@@ -1647,6 +1669,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   let isAnimating = false;
   let currentWorks = [];
   let currentWorkIndices = [];
+  let designsLocked = false;   // дизайны выпавшей карты закрыты замком (см. drawCard)
   let workPos = 0;
   function currentDesignNumber() { return (currentWorkIndices[workPos] ?? workPos) + 1; }
   let drawSource = 'shake';   // откуда пришло вытягивание: shake/button/catalog/favorites/selection/day/link/filter
@@ -2002,12 +2025,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     }
     const fitPool = pool.filter((i) => !window.ManiFit || ManiFit.cardMatches(CARDS[i], activeFit));
     if (fitPool.length) pool = fitPool;
-    // без подписки тряска достаёт только из бесплатных карт;
-    // карта дня и открытые по ссылке карты этим не ограничены — они как раз показывают, чего не хватает
-    if (!isPaid()) {
-      const free = pool.filter(isFree);
-      if (free.length) pool = free;
-    }
+    // Тряска достаёт из всех 49 карт и без подписки. Раньше — только из 15
+    // бесплатных, и человек не узнавал, что колода больше: случайная карта из 15
+    // ощущается так же, как из 49, а окно оплаты жило в стороне, в каталоге.
+    // Теперь замок стоит на дизайнах выпавшей закрытой карты — см. drawCard.
     return pool;
   }
 
@@ -2270,13 +2291,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
       const img = document.createElement('img');
       img.src = card.front;
-      img.alt = 'Карта ' + (idx + 1) + (locked ? ' (по подписке)' : '');
+      img.alt = 'Карта ' + (idx + 1) + (locked ? ' (примеры работ — в полной колоде)' : '');
       img.addEventListener('click', () => {
-        if (locked) {                            // закрытая карта ведёт на подписку
-          track('locked_card_tap', { card: idx + 1 });
-          openPaywall('locked_card');
-          return;
-        }
+        // Закрытая карта открывается, как любая: цвет и послание видны всем,
+        // а замок стоит на её дизайнах — там, где он понятен.
+        if (locked) track('locked_card_tap', { card: idx + 1 });
         catalogOverlay.classList.add('hidden');
         drawSource = 'catalog';
         drawCard(idx);
@@ -2299,15 +2318,43 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     // одиннадцатью красными было бы неправдой.
     const freeShown = shown.filter(isFree).length;
     lockBanner.classList.toggle('hidden', isPaid());
-    lockBannerText.textContent = 'Открыто ' + freeShown + ' из ' + shown.length + ' карт';
+    lockBannerText.textContent = 'Примеры работ открыты у ' + freeShown + ' из ' + shown.length + ' карт';
     catalogBuilt = key;
   }
 
   // --- Экран подписки ---
   function openPaywall(from) {
     track('paywall_show', { from: from || 'unknown' });   // ключевая метрика воронки
+    // Мастер попадает сюда только из кабинета внутри приложения: Pro там обязан
+    // покупаться через RuStore. Всем остальным — одна покупка клиентки: четыре
+    // тарифа, два из которых не для неё, только мешали решиться.
+    setPaywallAudience(from === 'master_cabinet' ? 'master' : 'client');
     catalogOverlay.classList.add('hidden');
     paywallOverlay.classList.remove('hidden');
+  }
+
+  function setPaywallAudience(aud) {
+    const master = aud === 'master';
+    paywallOverlay.querySelectorAll('[data-audience]').forEach((el) => {
+      el.classList.toggle('hidden', el.dataset.audience !== aud);
+    });
+    const title = document.getElementById('pwTitle');
+    const sub = document.getElementById('pwSub');
+    if (title) title.textContent = master ? 'Для мастера' : 'Полная колода';
+    if (sub) {
+      sub.textContent = master
+        ? 'Клиентке по вашему QR — все 49 карт с примерами работ'
+        : 'Цвет и послание открыты у всех 49 карт, примеры работ — у 15';
+    }
+    pwBuyBtn.textContent = master ? 'Оформить Pro' : 'Открыть полную колоду';
+    // Выбранным становится первый тариф этой аудитории — иначе в окне клиентки
+    // мог остаться выбранным скрытый тариф мастера.
+    const first = paywallOverlay.querySelector('.pw-plan[data-audience="' + aud + '"]');
+    if (first) {
+      selectedPlanKey = first.dataset.planKey;
+      paywallOverlay.querySelectorAll('.pw-plan').forEach((el) =>
+        el.classList.toggle('pw-sel', el.dataset.planKey === selectedPlanKey));
+    }
   }
 
   paywallClose.addEventListener('click', () => paywallOverlay.classList.add('hidden'));
@@ -2835,6 +2882,14 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     } else {
       workBtn.classList.add('hidden');
     }
+    // Момент покупки. Карта — цвет, техника, послание — открыта всем, а дизайны
+    // закрытой карты стоят за полной колодой: человек видит, что ему выпало, и
+    // хочет посмотреть, как это выглядит на ногтях. Карту по ссылке от подруги
+    // показываем целиком: пришли посмотреть конкретный дизайн, и замок на нём
+    // выглядел бы сломанной ссылкой. Колода мастера — его работы, не наши.
+    designsLocked = !own && !isPaid() && !isFree(currentIndex)
+      && currentDrawSource !== 'link' && currentDrawSource !== 'link_selection';
+    workBtn.textContent = designsLocked ? 'Примеры работ 🔒' : 'Примеры работ';
 
     // Платная карта у подписчика: лицо и работы подменяем на защищённые ссылки
     // с сервера, когда они придут (если за это время не вытянули другую карту).
@@ -3075,6 +3130,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
   function openWork() {
     if (workBtn.classList.contains('hidden') || currentWorks.length === 0) return;
+    if (designsLocked) {                    // дизайны закрытой карты — окно покупки
+      track('locked_designs_tap', { card: currentIndex + 1 });
+      openPaywall('card_designs');
+      return;
+    }
     track('gallery_open', { card: currentIndex + 1 });
     workPos = 0;
     renderDots();

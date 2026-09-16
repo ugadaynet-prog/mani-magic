@@ -61,6 +61,7 @@
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
   .pill.on{background:#e7f6ee;color:var(--ok)}
   .pill.off{background:#f3eef1;color:var(--muted)}
+  .card.attn{box-shadow:0 0 0 3px var(--pink);transition:box-shadow .3s}
   .qr{display:flex;flex-direction:column;align-items:center;gap:10px}
   #qrBox svg{width:220px;height:220px;background:#fff;border-radius:12px;display:block}
   .linkbox{display:flex;gap:8px;width:100%}
@@ -264,6 +265,7 @@
           <span>Согласен(на) на <a href="https://mani-magic.ru/privacy.html" target="_blank" rel="noopener">обработку данных</a> и получение информации о MANI Magic</span>
         </label>
         <button id="reqBtn" class="btn" style="margin-top:14px" disabled>Получить код</button>
+        <p id="trialHint" class="note hidden" style="margin-top:10px">Войдите по почте — пробный месяц Pro включается в кабинете одной кнопкой, без карты.</p>
       </div>
       <div id="step2" class="hidden">
         <label>Код из письма</label>
@@ -289,14 +291,17 @@
     </div>
 
     <div class="tab-pane" data-pane="main">
-    <div class="card">
+    <div class="card" id="proCard">
       <h2>Подписка Pro <span id="proPill" class="pill off">проверяю…</span></h2>
       <p id="proText" class="note"></p>
+      <p id="proPrice" class="note hidden"></p>
       <div id="proPhoneBox" class="hidden">
         <label>Телефон для связи (не показывается клиентам — только для нас, по вопросам сервиса)</label>
         <input id="proPhone" type="tel" placeholder="+7 900 000-00-00">
       </div>
-      <button id="proBtn" class="btn hidden" style="margin-top:12px">Оформить Pro</button>
+      <button id="trialBtn" class="btn hidden" style="margin-top:12px" type="button">Попробовать Pro бесплатно — 30 дней</button>
+      <button id="proBtn" class="btn hidden" style="margin-top:12px" type="button">Оформить Pro на год — 2 490 ₽</button>
+      <button id="proMonthBtn" class="btn btn-ghost hidden" style="margin-top:8px" type="button">На месяц — 399 ₽</button>
       <div id="proErr" class="err"></div>
       <div id="promoBox" class="hidden" style="margin-top:14px">
         <label>Есть промокод?</label>
@@ -433,6 +438,11 @@
       <label for="clientSearch">Найти клиента</label>
       <input id="clientSearch" type="text" placeholder="Имя или телефон" autocomplete="off">
       <ul id="clientList" class="clients"></ul>
+      <!-- Без Pro видно 10 последних карточек, остальные сохранены и ждут Pro. -->
+      <div id="clientsLocked" class="hidden" style="margin-top:10px">
+        <p id="clientsLockedText" class="note" style="margin:0"></p>
+        <button id="clientsProBtn" class="btn btn-ghost" style="margin-top:8px" type="button">Открыть все карточки — Pro</button>
+      </div>
       <p id="clientsEmpty" class="note hidden">Пока пусто. Как только клиентка назовётся при выборе карты,
         она появится здесь сама.</p>
       <button id="clientMore" class="btn btn-ghost hidden" style="margin-top:10px" type="button"></button>

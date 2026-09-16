@@ -109,6 +109,19 @@
     if (saved && document.querySelector('.tab-pane[data-pane="' + saved + '"]')) showTab(saved);
   }
 
+  // Пришли из калькулятора (?trial=1) — ещё до входа говорим, ради чего входить.
+  if (new URLSearchParams(location.search).get('trial') === '1') $('trialHint').classList.remove('hidden');
+
+  // Подвести к разделу Pro: со ссылки из письма (?renew=1) или калькулятора
+  // (?trial=1) и из «Клиентов», когда упёрлись в лимит карточек.
+  function showProCard() {
+    showTab('main');
+    const card = $('proCard');
+    card.classList.add('attn');
+    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setTimeout(() => card.classList.remove('attn'), 2600);
+  }
+
   // --- Кабинет ---
   async function enterDash() {
     show('dash');
@@ -117,7 +130,11 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId }),
     });
     if (!await loadProfile()) return; // не запускаем запросы с истёкшей сессией
-    loadQR(); loadStatus(); loadWorks(); loadPicks(); loadStats(); loadClients();
+    loadQR(); loadWorks(); loadPicks(); loadStats(); loadClients();
+    loadStatus().then(() => {
+      const q = new URLSearchParams(location.search);
+      if (q.get('trial') === '1' || q.get('renew') === '1') showProCard();
+    });
     initPush(); startLivePicks();
   }
 
@@ -193,23 +210,56 @@
   // мастерам можно было прислать одну ссылку вместо «ссылка + код отдельно».
   const promoFromLink = new URLSearchParams(location.search).get('promo') || '';
 
+  // Что даёт Pro — одной строкой, словами мастера. Стоит там, где решают, платить
+  // ли: раньше рядом с кнопкой было только «Оформите Pro», без цены и без пользы.
+  const PRO_GIVES = 'С Pro клиентке по вашему QR открыты все 49 карт с примерами работ, '
+    + 'клиентки видят вашу колоду из ваших работ, а карточки клиенток — без ограничения.';
+  const DAY_MS = 86400000;
+  const daysWord = (n) => {
+    const a = n % 100, b = n % 10;
+    if (a > 10 && a < 20) return 'дней';
+    if (b === 1) return 'день';
+    return b > 1 && b < 5 ? 'дня' : 'дней';
+  };
+
   async function loadStatus() {
     const r = await apiJson('/api/master/status');
-    const pill = $('proPill'), text = $('proText'), btn = $('proBtn'), phoneBox = $('proPhoneBox'), promoBox = $('promoBox');
-    if (r.body.isPro) {
-      pill.className = 'pill on'; pill.textContent = 'активна';
-      text.textContent = r.body.expiresAt ? ('Действует до ' + new Date(r.body.expiresAt).toLocaleDateString('ru-RU')) : 'Активна';
-      btn.classList.add('hidden'); phoneBox.classList.add('hidden'); promoBox.classList.add('hidden');
+    const s = r.body || {};
+    const pill = $('proPill'), text = $('proText'), btn = $('proBtn'), monthBtn = $('proMonthBtn');
+    const trialBtn = $('trialBtn'), price = $('proPrice'), phoneBox = $('proPhoneBox'), promoBox = $('promoBox');
+    if (s.isPro) {
+      const left = Math.max(0, Math.ceil((s.expiresAt - Date.now()) / DAY_MS));
+      // Продлить предлагаем, когда это уместно: на пробном — всегда, иначе — за
+      // неделю до конца. Досрочная оплата дни не сжигает: сервер прибавляет срок.
+      const renew = !!s.trial || left <= 7;
+      pill.className = 'pill on'; pill.textContent = s.trial ? 'пробный' : 'активна';
+      text.textContent = (s.trial ? 'Пробный месяц до ' : 'Действует до ')
+        + new Date(s.expiresAt).toLocaleDateString('ru-RU')
+        + (left <= 7 ? ' — осталось ' + left + ' ' + daysWord(left) + '.' : '.')
+        + (renew ? ' Продлить можно заранее — оставшиеся дни сохранятся.' : '');
+      btn.textContent = 'Продлить на год — 2 490 ₽';
+      btn.classList.toggle('hidden', !renew); btn.classList.remove('btn-ghost');
+      monthBtn.classList.toggle('hidden', !renew);
+      trialBtn.classList.add('hidden'); price.classList.add('hidden'); promoBox.classList.add('hidden');
+      phoneBox.classList.toggle('hidden', !(renew && !$('proPhone').value.trim()));
       // колода открывается только по активному Pro — без него сервер откажет
       $('deckBox').classList.remove('hidden');
       $('deckBoxOwn').classList.remove('hidden');
-      $('deckPublish').checked = !!r.body.deckPublished;
-      $('catalogOptIn').checked = !!r.body.catalogOptIn;
+      $('deckPublish').checked = !!s.deckPublished;
+      $('catalogOptIn').checked = !!s.catalogOptIn;
     } else {
       $('deckBoxOwn').classList.add('hidden');
       pill.className = 'pill off'; pill.textContent = 'не активна';
-      text.textContent = 'Оформите Pro, чтобы клиенты открывали приложение под вашу студию.';
-      btn.classList.remove('hidden'); phoneBox.classList.remove('hidden'); promoBox.classList.remove('hidden');
+      text.textContent = PRO_GIVES;
+      // Пока пробный месяц доступен, он — главная кнопка, а оплата стоит второй.
+      trialBtn.classList.toggle('hidden', !s.trialAvailable);
+      price.textContent = (s.trialAvailable ? 'Потом — ' : '') + '399 ₽ в месяц или 2 490 ₽ в год. '
+        + 'Автосписаний нет: срок закончился — Pro просто выключается.';
+      price.classList.remove('hidden');
+      btn.textContent = 'Оформить Pro на год — 2 490 ₽';
+      btn.classList.remove('hidden'); btn.classList.toggle('btn-ghost', !!s.trialAvailable);
+      monthBtn.classList.remove('hidden');
+      phoneBox.classList.remove('hidden'); promoBox.classList.remove('hidden');
       $('deckBox').classList.add('hidden');
       if (promoFromLink && !$('promoCode').value) $('promoCode').value = promoFromLink;
     }
@@ -281,21 +331,26 @@
     $('codeBox').classList.remove('hidden');
     $('codeBtn').textContent = 'Показать новый код';
   });
-  $('proBtn').addEventListener('click', async () => {
+  // Оплата Pro на год или на месяц — она же продление: сервер прибавляет новый
+  // срок к оставшемуся, дни не сгорают.
+  async function buyPro(planKey, button) {
     const phone = $('proPhone').value.trim();
     $('proErr').textContent = '';
-    if (!phone) { $('proErr').textContent = 'Укажите телефон для связи'; $('proPhone').focus(); return; }
-    $('proBtn').disabled = true;
+    if (!phone) {
+      $('proPhoneBox').classList.remove('hidden');
+      $('proErr').textContent = 'Укажите телефон для связи'; $('proPhone').focus(); return;
+    }
+    button.disabled = true;
     // сохраняем телефон вместе с профилем — до оплаты, чтобы он остался, даже если чекаут прервётся
     const saved = await api('/api/master/profile', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
     });
-    if (!saved.ok) { $('proErr').textContent = 'Не удалось сохранить телефон. Повторите попытку.'; $('proBtn').disabled = false; return; }
+    if (!saved.ok) { $('proErr').textContent = 'Не удалось сохранить телефон. Повторите попытку.'; button.disabled = false; return; }
     if (native) { location.replace(new URL('../index.html?buy=pro', location.href).href); return; }
     const r = await apiJson('/api/master/checkout', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planKey: 'pro_year' }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planKey }),
     });
-    if (r.body.error === 'phone_required') { $('proErr').textContent = 'Укажите телефон для связи'; $('proBtn').disabled = false; return; }
+    if (r.body.error === 'phone_required') { $('proErr').textContent = 'Укажите телефон для связи'; button.disabled = false; return; }
     if (r.body.mock && r.body.paymentId) {
       await api('/api/dev/complete-mock', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paymentId: r.body.paymentId }),
@@ -303,8 +358,39 @@
       await loadStatus(); toast('Pro активирована (тест)');
     } else if (r.body.confirmationUrl) {
       location.href = r.body.confirmationUrl;
+    } else {
+      $('proErr').textContent = 'Не получилось открыть оплату. Повторите попытку.';
     }
-    $('proBtn').disabled = false;
+    button.disabled = false;
+  }
+  $('proBtn').addEventListener('click', () => buyPro('pro_year', $('proBtn')));
+  $('proMonthBtn').addEventListener('click', () => buyPro('pro_month', $('proMonthBtn')));
+
+  // Пробный месяц: одна кнопка, без карты. Телефон — как на оплате и промокоде.
+  $('trialBtn').addEventListener('click', async () => {
+    const phone = $('proPhone').value.trim();
+    $('proErr').textContent = '';
+    if (!phone) { $('proErr').textContent = 'Укажите телефон для связи'; $('proPhone').focus(); return; }
+    $('trialBtn').disabled = true;
+    const saved = await api('/api/master/profile', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
+    });
+    if (!saved.ok) { $('proErr').textContent = 'Не удалось сохранить телефон. Повторите попытку.'; $('trialBtn').disabled = false; return; }
+    const r = await apiJson('/api/master/trial', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    $('trialBtn').disabled = false;
+    if (!r.body.ok) {
+      $('proErr').textContent = {
+        trial_unavailable: 'Пробный месяц на этом аккаунте уже был',
+        phone_required: 'Укажите телефон для связи',
+      }[r.body.error] || 'Не получилось включить пробный месяц. Повторите попытку.';
+      await loadStatus();
+      return;
+    }
+    await loadStatus();
+    loadClients();
+    toast('Pro включён на 30 дней 💅');
   });
   $('promoBtn').addEventListener('click', async () => {
     const code = $('promoCode').value.trim();
@@ -1043,6 +1129,8 @@
   // «Показать мастеру», и карточка заводится на сервере без участия мастера.
   const CLIENTS_STEP = 12;
   let clientsAll = [], clientsShown = CLIENTS_STEP, clientQuery = '';
+  // Без Pro сервер отдаёт 10 последних карточек и говорит, сколько скрыто.
+  let clientsHidden = 0, clientsLimit = null;
   let ccId = null, ccPhotoUrl = '';
 
   const dmy = (ts) => {
@@ -1062,6 +1150,8 @@
     const r = await apiJson('/api/master/clients');
     if (!r.ok) return;
     clientsAll = r.body.clients || [];
+    clientsHidden = r.body.hidden || 0;
+    clientsLimit = r.body.limit || null;
     if (!keepShown) clientsShown = CLIENTS_STEP;
     renderClients();
   }
@@ -1095,8 +1185,17 @@
     if (!box) return;
     const q = clientQuery.trim();
     const list = q ? clientsAll.filter((c) => matchClient(c, q)) : clientsAll;
-    $('clientCount').textContent = clientsAll.length ? clientsAll.length : '';
-    $('clientsEmpty').classList.toggle('hidden', clientsAll.length > 0);
+    const total = clientsAll.length + clientsHidden;
+    $('clientCount').textContent = total ? total : '';
+    $('clientsEmpty').classList.toggle('hidden', total > 0);
+    // Скрытые лимитом — не пропажа: говорим, сколько их и что они сохранены.
+    if ($('clientsLocked')) {
+      $('clientsLocked').classList.toggle('hidden', !clientsHidden);
+      $('clientsLockedText').textContent = clientsHidden
+        ? 'Скрыто карточек: ' + clientsHidden + '. Без Pro видны ' + clientsLimit
+          + ' последних, остальные сохранены и откроются с Pro.'
+        : '';
+    }
     box.innerHTML = '';
 
     const more = $('clientMore');
@@ -1141,6 +1240,7 @@
   if ($('clientMore')) {
     $('clientMore').addEventListener('click', () => { clientsShown = clientsAll.length; renderClients(); });
   }
+  if ($('clientsProBtn')) $('clientsProBtn').addEventListener('click', showProCard);
   if ($('clientAdd')) {
     $('clientAdd').addEventListener('click', async () => {
       const name = (prompt('Имя клиента') || '').trim();
@@ -1149,6 +1249,11 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
+      if (r.body && r.body.error === 'clients_limit') {
+        toast('Без Pro — до ' + r.body.limit + ' карточек, с Pro — без ограничения');
+        showProCard();
+        return;
+      }
       if (!r.ok) { toast('Не удалось добавить'); return; }
       await loadClients();
       openClient(r.body.id);
@@ -1159,6 +1264,7 @@
 
   async function openClient(id) {
     const r = await apiJson('/api/master/clients/' + encodeURIComponent(id));
+    if (r.status === 403) { toast('Эта карточка откроется с Pro'); showProCard(); return; }
     if (!r.ok) { toast('Карточка не открылась'); return; }
     const c = r.body.client;
     ccId = c.id; ccPhotoUrl = '';

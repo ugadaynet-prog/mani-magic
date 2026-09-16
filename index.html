@@ -143,13 +143,13 @@
         <p id="mLoginMsg" class="more-note more-err hidden"></p>
       </div>
 
-      <button id="masterToggle" class="more-item" type="button">Я мастер — ввести код</button>
+      <button id="masterToggle" class="more-item" type="button">Ввести код</button>
       <div id="masterBox" class="more-codebox hidden">
-        <p class="more-note">Код вида XXXX-XXXX из кабинета мастера — кнопка
-          «Показать код для приложения». Промокод из рассылки активируется
-          не здесь, а в самом кабинете.</p>
+        <p class="more-note">Код вида XXXX-XXXX из кабинета мастера (кнопка
+          «Показать код для приложения») или код на полную колоду, который
+          мы прислали. Промокод мастера MASTER-… активируется в кабинете.</p>
         <input id="masterCode" type="text" inputmode="latin" autocomplete="off"
-               placeholder="XXXX-XXXX" style="text-transform:uppercase">
+               placeholder="Код" style="text-transform:uppercase">
         <button id="masterBtn" class="more-item more-primary" type="button">Открыть колоду</button>
         <p id="masterMsg" class="more-note more-err hidden"></p>
       </div>
@@ -262,7 +262,7 @@
       </button>
     </div>
     <button id="lockBanner" class="lock-banner hidden">
-      <span id="lockBannerText">Открыто 15 из 49 карт</span>
+      <span id="lockBannerText">Примеры работ открыты у 15 из 49 карт</span>
       <span class="lock-banner-cta">Открыть все</span>
     </button>
     <div id="catalogGrid" class="fav-grid"></div>
@@ -278,37 +278,41 @@
 
   <div id="paywallOverlay" class="fav-overlay hidden">
     <button id="paywallClose" class="work-close" aria-label="Закрыть">&times;</button>
-    <h2 class="fav-title">Полная колода</h2>
-    <p class="pw-sub">Сейчас открыто 15 карт из 49</p>
+    <h2 id="pwTitle" class="fav-title">Полная колода</h2>
+    <p id="pwSub" class="pw-sub">Цвет и послание открыты у всех 49 карт, примеры работ — у 15</p>
 
+    <!-- Кому окно: клиентке — одна разовая покупка; мастеру — тарифы Pro (он
+         попадает сюда только из кабинета внутри приложения: Pro там обязан
+         покупаться через RuStore). Переключает setPaywallAudience в script.js. -->
     <div class="pw-plans" id="pwPlans">
-      <div class="pw-plan pw-plan-best" data-plan-key="full_year">
+      <div class="pw-plan pw-plan-best" data-plan-key="full_forever" data-audience="client">
+        <div class="pw-badge">Один раз</div>
+        <p class="pw-name">Полная колода навсегда</p>
+        <p class="pw-price">299 ₽<span> один раз</span></p>
+        <p class="pw-note">Без подписки и повторных списаний</p>
+      </div>
+      <div class="pw-plan pw-plan-best hidden" data-plan-key="pro_year" data-audience="master">
         <div class="pw-badge">Выгоднее</div>
-        <p class="pw-name">Полная колода · год</p>
-        <p class="pw-price">990 ₽<span>/год</span></p>
-        <p class="pw-note">Выходит 82 ₽ в месяц</p>
-      </div>
-      <div class="pw-plan" data-plan-key="full_month">
-        <p class="pw-name">Полная колода · месяц</p>
-        <p class="pw-price">199 ₽<span>/мес</span></p>
-        <p class="pw-note">Доступ на 30 дней, без автопродления</p>
-      </div>
-      <div class="pw-plan" data-plan-key="pro_month">
-        <p class="pw-name">Для мастера · месяц</p>
-        <p class="pw-price">399 ₽<span>/мес</span></p>
-        <p class="pw-note">Всё выше + свой QR, клиентке по нему открыты все 49 карт, витрина работ, выбор клиента с дизайном и сводка по цветам</p>
-      </div>
-      <div class="pw-plan" data-plan-key="pro_year">
         <p class="pw-name">Для мастера · год</p>
         <p class="pw-price">2 490 ₽<span>/год</span></p>
-        <p class="pw-note">Всё для мастера, выгоднее месячного</p>
+        <p class="pw-note">Выходит 208 ₽ в месяц</p>
+      </div>
+      <div class="pw-plan hidden" data-plan-key="pro_month" data-audience="master">
+        <p class="pw-name">Для мастера · месяц</p>
+        <p class="pw-price">399 ₽<span>/мес</span></p>
+        <p class="pw-note">Доступ на 30 дней, без автопродления</p>
       </div>
     </div>
 
-    <ul class="pw-list">
-      <li>Все 49 карт вместо 15</li>
-      <li>245 примеров готовых работ вместо 75</li>
-      <li>Доступ на оплаченный срок, без автопродления</li>
+    <ul class="pw-list" data-audience="client">
+      <li>Примеры работ у всех 49 карт — 245 вместо 75</li>
+      <li>Платите один раз, доступ бессрочный</li>
+      <li>Открывается на этом телефоне. Сменили телефон — напишите нам, пришлём код</li>
+    </ul>
+    <ul class="pw-list hidden" data-audience="master">
+      <li>Клиентке по вашему QR — все 49 карт с примерами работ</li>
+      <li>Клиентки видят вашу колоду из ваших работ</li>
+      <li>Карточки клиенток без ограничения</li>
     </ul>
 
     <label class="pw-email-label" for="pwEmail">Email для чека об оплате</label>
@@ -317,7 +321,7 @@
 
     <button id="pwBuyBtn" class="pw-buy">Оформить подписку</button>
     <p id="pwSoon" class="pw-soon">Оплата подключается — кнопка заработает, как только откроем приём платежей</p>
-    <p class="pw-legal">Оформляя подписку, вы принимаете <a href="oferta.html" target="_blank" rel="noopener">Оферту</a> и <a href="privacy.html" target="_blank" rel="noopener">Политику&nbsp;конфиденциальности</a></p>
+    <p class="pw-legal">Оплачивая, вы принимаете <a href="oferta.html" target="_blank" rel="noopener">Оферту</a> и <a href="privacy.html" target="_blank" rel="noopener">Политику&nbsp;конфиденциальности</a></p>
 
   </div>
 
