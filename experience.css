@@ -256,10 +256,10 @@ body.has-master-bar .day-btn {
   top: calc(var(--sat) + var(--mb-h, 48px) + (var(--header-h) - 44px) / 2);
 }
 
-/* На обороте карта остаётся узкой, поэтому боковые действия должны быть
-   внутри её границ, а не за пределами экрана телефона. */
-.card-wrap.reading .share-btn { left: 10px; right: auto; top: 12px; }
-.card-wrap.reading .like-btn { right: 10px; left: auto; top: 12px; }
+/* На обороте действия возвращаются по бокам: фраза и логотип должны оставаться
+   полностью свободными. Безопасный отступ сцены оставляет кнопки в экране. */
+.card-wrap.reading .share-btn { left: -50px; right: auto; top: calc(50% - 22px); }
+.card-wrap.reading .like-btn { right: -50px; left: auto; top: calc(50% - 22px); }
 
 /* Полноэкранные окна выше шапки мастера: иначе она перехватывает «Закрыть». */
 #qrOverlay, #filterOverlay, #selOverlay, #paywallOverlay, .work-overlay, .pick-sheet { z-index:80; }
