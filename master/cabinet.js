@@ -91,7 +91,27 @@
   // что ниже них, становится недостижимо: чтобы дойти до расхода по цветам,
   // приходилось мотать через три сотни фотографий.
   const TAB_KEY = 'maniCabinetTab';
+  let currentTab = 'main';
+  // Системная «Назад» с вкладки возвращает на «Главное», и только оттуда — из
+  // кабинета. Под другой вкладкой лежит ровно одна запись истории: между
+  // «Работами» и «Клиентами» она подменяется, а не копится, иначе «Назад»
+  // пришлось бы жать за каждое переключение. Обработчик — в конце файла.
+  let tabPushed = false, tabOwnBack = false;
+  function goTab(name) {
+    if (name === currentTab) return;
+    if (name === 'main') {
+      if (tabPushed) { tabPushed = false; tabOwnBack = true; history.back(); }
+      showTab('main');
+      return;
+    }
+    try {
+      if (tabPushed) history.replaceState({ cabinetTab: name }, '');
+      else { history.pushState({ cabinetTab: name }, ''); tabPushed = true; }
+    } catch (e) {}
+    showTab(name);
+  }
   function showTab(name) {
+    currentTab = name;
     document.querySelectorAll('.tab').forEach((b) =>
       b.classList.toggle('tab-on', b.dataset.tab === name));
     document.querySelectorAll('.tab-pane').forEach((p) =>
@@ -102,11 +122,12 @@
     window.scrollTo(0, 0);
   }
   document.querySelectorAll('.tab').forEach((b) =>
-    b.addEventListener('click', () => showTab(b.dataset.tab)));
+    b.addEventListener('click', () => goTab(b.dataset.tab)));
   {
     let saved = '';
     try { saved = localStorage.getItem(TAB_KEY) || ''; } catch (e) {}
-    if (saved && document.querySelector('.tab-pane[data-pane="' + saved + '"]')) showTab(saved);
+    // Без входа кабинета не видно — запись истории под вкладкой была бы пустым нажатием «Назад».
+    if (saved && document.querySelector('.tab-pane[data-pane="' + saved + '"]')) (token ? goTab : showTab)(saved);
   }
 
   // Пришли из калькулятора (?trial=1) — ещё до входа говорим, ради чего входить.
@@ -115,7 +136,7 @@
   // Подвести к разделу Pro: со ссылки из письма (?renew=1) или калькулятора
   // (?trial=1) и из «Клиентов», когда упёрлись в лимит карточек.
   function showProCard() {
-    showTab('main');
+    goTab('main');
     const card = $('proCard');
     card.classList.add('attn');
     card.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -143,7 +164,6 @@
     if (r.status === 401) { token = ''; localStorage.removeItem(TOKEN_KEY); show('login'); return false; }
     if (!r.ok) { show('login'); $('loginErr').textContent = 'Не удалось загрузить кабинет. Проверьте интернет и откройте кабинет ещё раз.'; return false; }
     const p = r.body.profile || {}, c = p.contacts || {};
-    $('slug').value = p.slug || '';
     $('studioName').value = p.studioName || '';
     $('city').value = p.city || '';
     $('accent').value = p.accent || '';
@@ -153,8 +173,80 @@
     $('instagram').value = c.instagram ? '@' + c.instagram : '';
     $('bookingUrl').value = p.bookingUrl || '';
     $('proPhone').value = r.body.phone || '';
+    renderAccent();
     return true;
   }
+
+  // --- Профиль: цвет студии ----------------------------------------------
+  // У клиентки этим цветом окрашены полоса студии, вкладка её колоды и кнопки
+  // «Показать мастеру» и «Отправить» (--master-accent в app/style.css). Надписи
+  // на них белые, поэтому в палитре только цвета, на которых они читаются.
+  const ACCENT_DEFAULT = '#b5203a';   // запасной цвет полосы студии в приложении
+  // Одиннадцать готовых и «свой» — ровно два ряда по шесть на телефоне.
+  const ACCENTS = [
+    ['', 'Как в MANI Magic'], ['#d6336c', 'Малиновый'], ['#8e24aa', 'Фиолетовый'],
+    ['#4527a0', 'Индиго'], ['#1565c0', 'Синий'], ['#00838f', 'Бирюзовый'],
+    ['#2e7d32', 'Зелёный'], ['#6d4c41', 'Шоколадный'], ['#bf360c', 'Терракотовый'],
+    ['#37474f', 'Графитовый'], ['#1b1b1f', 'Чёрный'],
+  ];
+  // Контраст с белым по WCAG: ниже 3 белые надписи на кнопке читаются плохо.
+  function contrastWithWhite(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return 21;
+    const lin = (i) => {
+      const c = parseInt(m[1].slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 1.05 / (0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4) + 0.05);
+  }
+  function renderAccentPreview() {
+    const value = ($('accent').value || '').trim();
+    const color = value || ACCENT_DEFAULT;
+    document.querySelector('.accent-preview').style.setProperty('--acc', color);
+    $('accentBarName').textContent = $('studioName').value.trim() || 'Ваша студия';
+    const preset = ACCENTS.find(([hex]) => hex === value.toLowerCase());
+    $('accentName').textContent = 'Выбрано: ' + (preset ? preset[1] : 'свой цвет');
+    $('accentLight').classList.toggle('hidden', contrastWithWhite(color) >= 3);
+  }
+  function renderAccent() {
+    const value = ($('accent').value || '').trim().toLowerCase();
+    const preset = ACCENTS.find(([hex]) => hex === value);
+    const box = $('accentSwatches');
+    box.innerHTML = '';
+    ACCENTS.forEach(([hex, name]) => {
+      const b = document.createElement('button');
+      const on = !!preset && preset[0] === hex;
+      b.type = 'button';
+      b.className = 'swatch' + (on ? ' on' : '');
+      b.style.background = hex || ACCENT_DEFAULT;
+      b.title = name;
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(on));
+      b.setAttribute('aria-label', name);
+      b.addEventListener('click', () => { $('accent').value = hex; renderAccent(); });
+      box.appendChild(b);
+    });
+    // Свой цвет — системная палитра. Пока она открыта, кружки не перерисовываем:
+    // вместе с ними пропал бы и сам выбор цвета.
+    const custom = document.createElement('label');
+    custom.className = 'swatch swatch-custom' + (preset ? '' : ' on');
+    custom.title = 'Свой цвет';
+    if (!preset) custom.style.background = value;
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.value = /^#[0-9a-f]{6}$/.test(value) ? value : ACCENT_DEFAULT;
+    picker.setAttribute('aria-label', 'Свой цвет');
+    picker.addEventListener('input', () => {
+      $('accent').value = picker.value;
+      custom.style.background = picker.value;
+      renderAccentPreview();
+    });
+    picker.addEventListener('change', () => { $('accent').value = picker.value; renderAccent(); });
+    custom.appendChild(picker);
+    box.appendChild(custom);
+    renderAccentPreview();
+  }
+  $('studioName').addEventListener('input', renderAccentPreview);
 
   // Instagram мастера пишут тремя способами: @anna, anna и ссылкой целиком.
   // Храним всегда голый ник — иначе по базе не собрать ни ссылку, ни список.
@@ -167,8 +259,9 @@
 
   $('saveBtn').addEventListener('click', async () => {
     $('profErr').textContent = ''; $('saveBtn').disabled = true;
+    // Окончание ссылки (slug) не отправляем: поля для него в профиле больше нет,
+    // и сервер без него оставляет прежнее — QR-коды мастеров продолжают работать.
     const body = {
-      slug: $('slug').value.trim(),
       studioName: $('studioName').value.trim(),
       city: $('city').value.trim(),
       accent: $('accent').value.trim(),
@@ -184,13 +277,10 @@
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     $('saveBtn').disabled = false;
-    if (r.status === 400) { $('profErr').textContent = 'Адрес: только латиница, цифры и дефис, 3–30 символов'; return; }
-    if (r.status === 409) { $('profErr').textContent = 'Этот адрес уже занят — выберите другой'; return; }
-    if (!r.ok) { $('profErr').textContent = 'Не удалось сохранить'; return; }
+    if (!r.ok) { $('profErr').textContent = 'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.'; return; }
     // показываем ник в том виде, в каком он лёг в базу, а не как его набрали
     $('instagram').value = body.contacts.instagram ? '@' + body.contacts.instagram : '';
     toast('Профиль сохранён');
-    loadQR();   // slug мог измениться
   });
 
   // --- QR и ссылка ---
@@ -1706,7 +1796,9 @@
       // готовы: в лайтбоксе они нужны, чтобы мастер видел, что именно открыл.
       if (photo) {
         li.classList.add('pick-clickable');
-        li.addEventListener('click', () => openPickPhoto(photo, label, sub.textContent));
+        // Раньше здесь стояла несуществующая переменная label, и тап по выбору падал
+        // с ошибкой: фото на весь экран не открывалось ни у кого.
+        li.addEventListener('click', () => openPickPhoto(photo, pickLabel(p), sub.textContent));
       }
 
       if (card && Array.isArray(card.colors)) {
@@ -1725,24 +1817,98 @@
     });
   }
 
-  // Сводка: какие цвета встречаются чаще всего в выбранных картах
-  async function loadStats() {
-    const r = await apiJson('/api/master/pick-stats?days=30');
-    const box = $('statsBox');
-    if (!r.ok || !r.body.total) { box.classList.add('hidden'); return; }
-    box.classList.remove('hidden');
+  // --- Сводка: какие цвета выбирают ---------------------------------------
+  // Периоды — 30 дней, 3 месяца и год; по умолчанию самый короткий, где выборы
+  // есть. Раньше сводка считала только 30 дней и пряталась целиком, если за них
+  // выборов не было, — так 16.09 у мастеров «пропала диаграмма»: все выборы
+  // клиенток были в августе.
+  const STATS_PERIODS = [30, 90, 365];
+  const STATS_TOP = 6;
+  let statsData = {}, statsDays = 0, statsDaysChosen = false, statsAll = false;
 
-    // Один выбор — один оттенок. У карты работа №N сделана в оттенке hexes[N]
-    // (это заложено в промпты, по которым снимались все 245 работ), поэтому
-    // выбранный дизайн даёт точный цвет. Раньше здесь на каждый выбор карты
-    // прибавлялись ВСЕ пять её оттенков — сводка размазывалась по палитре и
-    // ответить «что закупать» по ней было нельзя.
-    // Дизайн не выбран — берём первый оттенок карты: в разметке он основной.
+  async function loadStats() {
+    const res = await Promise.all(STATS_PERIODS.map((d) => apiJson('/api/master/pick-stats?days=' + d)));
+    statsData = {};
+    STATS_PERIODS.forEach((d, i) => { if (res[i].ok) statsData[d] = res[i].body; });
+    if (!statsDaysChosen) statsDays = STATS_PERIODS.find((d) => statsData[d] && statsData[d].total) || STATS_PERIODS[0];
+    renderStats();
+  }
+  document.querySelectorAll('#statsPeriods button').forEach((b) => b.addEventListener('click', () => {
+    statsDays = Number(b.dataset.days);
+    statsDaysChosen = true;
+    statsAll = false;
+    renderStats();
+  }));
+  $('statsMore').addEventListener('click', () => { statsAll = !statsAll; renderStats(); });
+
+  const plural = (n, one, few, many) => {
+    const t = n % 100, u = n % 10;
+    return t >= 11 && t <= 14 ? many : u === 1 ? one : u >= 2 && u <= 4 ? few : many;
+  };
+  const periodText = (d) => (d === 30 ? '30 дней' : d === 90 ? '3 месяца' : 'год');
+
+  // Название оттенка словами. Квадрат цвета на телефоне от соседнего не отличить,
+  // а закупают «тёмно-синий», а не #1d3557. Названия грубые, по тону и светлоте, —
+  // рядом всегда стоит сам цвет.
+  function shadeName(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return 'Оттенок';
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    let h = 0;
+    if (d) {
+      h = max === r ? 60 * (((g - b) / d) % 6) : max === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+      if (h < 0) h += 360;
+    }
+    if (l > 0.93) return 'Белый';
+    if (l < 0.1 || (l < 0.15 && s < 0.35)) return 'Чёрный';   // тёмный, но насыщенный — это ещё цвет
+    // Почти белые с лёгким оттенком — «молочный», а розоватые из них — «пудровый»:
+    // на глаз это не «светло-зелёный», а так их и называют в каталогах лаков.
+    if (l >= 0.85 && s < 0.35) return (h >= 290 || h < 12) && s >= 0.15 ? 'Пудровый' : 'Молочный';
+    if (s < 0.14) return l > 0.7 ? 'Светло-серый' : l < 0.35 ? 'Графитовый' : 'Серый';
+    if (h < 12 || h >= 345) {
+      if (l < 0.32) return 'Бордовый';
+      // Светлый «красный» на ногтях — это розовый или коралл, так его и называют.
+      if (l > 0.72) return h < 12 && s > 0.6 ? 'Коралловый' : 'Светло-розовый';
+      return 'Красный';
+    }
+    if (h < 40) {
+      if (l < 0.42) return 'Коричневый';
+      if (s < 0.55 && l > 0.6) return 'Бежевый';
+      return l > 0.72 ? 'Персиковый' : 'Оранжевый';
+    }
+    if (h < 65) {
+      if (s < 0.5 && l > 0.6) return 'Бежевый';
+      return l < 0.35 ? 'Оливковый' : l > 0.72 ? 'Светло-жёлтый' : 'Жёлтый';
+    }
+    const tone = (word) => (l > 0.72 ? 'Светло-' + word : l < 0.3 ? 'Тёмно-' + word : word[0].toUpperCase() + word.slice(1));
+    if (h < 160) return tone('зелёный');
+    if (h < 195) return tone('бирюзовый');
+    if (h < 250) return h < 215 && l > 0.55 ? tone('голубой') : tone('синий');
+    if (h < 290) return s < 0.45 && l > 0.6 ? 'Лавандовый' : tone('фиолетовый');
+    if (l < 0.3) return 'Сливовый';
+    return s < 0.45 && l > 0.65 ? 'Пудровый' : tone('розовый');
+  }
+
+  function renderStats() {
+    const data = statsData[statsDays] || { total: 0 };
+    const hasAny = STATS_PERIODS.some((d) => statsData[d] && statsData[d].total);
+    document.querySelectorAll('#statsPeriods button').forEach((b) => {
+      const d = Number(b.dataset.days), on = d === statsDays;
+      b.classList.toggle('on', on);
+      b.classList.toggle('empty', !(statsData[d] && statsData[d].total));
+      b.setAttribute('aria-selected', String(on));
+    });
+    $('statsPeriods').classList.toggle('hidden', !hasAny);
+
     // Один выбор — один оттенок. У карты работа №N сделана в оттенке hexes[N]
     // (это заложено в промпты всех 245 работ), поэтому выбранный дизайн даёт
     // точный цвет. Дизайн не выбран — берём первый оттенок карты, он основной.
+    // Раньше на каждый выбор карты прибавлялись все пять её оттенков — сводка
+    // размазывалась по палитре, и ответить «что закупать» по ней было нельзя.
     const counts = new Map();
-    (r.body.picks || r.body.cards || []).forEach(({ card, design, n }) => {
+    (data.picks || data.cards || []).forEach(({ card, design, n }) => {
       const c = cardOf(card);
       if (!c) return;
       const hexes = c.hexes || [];
@@ -1750,51 +1916,76 @@
       if (hex) counts.set(hex, (counts.get(hex) || 0) + n);
     });
     const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    const sum = sorted.reduce((s, [, n]) => s + n, 0);
+    const sum = sorted.reduce((acc, [, n]) => acc + n, 0);
 
-    // Лента долей: берём ВСЕ оттенки, а не первые десять — иначе доли соврут,
-    // сумма отрезков должна быть равна всем выборам. Редкие превращаются в
-    // тонкие полоски, и это правда: их доля и есть незначительная.
-    const rib = $('statsRibbon');
-    if (rib) {
-      rib.innerHTML = '';
-      rib.classList.toggle('hidden', sum === 0);
-      sorted.forEach(([hex, n]) => {
-        const seg = document.createElement('i');
-        seg.style.background = hex;
-        seg.style.flexGrow = String(n);
-        const pct = Math.round(n / sum * 100);
-        seg.title = hex + ' — ' + n + ' из ' + sum + ' (' + pct + '%)';
-        rib.appendChild(seg);
-      });
+    const summary = $('statsSummary');
+    summary.textContent = '';
+    if (!hasAny) {
+      summary.textContent = 'Пока пусто. Когда клиентки начнут выбирать карты по вашему QR-коду, здесь появится, '
+        + 'какие цвета берут чаще, — по этой сводке удобно закупать лаки.';
+    } else if (!sum) {
+      summary.textContent = 'За ' + periodText(statsDays) + ' выборов не было — посмотрите период побольше.';
+    } else {
+      const total = data.total || sum;
+      const withDesign = data.withDesign || 0;
+      const strong = document.createElement('b');
+      strong.textContent = total + ' ' + plural(total, 'выбор', 'выбора', 'выборов');
+      summary.append('За ' + periodText(statsDays) + ': ', strong,
+        ' · с конкретной работой ' + withDesign + ' (' + Math.round(withDesign / total * 100) + '%)');
     }
 
-    // Оттенки: под каждым квадратом — число, иначе по одному цвету не понять,
-    // он лидер или случайность. Заголовок оставляем в подсказке.
-    const top = sorted.slice(0, 10);
-    const cw = $('statsColors'); cw.innerHTML = '';
-    top.forEach(([hex, n]) => {
-      const cell = document.createElement('div'); cell.className = 'stats-color';
-      const i = document.createElement('i');
-      i.style.background = hex;
-      i.title = hex;
-      const cnt = document.createElement('span'); cnt.textContent = n;
-      cell.appendChild(i); cell.appendChild(cnt);
-      cw.appendChild(cell);
+    // Лента долей: берём ВСЕ оттенки, а не первые, иначе доли соврут — сумма
+    // отрезков должна быть равна всем выборам.
+    const rib = $('statsRibbon');
+    rib.innerHTML = '';
+    rib.classList.toggle('hidden', sum === 0);
+    sorted.forEach(([hex, n]) => {
+      const seg = document.createElement('i');
+      seg.style.background = hex;
+      seg.style.flexGrow = String(n);
+      seg.title = shadeName(hex) + ' — ' + n + ' из ' + sum + ' (' + Math.round(n / sum * 100) + '%)';
+      rib.appendChild(seg);
     });
 
+    // Рейтинг: название словами, полоса относительно лидера, число и доля.
+    const list = $('statsList');
+    list.innerHTML = '';
+    const maxN = sorted.length ? sorted[0][1] : 1;
+    (statsAll ? sorted : sorted.slice(0, STATS_TOP)).forEach(([hex, n]) => {
+      const li = document.createElement('li'); li.className = 'stats-row';
+      const sw = document.createElement('i'); sw.className = 'stats-swatch';
+      sw.style.background = hex; sw.title = hex;
+      const info = document.createElement('div');
+      const name = document.createElement('div'); name.className = 'stats-name';
+      name.textContent = shadeName(hex);
+      const track = document.createElement('div'); track.className = 'stats-track';
+      const fill = document.createElement('span');
+      fill.style.width = Math.max(4, Math.round(n / maxN * 100)) + '%';
+      fill.style.background = hex;
+      track.appendChild(fill);
+      info.append(name, track);
+      const num = document.createElement('div'); num.className = 'stats-num';
+      const count = document.createElement('b'); count.textContent = n;
+      const pct = document.createElement('span'); pct.textContent = Math.round(n / sum * 100) + '%';
+      num.append(count, pct);
+      li.append(sw, info, num);
+      list.appendChild(li);
+    });
+    const rest = sorted.length - STATS_TOP;
+    $('statsMore').classList.toggle('hidden', rest <= 0);
+    if (rest > 0) $('statsMore').textContent = statsAll ? 'Свернуть' : 'Все оттенки — ещё ' + rest;
 
-    // Доля выборов с конкретной работой. Низкая — значит кнопку «Хочу этот» не
-    // находят, и это надо знать раньше, чем по жалобам.
-    const dm = $('statsDesignShare');
-    if (dm && typeof r.body.withDesign === 'number') {
-      const share = r.body.total ? Math.round(r.body.withDesign / r.body.total * 100) : 0;
-      dm.textContent = 'С конкретной работой: ' + r.body.withDesign + ' из ' + r.body.total + ' (' + share + '%)';
+    // Выборы из витрины мастера — его собственные фото, у них нет палитры колоды.
+    const showcase = data.fromShowcase || 0;
+    $('statsShowcase').classList.toggle('hidden', !showcase || !hasAny);
+    if (showcase) {
+      $('statsShowcase').textContent = 'Ещё ' + showcase + ' ' + plural(showcase, 'выбор', 'выбора', 'выборов')
+        + ' — ваши работы из витрины. У них нет палитры колоды, поэтому в сводку они не входят.';
     }
 
     // Список карт убран намеренно: «карта 24, карта 12» для закупки бесполезно —
     // мастер покупает материал и оттенок, а не карту. Какая карта была, видно в
-    // самом списке выборов выше, там же и фото по тапу.
+    // ленте выборов ниже, там же и фото по тапу.
   }
   // живое обновление, пока кабинет открыт
   function startLivePicks() {
@@ -1808,6 +1999,7 @@
         // keepShown: если мастер раскрыл всю ленту, новый выбор не должен
         // схлопывать её обратно к десяти у него на глазах.
         renderPicks(picks, true);
+        loadStats();   // новый выбор должен сразу попасть и в сводку цветов
         toast('Новый выбор: карта ' + picks[0].card);
       }
       lastTopTs = topTs;
@@ -1981,21 +2173,27 @@
     try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
   })();
 
-  // Android «Назад» сначала закрывает верхнее окно кабинета.
-  if (native) {
+  // Системная «Назад» (кнопка Android, свайп в Safari) идёт по экранам кабинета:
+  // сначала закрывает верхнее окно, потом возвращает с вкладки на «Главное» и
+  // только потом уводит из кабинета. Раньше это работало лишь для окон и только
+  // в приложении, где кнопку к тому же никто не передавал странице, — и «Назад»
+  // закрывала приложение с любого экрана (исправлено в MainActivity, 1.9.14).
+  {
     const layers = [['pickPhoto', closePickPhoto], ['sorter', closeSorter], ['album', closeAlbum], ['clientCard', closeClient]];
     const topLayer = () => layers.find(([id]) => !$(id).classList.contains('hidden'));
     let pushed = false, ownBack = false;
     function syncBack() {
-      if (topLayer() && !pushed) { history.pushState({cabinetOverlay:true}, ''); pushed = true; }
+      if (topLayer() && !pushed) { history.pushState({ cabinetOverlay: true }, ''); pushed = true; }
       else if (!topLayer() && pushed) { pushed = false; ownBack = true; history.back(); }
     }
     const observer = new MutationObserver(syncBack);
-    layers.forEach(([id]) => observer.observe($(id), {attributes:true,attributeFilter:['class']}));
+    layers.forEach(([id]) => observer.observe($(id), { attributes: true, attributeFilter: ['class'] }));
     window.addEventListener('popstate', () => {
       if (ownBack) { ownBack = false; return; }
+      if (tabOwnBack) { tabOwnBack = false; return; }
       const layer = topLayer();
-      if (layer) { pushed = false; layer[1](); syncBack(); }
+      if (layer) { pushed = false; layer[1](); syncBack(); return; }
+      if (tabPushed) { tabPushed = false; showTab('main'); }
     });
   }
 

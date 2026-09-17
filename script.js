@@ -1057,6 +1057,28 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     drawCard();              // сразу показываем карту из выбранной колоды
   }
 
+  // Куда ведёт «Записаться»: на онлайн-запись мастера, а если её нет — в первый
+  // заполненный мессенджер из профиля студии. Контакты мастера раньше сохранялись,
+  // но клиентке не показывались нигде, и кнопки записи у большинства студий не было.
+  // MAX — только готовой ссылкой: по номеру у него нет открытого адреса.
+  function bookingHref(m) {
+    if (m.bookingUrl) return m.bookingUrl;
+    const c = m.contacts || {};
+    const wa = String(c.whatsapp || '').replace(/\D/g, '');
+    if (wa.length === 11 && /^[78]/.test(wa)) return 'https://wa.me/7' + wa.slice(1);
+    if (wa.length === 10) return 'https://wa.me/7' + wa;
+    if (wa.length >= 11 && wa.length <= 15) return 'https://wa.me/' + wa;
+    const tg = String(c.telegram || '').trim().replace(/^(https?:\/\/)?t\.me\//i, '').replace(/^@/, '');
+    if (/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(tg)) return 'https://t.me/' + tg;
+    const tgPhone = tg.replace(/\D/g, '');
+    if (/^\+?[\d\s()-]+$/.test(tg) && tgPhone.length >= 10) return 'https://t.me/+' + (tgPhone.length === 10 ? '7' + tgPhone : tgPhone.replace(/^8(?=\d{10}$)/, '7'));
+    const max = String(c.max || '').trim();
+    if (/^https:\/\/(www\.)?max\.ru\/\S+$/i.test(max)) return max;
+    const ig = String(c.instagram || '').trim().replace(/^@/, '');
+    if (/^[A-Za-z0-9._]{1,30}$/.test(ig)) return 'https://instagram.com/' + ig;
+    return '';
+  }
+
   function renderMasterBar(m) {
     if (!m) return;
     if (m.accent) {
@@ -1091,10 +1113,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       w.addEventListener('click', openMasterWorks);
       actions.appendChild(w);
     }
-    if (m.bookingUrl) {
+    const bookHref = bookingHref(m);
+    if (bookHref) {
       const book = document.createElement('a');
       book.className = 'mb-book';
-      book.href = m.bookingUrl;
+      book.href = bookHref;
       book.target = '_blank';
       book.rel = 'noopener';
       book.textContent = 'Записаться';

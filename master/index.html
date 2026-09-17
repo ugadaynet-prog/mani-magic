@@ -100,19 +100,48 @@
   .upload-fit-row label{display:flex;flex-direction:column;gap:5px}
   .upload-fit-row select{width:100%;padding:10px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
   .fit-cabinet-note{margin:6px 0 0}
-  .stats-colors{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
-  .stats-colors i{width:30px;height:30px;border-radius:8px;display:block;border:1px solid rgba(0,0,0,.08)}
   .stats-sub{font-size:14px;font-weight:600;margin:14px 0 4px}
+  /* Сводка по цветам: заголовок с переключателем периода, лента долей и
+     рейтинг оттенков с полосой, числом и долей. */
+  .stats-head{display:flex;align-items:center;justify-content:space-between;gap:8px 10px;flex-wrap:wrap}
+  .stats-head h2{margin:0}
+  .seg{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:#f3eef1}
+  .seg button{border:0;background:transparent;padding:6px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .seg button.empty:not(.on){opacity:.5}
+  .stats-summary{font-size:13px;color:var(--muted);margin:10px 0 0}
+  .stats-summary b{color:var(--ink);font-weight:600}
   /* Лента долей. Отрезки на flex-grow, поэтому редкий оттенок сам становится
      тонкой полоской у края и ничего не ломает — в отличие от круговой, где он
      превратился бы в неразличимый лепесток. */
-  .stats-ribbon{display:flex;height:22px;border-radius:7px;overflow:hidden;margin:10px 0 8px;
-    background:rgba(0,0,0,.06)}
-  .stats-ribbon i{display:block;height:100%;min-width:0}
-  .stats-ribbon.hidden{display:none}
-  /* Оттенок с числом под ним: один квадрат без подписи ни о чём не говорит */
-  .stats-color{display:flex;flex-direction:column;align-items:center;gap:3px}
-  .stats-color span{font-size:12px;color:#6b6b73}
+  .stats-ribbon{display:flex;gap:2px;height:26px;border-radius:9px;overflow:hidden;margin:12px 0 14px;
+    background:rgba(0,0,0,.05)}
+  .stats-ribbon i{display:block;height:100%;min-width:3px}
+  .stats-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+  .stats-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:12px}
+  .stats-swatch{width:36px;height:36px;border-radius:10px;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+  .stats-name{font-size:14px;font-weight:600;line-height:1.2}
+  .stats-track{height:7px;border-radius:4px;background:#f1ebee;margin-top:7px;overflow:hidden}
+  .stats-track span{display:block;height:100%;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+  .stats-num{text-align:right;line-height:1.15;min-width:44px}
+  .stats-num b{display:block;font-size:16px}
+  .stats-num span{font-size:12px;color:var(--muted)}
+  #statsMore{margin-top:14px}
+  /* Профиль студии: подсказки вместо загадочных значений */
+  input::placeholder{color:#c1b8c5}
+  .swatches{display:flex;flex-wrap:wrap;gap:10px}
+  .swatch{position:relative;width:38px;height:38px;margin:0;padding:0;border-radius:50%;border:3px solid #fff;
+    box-shadow:0 0 0 1px var(--line);overflow:hidden}
+  .swatch.on{box-shadow:0 0 0 2px var(--ink)}
+  .swatch.on::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:7px;
+    border:solid #fff;border-width:0 0 2.5px 2.5px;transform:translate(-50%,-65%) rotate(-45deg)}
+  .swatch-custom{background:conic-gradient(#e63950,#f6a33b,#f6df5b,#3fb56b,#2b9bd6,#6b4bd6,#d63ab8,#e63950)}
+  .swatch-custom input{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);
+    opacity:0;cursor:pointer;border:0;padding:0}
+  .accent-preview{margin:12px 0 0;border-radius:12px;overflow:hidden;background:#151316}
+  .accent-bar{padding:10px 12px;color:#fff;font-size:13px;font-weight:600;background:var(--acc,#b5203a)}
+  .accent-pick{margin:12px auto;width:70%;padding:9px;border-radius:10px;text-align:center;
+    color:#fff;font-size:13px;font-weight:600;background:var(--acc,#b5203a)}
   .pick-clickable{cursor:pointer}
   .pick-clickable:active{opacity:.85}
   /* Фото выбора на весь экран. Отступы снизу — под панель навигации телефона. */
@@ -357,26 +386,46 @@
       <button id="pushTest" class="btn btn-ghost hidden" style="margin-top:6px">Проверить уведомление</button>
     </div>
 
-    <div class="card">
+    <!-- Профиль говорит словами, что где у клиентки. Поля «Адрес страницы» здесь
+         больше нет (решение пользователя 17.09): окончание ссылки уже зашито в
+         QR-код, а автоматическое m-c31a6b9b только сбивало с толку. Ссылку мастер
+         видит и копирует в блоке QR выше; сервер сохраняет прежнее окончание,
+         если профиль его не присылает. «Цвет бренда» кодом #d6336c заменён
+         кружками с примером. -->
+    <div class="card" id="profileCard">
       <h2>Профиль студии</h2>
-      <label>Адрес страницы (латиница, цифры, дефис)</label>
-      <input id="slug" type="text" placeholder="anna-nails">
-      <label>Название студии</label>
-      <input id="studioName" type="text" placeholder="Анна · nail studio">
+      <p class="note" style="margin-top:0">Так вашу студию видят клиентки, когда открывают колоду по вашему QR-коду или ссылке.</p>
+
+      <label for="studioName">Название студии</label>
+      <input id="studioName" type="text" maxlength="60" placeholder="Например: Анна · ногти">
+      <label for="city">Город</label>
+      <input id="city" type="text" maxlength="40" placeholder="Например: Казань">
+
+      <label>Цвет студии</label>
+      <p class="note" style="margin:0 0 8px">В этом цвете у клиентки полоса с названием студии и кнопка «Показать мастеру».</p>
+      <div id="accentSwatches" class="swatches" role="radiogroup" aria-label="Цвет студии"></div>
+      <input id="accent" type="hidden">
+      <div class="accent-preview" aria-hidden="true">
+        <div class="accent-bar" id="accentBarName">Ваша студия</div>
+        <div class="accent-pick">Показать мастеру</div>
+      </div>
+      <p id="accentName" class="note" style="margin-top:6px"></p>
+      <p id="accentLight" class="err hidden">Цвет слишком светлый: белые надписи на нём будет трудно прочитать.</p>
+
+      <label>Как с вами связаться</label>
+      <p class="note" style="margin:0 0 2px">Кнопка «Записаться» у клиентки ведёт на онлайн-запись, а если ссылки нет — в мессенджер: WhatsApp, Telegram, MAX или Instagram, по порядку, что заполнено. Достаточно одного.</p>
       <div class="row2">
-        <div><label>Город</label><input id="city" type="text" placeholder="Казань"></div>
-        <div><label>Цвет бренда</label><input id="accent" type="text" placeholder="#d6336c"></div>
+        <div><label for="whatsapp">WhatsApp — номер</label><input id="whatsapp" type="text" inputmode="tel" placeholder="+7 900 000-00-00"></div>
+        <div><label for="telegram">Telegram — ник</label><input id="telegram" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@ваш_ник"></div>
       </div>
       <div class="row2">
-        <div><label>WhatsApp</label><input id="whatsapp" type="text" placeholder="+7900..."></div>
-        <div><label>Telegram</label><input id="telegram" type="text" placeholder="@anna"></div>
+        <div><label for="max">MAX — ссылка</label><input id="max" type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://max.ru/…"></div>
+        <div><label for="instagram">Instagram — ник</label><input id="instagram" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="@ваш_ник"></div>
       </div>
-      <div class="row2">
-        <div><label>MAX</label><input id="max" type="text" placeholder="+7900... или @anna"></div>
-        <div><label>Instagram</label><input id="instagram" type="text" placeholder="@anna_nails" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
-      </div>
-      <label>Ссылка «Записаться»</label>
-      <input id="bookingUrl" type="url" placeholder="https://wa.me/7900...">
+      <label for="bookingUrl">Ссылка на онлайн-запись</label>
+      <input id="bookingUrl" type="url" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://…">
+      <p class="note">Ваша страница в YCLIENTS, DIKIDI или другом сервисе записи. Необязательно.</p>
+
       <button id="saveBtn" class="btn" style="margin-top:14px">Сохранить профиль</button>
       <div id="profErr" class="err"></div>
     </div>
@@ -449,11 +498,19 @@
       <button id="clientAdd" class="btn btn-ghost" style="margin-top:8px" type="button">Добавить клиента</button>
     </div>
 
-    <div class="card hidden" id="statsBox">
-      <h2>Что выбирают чаще</h2>
-      <p class="note" style="margin-top:0">
-        За последние 30 дней. Цифра под квадратом — сколько раз выбрали этот оттенок.
-      </p>
+    <!-- Сводка видна всегда. Раньше она считала только 30 дней и пряталась
+         целиком, если за это время выборов не было, — так 16.09 у мастеров
+         «пропала диаграмма»: все выборы были в августе. -->
+    <div class="card" id="statsBox">
+      <div class="stats-head">
+        <h2>Какие цвета выбирают</h2>
+        <div id="statsPeriods" class="seg" role="tablist" aria-label="Период">
+          <button type="button" data-days="30" role="tab">30 дней</button>
+          <button type="button" data-days="90" role="tab">3 месяца</button>
+          <button type="button" data-days="365" role="tab">Год</button>
+        </div>
+      </div>
+      <p id="statsSummary" class="stats-summary"></p>
 
       <!-- Только цвета. Разрез по материалам («Сахар», «Опал/космос», «Желе»)
            убран по решению пользователя: это наша внутренняя разметка колоды, а
@@ -463,9 +520,10 @@
            Круговую не делаем — оттенков за месяц набирается двадцать и больше,
            и она превращается в конфетти из неразличимых лепестков; к тому же
            углы на глаз сравнивать труднее, чем длины. -->
-      <div id="statsRibbon" class="stats-ribbon"></div>
-      <div id="statsColors" class="stats-colors"></div>
-      <p id="statsDesignShare" class="note" style="margin:6px 0 0"></p>
+      <div id="statsRibbon" class="stats-ribbon hidden"></div>
+      <ol id="statsList" class="stats-list"></ol>
+      <button id="statsMore" class="btn btn-ghost hidden" type="button"></button>
+      <p id="statsShowcase" class="note hidden"></p>
     </div>
 
     <div class="card">
