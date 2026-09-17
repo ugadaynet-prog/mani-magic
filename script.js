@@ -2809,12 +2809,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
     dayBadge.classList.add('hidden');   // любое вытягивание снимает бейдж «Карта дня»
 
-    currentIndex = forced ? forcedIndex : pickNewIndex();
-    if (currentIndex === null || currentIndex === undefined || !CARDS[currentIndex]) {
+    // Текущую карту меняем, только когда новая нашлась. Иначе на экране остаётся
+    // прежняя, а currentIndex стал бы null: «Поделиться» и «Показать мастеру»
+    // отдали бы карту 1, а лайк записал бы в избранное пустую запись.
+    const nextIndex = forced ? forcedIndex : pickNewIndex();
+    if (nextIndex === null || nextIndex === undefined || !CARDS[nextIndex]) {
       isAnimating = false;
       toast('Точных совпадений нет — попробуйте другую длину или форму.');
       return;
     }
+    currentIndex = nextIndex;
     const data = CARDS[currentIndex];
 
     // главное событие воронки: как именно человек получил карту
