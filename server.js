@@ -5,6 +5,8 @@ const path = require('path');
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.wasm': 'application/wasm',
   '.css': 'text/css; charset=utf-8',
   '.jpg': 'image/jpeg',
   '.png': 'image/png',

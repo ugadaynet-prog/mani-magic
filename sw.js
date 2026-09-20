@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mani-magic-v143';
+const CACHE_NAME = 'mani-magic-v147';
 
 const SHELL_FILES = [
   './',
@@ -45,7 +45,7 @@ self.addEventListener('activate', (event) => {
 // картинки — «сначала кэш» (быстро и работают офлайн).
 function isFreshFirst(url) {
   return url.pathname.endsWith('/') ||
-    /\.(html|css|js|json)$/i.test(url.pathname);
+    /\.(html|css|js|mjs|json)$/i.test(url.pathname);
 }
 
 self.addEventListener('fetch', (event) => {

@@ -6,7 +6,10 @@
   const icon = name => `<i data-lucide="${name}"></i>`;
   const closeButton = id => `<button type="button" class="icon-button" data-close="${id}" title="Закрыть" aria-label="Закрыть">${icon('x')}</button>`;
   const native = !!window.Capacitor?.isNativePlatform?.();
-  const localPreview = !native && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  // Веб-версия теперь использует тот же экран примерки, что и Android.
+  // localPreview оставляем отдельным именем для совместимости с отладочными
+  // ссылками, но доступность больше не ограничиваем localhost.
+  const localPreview = !native;
   const navItems = [['deck', 'layers', 'Колода'], ['catalog', 'layout-grid', 'Каталог'], ['tryon', 'scan', 'Примерка'], ['favorites', 'heart', 'Избранное'], ['diary', 'book-open', 'Дневник']];
   $('experienceRoot').innerHTML = `
     <section id="diaryOverlay" class="experience-page hidden ym-hide-content" aria-label="Дневник">
@@ -16,7 +19,7 @@
     <section id="tryonOverlay" class="experience-page hidden" aria-label="Примерка">
       <div class="page-heading"><div><p class="eyebrow">ПЕРЕД ВИЗИТОМ</p><h1>Примерка цвета</h1></div></div>
       <img class="tryon-cover" id="tryonCover" alt="Маникюр">
-      <p>Примерка на фото доступна в Android-приложении MANI Magic.</p>
+      <p>Примерка на фото доступна в приложении и в браузере.</p>
       <a id="openTryonBtn" class="action-button" href="tryon/index.html">Открыть примерку</a>
     </section>
     <dialog id="diaryEditor" class="experience-dialog ym-hide-content" data-ym-disable-keys><form id="diaryForm">
