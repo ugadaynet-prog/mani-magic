@@ -14,7 +14,7 @@
     // Load the local ESM build on demand so the first photo still works.
     const ortPromise = window.ort
       ? Promise.resolve(window.ort)
-      : import(new URL('../vendor/onnxruntime/ort.min.mjs', document.baseURI).href)
+      : import(new URL('../vendor/onnxruntime/ort.min.mjs?v=147', document.baseURI).href)
           .then(module => {
             const runtime = module.default || module;
             window.ort = runtime;
