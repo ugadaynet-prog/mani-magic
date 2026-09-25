@@ -123,23 +123,49 @@
       return logits;
     }
 
+    const wasmRoot = new URL('../vendor/onnxruntime/', document.baseURI).href;
+    // Explicit versioned URLs bypass an older WebView HTTP cache that may
+    // contain the WASM response with the wrong MIME type.
+    const runtimeVersion = 'v147';
+
+    // wasm движка и модель качаем сами, одновременно друг с другом и с
+    // ort.min.mjs. По адресу ORT брал модель только после того, как скачает и
+    // поднимет wasm, — на сайте это 9–18 с сверху. Каждый файл качается один
+    // раз: wasm уходит в ORT через env.wasm.wasmBinary, модель — байтами.
+    let filesPromise;
+    function fetchBytes(url) {
+      return fetch(url).then(response => {
+        if (!response.ok) throw new Error(`не загрузился ${url}: ${response.status}`);
+        return response.arrayBuffer();
+      });
+    }
+    function loadFiles() {
+      if (!filesPromise) {
+        filesPromise = Promise.all([
+          fetchBytes(`${wasmRoot}ort-wasm-simd-threaded.wasm?${runtimeVersion}`),
+          fetchBytes(new URL('./nail-unet.onnx', document.baseURI).href),
+        ]).catch(error => { filesPromise = null; throw error; });
+      }
+      return filesPromise;
+    }
+
     async function getSession() {
       if (!sessionPromise) {
-        sessionPromise = ortPromise.then(ort => {
-          const wasmRoot = new URL('../vendor/onnxruntime/', document.baseURI).href;
-          // Explicit versioned URLs bypass an older WebView HTTP cache that may
-          // contain the WASM response with the wrong MIME type.
-          const runtimeVersion = 'v147';
+        sessionPromise = Promise.all([ortPromise, loadFiles()]).then(([ort, [wasm, model]]) => {
           ort.env.wasm.wasmPaths = {
             mjs: `${wasmRoot}ort-wasm-simd-threaded.mjs?${runtimeVersion}`,
             wasm: `${wasmRoot}ort-wasm-simd-threaded.wasm?${runtimeVersion}`,
           };
+          ort.env.wasm.wasmBinary = wasm;
           ort.env.wasm.numThreads = 1;
           ort.env.wasm.proxy = false;
-          return ort.InferenceSession.create('./nail-unet.onnx', {
+          return ort.InferenceSession.create(new Uint8Array(model), {
             executionProviders: ['wasm'],
             graphOptimizationLevel: 'basic',
           });
+        }).then(session => {
+          filesPromise = null;   // байты уже внутри ORT, держать 15 МБ незачем
+          return session;
         }).catch(error => { sessionPromise = null; throw error; });
       }
       return sessionPromise;
