@@ -5,6 +5,24 @@
   const colors = ['#F5D0C5','#D98A91','#F04479','#D81B60','#A81748','#8B2F67','#7446B8','#335CC7','#1597A5','#3BAA70','#D6A522','#17171B'];
   const colorNames = ['Нежно-розовый','Пыльная роза','Ярко-розовый','Малиновый','Вишнёвый','Сливовый','Фиолетовый','Синий','Бирюзовый','Зелёный','Золотистый','Графитовый'];
   let eraseMode = false;
+
+  // --- Аналитика ---
+  // Тот же счётчик, что в script.js. Примерка — отдельная страница, и без своего
+  // счётчика ни её визиты, ни запуски в Метрику не попадали вовсе.
+  // Вебвизор и отслеживание ссылок выключены сознательно: здесь фото руки, и
+  // обещание «Фото остаётся на устройстве» должно держаться без оговорок.
+  const METRICA_ID = 111151437;
+  window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+  window.ym.l = +new Date();
+  const metricaTag = document.createElement('script');
+  metricaTag.async = true;
+  metricaTag.src = 'https://mc.yandex.ru/metrika/tag.js';
+  document.head.appendChild(metricaTag);
+  window.ym(METRICA_ID, 'init', { clickmap: true, accurateTrackBounce: true, trackLinks: false, webvisor: false });
+  function track(event, params) {
+    try { window.ym(METRICA_ID, 'reachGoal', event, params); } catch (e) {}
+  }
+  track('tryon_open');
   function compare(original) {
     showingOriginal = original;
     ui.compare.setAttribute('aria-pressed', String(original));
@@ -142,14 +160,19 @@
       ui.start.classList.add('hidden'); ui.editor.classList.remove('hidden');
       if (canRecognize) await recognize();
       else {
+        track('tryon_fail', { reason: 'unsupported' });
         probabilities = null;
         render();
         setStatus(ui.status, 'Распознавание недоступно в этом браузере. Обновите страницу и попробуйте снова.', 'error');
         [ui.color, ui.opacity, ui.compare, $('afterBtn'), $('eraseBtn'), ui.save, ui.share, ...ui.palette.querySelectorAll('button')].forEach(button => button.disabled = true);
       }
-    } catch(e){ console.error(e); setStatus(ui.model,'Не удалось открыть фото: '+e.message,'error'); }
+    } catch(e){ console.error(e); track('tryon_fail', { reason: 'photo' }); setStatus(ui.model,'Не удалось открыть фото: '+e.message,'error'); }
   }
-  [ui.camera,ui.gallery].forEach(input=>input.addEventListener('change',()=>{chooseFile(input.files&&input.files[0]);input.value='';}));
+  [ui.camera,ui.gallery].forEach(input=>input.addEventListener('change',()=>{
+    const file=input.files&&input.files[0];
+    if(file) track('tryon_photo', { source: input===ui.camera ? 'camera' : 'gallery' });
+    chooseFile(file);input.value='';
+  }));
 
   function makeSourceCanvas(bitmap){
     const max=1800, scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
@@ -372,11 +395,17 @@
       if(ui.undo) ui.undo.classList.add('hidden');
       resetView();
       render();
-      const hint = advice(blobCount());
+      const nails = blobCount();
+      const hint = advice(nails);
       if(hint) setStatus(ui.status, hint[0], hint[1]);
       else setStatus(ui.status, 'Готово', 'ok');
+      // Запуск примерки — это найденные на фото ногти. Кадр без ногтей считаем
+      // отдельно: по нему видно, сколько людей примерить так и не смогли.
+      if(nails) track('tryon_result', { nails, ms: Math.round(performance.now() - started) });
+      else track('tryon_fail', { reason: 'no_nails' });
     } catch(e){
       console.error('recognize() error:', e);
+      track('tryon_fail', { reason: 'error' });
       // Диагностический вывод: покажем тип ошибки, сообщение и stack
       const errType = e && e.constructor ? e.constructor.name : typeof e;
       const errMsg = e && e.message ? e.message : String(e);
@@ -521,6 +550,7 @@
     let dataUrl;
     try { dataUrl = resultDataUrl(); }
     catch(e){ toast('Не удалось сохранить'); console.error(e); return; }
+    track('tryon_save', { color: ui.code.textContent });
     // Сначала галерея: в приложении для этого давно есть плагин TryOnMedia,
     // он кладёт снимок через MediaStore в альбом «MANI Magic», то есть туда,
     // где человек его и ищет — в «Фото». В браузере плагина нет, и остаётся
@@ -553,7 +583,11 @@
       }
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'mani-magic.jpg', { type:'image/jpeg' });
-      if(navigator.canShare && navigator.canShare({ files:[file] })) {
+      const canShareFile = !!(navigator.canShare && navigator.canShare({ files:[file] }));
+      // method=file — браузер не умеет отдавать файл в мессенджер, и снимок
+      // уходит в загрузки. Так видно, где «Отправить» на деле не отправляет.
+      track('tryon_share', { method: canShareFile ? 'share' : 'file', color: ui.code.textContent });
+      if(canShareFile) {
         await navigator.share({ files:[file], title:'MANI Magic', text:'Примерка маникюра' });
       } else {
         const link = document.createElement('a');
