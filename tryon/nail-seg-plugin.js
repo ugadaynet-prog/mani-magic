@@ -140,7 +140,7 @@
             executionProviders: ['wasm'],
             graphOptimizationLevel: 'basic',
           });
-        });
+        }).catch(error => { sessionPromise = null; throw error; });
       }
       return sessionPromise;
     }
@@ -156,8 +156,10 @@
 
     async function segment({ image }) {
       const source = await imageFromDataUrl(image);
-      const prepared = inputFromImage(source);
+      // Сначала движок: Tensor берётся из window.ort, а он появляется только после
+      // загрузки ort.min.mjs. Фото, выбранное раньше, падало на `ort.Tensor`.
       const session = await getSession();
+      const prepared = inputFromImage(source);
       const inputName = session.inputNames[0];
       const outputName = session.outputNames[0];
       const results = await session.run({ [inputName]: prepared.tensor });
@@ -178,6 +180,11 @@
     }
 
     window.ManiNailSegmentation = { segment };
+    // Движок и модель — около 16 МБ, и качались они только после выбора фото:
+    // 25.09 на сайте первый результат ждали 49 с. Начинаем загрузку сразу, пока
+    // человек снимает или выбирает фото. Сбой здесь не страшен: getSession
+    // забывает неудачную попытку, и при выборе фото загрузка пойдёт заново.
+    getSession().catch(() => {});
   }
 
   if (!window.Capacitor || !window.Capacitor.Plugins) return;
