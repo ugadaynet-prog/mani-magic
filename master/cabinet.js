@@ -61,6 +61,7 @@
     });
     $('reqBtn').disabled = !$('consent').checked;
     if (!r.ok) { $('loginErr').textContent = 'Не удалось отправить код'; return; }
+    track('cab_code');
     $('step1').classList.add('hidden'); $('step2').classList.remove('hidden');
     if (r.body.devCode) { $('devCode').textContent = 'Тестовый режим: код ' + r.body.devCode; $('code').value = r.body.devCode; }
     else { $('devCode').textContent = 'Код отправлен на почту'; }
@@ -80,6 +81,7 @@
     if (r.body.error === 'consent_required') { $('loginErr').textContent = 'Отметьте согласие на предыдущем шаге'; return; }
     if (!r.ok || !r.body.token) { $('loginErr').textContent = 'Неверный код'; return; }
     token = r.body.token; localStorage.setItem(TOKEN_KEY, token);
+    track('cab_login');
     enterDash();
   });
   $('logoutBtn').addEventListener('click', () => {
@@ -298,7 +300,11 @@
   // --- Pro ---
   // ?promo=КОД в ссылке кабинета — подставляем в поле сами, чтобы в рассылке
   // мастерам можно было прислать одну ссылку вместо «ссылка + код отдельно».
-  const promoFromLink = new URLSearchParams(location.search).get('promo') || '';
+  // Код из ссылки ?promo=… в конце файла убирается из адреса (адрес уходит в Метрику),
+  // поэтому он же лежит в sessionStorage — на случай перезагрузки вкладки.
+  const PROMO_KEY = 'maniPromoFromLink';
+  const promoFromLink = new URLSearchParams(location.search).get('promo')
+    || (() => { try { return sessionStorage.getItem(PROMO_KEY) || ''; } catch (e) { return ''; } })();
 
   // Что даёт Pro — одной строкой, словами мастера. Стоит там, где решают, платить
   // ли: раньше рядом с кнопкой было только «Оформите Pro», без цены и без пользы.
@@ -436,6 +442,7 @@
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
     });
     if (!saved.ok) { $('proErr').textContent = 'Не удалось сохранить телефон. Повторите попытку.'; button.disabled = false; return; }
+    track('pro_checkout', { plan: planKey, native });
     if (native) { location.replace(new URL('../index.html?buy=pro', location.href).href); return; }
     const r = await apiJson('/api/master/checkout', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planKey }),
@@ -478,6 +485,7 @@
       await loadStatus();
       return;
     }
+    track('pro_trial');
     await loadStatus();
     loadClients();
     toast('Pro включён на 30 дней 💅');
@@ -2196,6 +2204,35 @@
       if (tabPushed) { tabPushed = false; showTab('main'); }
     });
   }
+
+  // --- Аналитика ---------------------------------------------------------
+  // Тот же счётчик, что у колоды и примерки. Без него переходы в кабинет из
+  // роликов и профиля YouTube («Месяц Pro бесплатно») и взятые пробные месяцы
+  // не привязывались к источнику. Цели: cab_code, cab_login, pro_trial,
+  // pro_checkout (plan, native).
+  // Вебвизор и отслеживание ссылок выключены: в кабинете имена, телефоны и фото
+  // клиенток, а ссылки на мессенджеры несут номера. Адрес страницы уходит в
+  // Метрику с каждым хитом, поэтому счётчик стартует здесь: токен из #t= уже
+  // стёрт pickUpHandoff, а промокод стираем ниже.
+  const METRICA_ID = 111151437;
+  function track(event, params) {
+    try { window.ym(METRICA_ID, 'reachGoal', event, params); } catch (e) {}
+  }
+  if (new URLSearchParams(location.search).has('promo')) {
+    const clean = new URL(location.href);
+    clean.searchParams.delete('promo');
+    try {
+      sessionStorage.setItem(PROMO_KEY, promoFromLink);
+      history.replaceState(history.state, '', clean.pathname + clean.search + clean.hash);
+    } catch (e) {}
+  }
+  window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+  window.ym.l = +new Date();
+  const metricaTag = document.createElement('script');
+  metricaTag.async = true;
+  metricaTag.src = 'https://mc.yandex.ru/metrika/tag.js';
+  document.head.appendChild(metricaTag);
+  window.ym(METRICA_ID, 'init', { clickmap: true, accurateTrackBounce: true, trackLinks: false, webvisor: false });
 
   // старт
   if (token) enterDash(); else show('login');
