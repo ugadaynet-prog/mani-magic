@@ -196,6 +196,27 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   } catch (e) {}
   SERVER_URL = (SERVER_URL || '').replace(/\/+$/, '');
   const serverOn = () => !!SERVER_URL;
+  // Плашка только пока API не отвечает: сама пропадает, когда сервер поднимется.
+  if (serverOn() && navigator.onLine !== false) {
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 8000);
+    fetch(SERVER_URL + '/health', { signal: ctl.signal, cache: 'no-store' }).then((r) => { if (!r.ok) throw 0; }).catch(() => {
+      if (navigator.onLine === false || document.getElementById('srvDownBar')) return;
+      const bar = document.createElement('div');
+      bar.id = 'srvDownBar';
+      bar.setAttribute('role', 'status');
+      bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483000;padding:calc(10px + env(safe-area-inset-top)) 44px 10px 16px;background:#3a2a1a;color:#ffe9c7;font:14px/1.35 system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.35)';
+      bar.textContent = 'Оплата и вход мастера временно недоступны: идут технические работы. Колода работает, попробуйте оплатить позже.';
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.setAttribute('aria-label', 'Закрыть');
+      x.textContent = '×';
+      x.style.cssText = 'position:absolute;right:6px;bottom:4px;width:34px;height:34px;border:0;background:none;color:inherit;font-size:24px;cursor:pointer';
+      x.onclick = () => bar.remove();
+      bar.appendChild(x);
+      document.body.appendChild(bar);
+    });
+  }
   // ?dev=1 — только для нашей проверки: имитировать оплату в тестовом режиме.
   // Без него в тестовом режиме кнопка честно пишет «оплата скоро», без «бесплатной» разблокировки.
   let DEV_MOCK = false;
