@@ -36,7 +36,7 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
   .card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
-  input[type=text],input[type=tel],input[type=url],input[type=email]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;color:var(--ink)}
+  input[type=text],input[type=tel],input[type=url],input[type=email],input[type=number],input[type=date]{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fff;color:var(--ink)}
   input:focus{outline:none;border-color:var(--pink)}
   /* У select цвет текста раньше не задавался вовсе и брался у браузера —
      единственный контрол в кабинете без явного цвета. */
@@ -193,6 +193,37 @@
   .cc-pick-t{font-size:14px}
   .cc-pick-d{font-size:12px;color:var(--muted)}
   .danger{background:#fff;border:1px solid #f0c9d5;color:#b02455;font-weight:500}
+
+  /* Учёт дохода: итог месяца, «Принесла всего», кнопки услуг и «Сделала». */
+  .money-big{font-size:28px;font-weight:700;margin:10px 0 2px;letter-spacing:-.01em}
+  .link-btn{border:0;background:none;color:var(--pink-d);font-size:13.5px;font-weight:600;padding:4px 0}
+  .cc-money{margin:6px 0 0;font-size:13.5px;color:var(--muted);line-height:1.45}
+  .cc-money b{color:var(--ink);font-size:16px}
+  .svc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+  .svc-chips:empty{display:none}
+  .svc-chips button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;
+    padding:7px 12px;font-size:13.5px}
+  .svc-chips button.on{border-color:var(--pink-d);background:#fff5f8;color:var(--pink-d);font-weight:600}
+  .pay-seg{margin-top:8px}
+  .done-btn{flex:0 0 auto;align-self:center;border:1px solid var(--pink-d);background:#fff;color:var(--pink-d);
+    border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+  .done-mark{flex:0 0 auto;align-self:center;font-size:12.5px;color:var(--ok);font-weight:600;white-space:nowrap}
+  .pick-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+  .sheet{position:fixed;inset:0;z-index:250;background:rgba(20,17,26,.45);display:flex;
+    align-items:flex-end;justify-content:center}
+  .sheet.hidden{display:none}
+  .sheet-body{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;
+    padding:16px 16px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sheet-head h2{font-size:17px;margin:0}
+  .sheet-x{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;
+    color:var(--muted);font-size:18px;line-height:1;padding:0}
+  .done-pick{display:flex;gap:10px;align-items:center;margin:12px 0 2px}
+  .done-pick img{width:46px;height:60px;object-fit:cover;border-radius:8px;background:var(--bg)}
+  .done-pick img:not([src]){display:none}
+  .form-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .price-row{display:grid;grid-template-columns:minmax(0,1fr) 96px 34px;gap:6px;align-items:center;margin-top:6px}
+  .price-row button{height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:0}
 
   /* Альбом: тот же тёмный полноэкранный слой, что и разбор — фото на нём
      читается вернее, чем на светлой карточке кабинета. */
@@ -480,6 +511,19 @@
          чего берут чаще. Лента — фоновое «кто что выбрал сегодня», её листают
          глазами. Раньше порядок был обратный, и до сводки приходилось мотать
          через полсотни строк с миниатюрами — около четырёх тысяч пикселей. -->
+    <!-- Деньги за месяц. Стоят первыми: это единственная цифра, ради которой
+         сюда заглядывают каждый день. Сами суммы вводятся не здесь, а там, где
+         мастер и так бывает: «Сделала» в ленте выборов и визит в карточке. -->
+    <div class="card" id="moneyBox">
+      <div class="stats-head">
+        <h2 id="moneyTitle">Доход за месяц</h2>
+        <button id="pricesBtn" class="link-btn" type="button">Прайс</button>
+      </div>
+      <p id="moneyIncome" class="money-big">0 ₽</p>
+      <p id="moneySub" class="note" style="margin:0"></p>
+      <p id="moneyHint" class="note hidden"></p>
+    </div>
+
     <div class="card">
       <h2>Клиенты <span id="clientCount" class="muted" style="font-size:13px;font-weight:400"></span></h2>
       <p class="note" style="margin-top:0">Клиентка называется при выборе карты — карточка заводится сама.
@@ -585,6 +629,7 @@
 
     <div class="card">
       <h2 id="ccName" class="cc-name">—</h2>
+      <p id="ccMoney" class="cc-money hidden"></p>
       <label for="ccNameIn">Имя</label>
       <input id="ccNameIn" type="text" maxlength="40" autocomplete="off">
       <label for="ccPhone">Телефон</label>
@@ -611,7 +656,11 @@
         <label for="ccVisitDate">Когда</label>
         <input id="ccVisitDate" type="date">
         <label for="ccVisitWhat">Что делали</label>
+        <div id="ccVisitServices" class="svc-chips"></div>
         <input id="ccVisitWhat" type="text" maxlength="80" placeholder="Например: гель-лак" autocomplete="off">
+        <label for="ccVisitAmount">Сумма, ₽</label>
+        <input id="ccVisitAmount" type="number" min="0" max="1000000" step="1" inputmode="numeric" autocomplete="off">
+        <div id="ccVisitPay" class="seg pay-seg" role="group" aria-label="Как оплатила"></div>
         <label for="ccVisitColor">Цвет</label>
         <select id="ccVisitColor"></select>
         <label for="ccVisitNote">Заметка</label>
@@ -630,6 +679,54 @@
     </div>
 
     <button id="ccDelete" class="btn danger" type="button">Удалить клиента</button>
+  </div>
+</div>
+
+<!-- «Сделала»: визит из выбора клиентки. Карта, дизайн и цвет уже известны —
+     мастеру остаётся проверить сумму (подставлена из прайса) и нажать «Записать». -->
+<div id="doneSheet" class="sheet hidden">
+  <div class="sheet-body" role="dialog" aria-labelledby="doneTitle">
+    <div class="sheet-head">
+      <h2 id="doneTitle">Сделала</h2>
+      <button id="doneClose" class="sheet-x" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <div class="done-pick">
+      <img id="donePhoto" alt="">
+      <div style="min-width:0"><div id="donePickT" class="cc-pick-t"></div><div id="donePickD" class="cc-pick-d"></div></div>
+    </div>
+    <div id="doneNameRow" class="hidden">
+      <label for="doneName">Как зовут клиентку</label>
+      <input id="doneName" type="text" maxlength="40" autocomplete="off" placeholder="Имя">
+    </div>
+    <label>Что делали</label>
+    <div id="doneServices" class="svc-chips"></div>
+    <input id="doneWhat" type="text" maxlength="80" placeholder="Например: гель-лак" autocomplete="off">
+    <label for="doneAmount">Сумма, ₽</label>
+    <input id="doneAmount" type="number" min="0" max="1000000" step="1" inputmode="numeric" autocomplete="off">
+    <div id="donePay" class="seg pay-seg" role="group" aria-label="Как оплатила"></div>
+    <div class="form-2">
+      <label>Когда<input id="doneDate" type="date"></label>
+      <label>Придёт снова<input id="doneNext" type="date"></label>
+    </div>
+    <button id="doneSave" class="btn" style="margin-top:12px" type="button">Записать визит</button>
+    <div id="doneErr" class="err"></div>
+  </div>
+</div>
+
+<!-- Прайс заводится один раз. Первая услуга подставляется по умолчанию,
+     поэтому её стоит сделать самой частой. -->
+<div id="pricesSheet" class="sheet hidden">
+  <div class="sheet-body" role="dialog" aria-labelledby="pricesTitle">
+    <div class="sheet-head">
+      <h2 id="pricesTitle">Прайс</h2>
+      <button id="pricesClose" class="sheet-x" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <p class="note" style="margin-top:0">Услуги и цены — до восьми. В визите они станут кнопками, и сумма
+      подставится сама. Первая строка подставляется по умолчанию — поставьте наверх самую частую.</p>
+    <div id="pricesRows"></div>
+    <button id="pricesAdd" class="btn btn-ghost" style="margin-top:8px" type="button">Добавить услугу</button>
+    <button id="pricesSave" class="btn" style="margin-top:8px" type="button">Сохранить прайс</button>
+    <div id="pricesErr" class="err"></div>
   </div>
 </div>
 

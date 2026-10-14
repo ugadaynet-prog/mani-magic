@@ -153,7 +153,7 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId }),
     });
     if (!await loadProfile()) return; // не запускаем запросы с истёкшей сессией
-    loadQR(); loadWorks(); loadPicks(); loadStats(); loadClients();
+    loadQR(); loadWorks(); loadPicks(); loadStats(); loadClients(); loadPrices();
     loadStatus().then(() => {
       const q = new URLSearchParams(location.search);
       if (q.get('trial') === '1' || q.get('renew') === '1') showProCard();
@@ -1312,6 +1312,7 @@
       if (c.phone) parts.push(c.phone);
       if (c.visits) parts.push('визитов: ' + c.visits);
       if (c.picks) parts.push('выборов: ' + c.picks);
+      if (c.spent) parts.push('принесла ' + rub(c.spent));
       const last = c.lastVisit || c.lastPick;
       if (last) parts.push('была ' + dmy(last));
       sub.textContent = parts.join(' · ') || 'ещё ничего';
@@ -1374,12 +1375,14 @@
     $('ccNote').value = c.note || '';
     $('ccNext').value = c.nextAt ? isoDate(c.nextAt) : '';
     $('ccErr').textContent = '';
+    renderClientMoney(c.money);
     renderVisits(c.visits || []);
     renderClientPicks(c.picks || []);
     $('ccVisitForm').classList.add('hidden');
     $('ccVisitPhotoName').classList.add('hidden');
     $('ccVisitDate').value = isoDate();
-    $('ccVisitWhat').value = ''; $('ccVisitNote').value = '';
+    visitFields.fill(visitDefaults(c.visits));
+    $('ccVisitNote').value = '';
     $('clientCard').classList.remove('hidden');
     // Экран открывается поверх кабинета, и прокрутка под ним остаётся своей —
     // без этого карточка открывалась в том месте, куда был домотан кабинет.
@@ -1397,17 +1400,20 @@
     $('ccVisitsEmpty').classList.toggle('hidden', visits.length > 0);
     visits.forEach((v) => {
       const row = document.createElement('div'); row.className = 'visit';
-      if (v.photoUrl) {
+      // Своего фото нет, но визит записан из выбора — показываем выбранную работу.
+      const photo = v.photoUrl ? abs(v.photoUrl) : ((v.card || v.workUrl) ? pickPhoto(v) : '');
+      if (photo) {
         const img = document.createElement('img');
-        img.src = abs(v.photoUrl); img.alt = 'Результат'; img.loading = 'lazy';
+        img.src = photo; img.alt = v.photoUrl ? 'Результат' : 'Что выбирала'; img.loading = 'lazy';
         row.appendChild(img);
       }
       const main = document.createElement('div'); main.className = 'visit-main';
       const when = document.createElement('div'); when.className = 'visit-when';
       when.textContent = new Date(v.doneAt).toLocaleDateString('ru-RU',
-        { day: 'numeric', month: 'long', year: 'numeric' });
+        { day: 'numeric', month: 'long', year: 'numeric' })
+        + (v.payMethod ? ' · ' + PAY_NAME[v.payMethod].toLowerCase() : '');
       const what = document.createElement('div'); what.className = 'visit-what';
-      what.textContent = [v.label, v.color].filter(Boolean).join(' · ') || 'Визит';
+      what.textContent = [v.label, v.color, v.amount != null ? rub(v.amount) : ''].filter(Boolean).join(' · ') || 'Визит';
       main.appendChild(when); main.appendChild(what);
       if (v.note) {
         const n = document.createElement('div'); n.className = 'visit-note'; n.textContent = v.note;
@@ -1445,7 +1451,9 @@
       d.textContent = new Date(p.createdAt || p.created_at).toLocaleDateString('ru-RU',
         { day: 'numeric', month: 'long' });
       main.appendChild(t); main.appendChild(d);
+      main.style.flex = '1';
       row.appendChild(main);
+      row.appendChild(doneControl(p, ccId));
       box.appendChild(row);
     });
   }
@@ -1532,12 +1540,16 @@
   if ($('ccVisitSave')) {
     $('ccVisitSave').addEventListener('click', async () => {
       if (!ccId) return;
+      const f = visitFields.read();
+      if (badAmount(f.amount)) { toast('Сумма — целое число рублей'); $('ccVisitAmount').focus(); return; }
       $('ccVisitSave').disabled = true;
       const r = await apiJson('/api/master/clients/' + encodeURIComponent(ccId) + '/visits', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           doneAt: fromIso($('ccVisitDate').value) || Date.now(),
-          label: $('ccVisitWhat').value || '',
+          label: f.label,
+          amount: f.amount,
+          payMethod: f.payMethod,
           color: $('ccVisitColor').value || '',
           note: $('ccVisitNote').value || '',
           photoUrl: ccPhotoUrl,
@@ -1546,11 +1558,318 @@
       $('ccVisitSave').disabled = false;
       if (!r.ok) { toast('Не удалось сохранить визит'); return; }
       ccPhotoUrl = '';
-      toast('Визит записан');
+      track('visit_done', { from: 'card', amount: f.amount != null });
+      loadMoney();
+      toast('Визит записан' + (f.amount != null ? ' · ' + rub(f.amount) : ''));
       openClient(ccId);
       loadClients(true);
     });
   }
+
+  // --- Учёт дохода -------------------------------------------------------------
+  //
+  // Мастер не заводит записи, а подтверждает то, что кабинет уже знает: кто
+  // выбирал, что выбрала, сколько стоит услуга по прайсу. Учёт, где всё
+  // набирают с нуля, бросают через две-три недели — поэтому сумма появляется
+  // там, где мастер и так бывает: «Сделала» в ленте выборов и визит в карточке.
+  const rub = (n) => Math.round(Number(n) || 0).toLocaleString('ru-RU') + ' ₽';
+  const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август',
+    'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+  const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе',
+    'сентябре', 'октябре', 'ноябре', 'декабре'];
+  const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа',
+    'сентября', 'октября', 'ноября', 'декабря'];
+  const PAY = [['cash', 'Наличные'], ['transfer', 'Перевод'], ['card', 'Карта']];
+  const PAY_NAME = Object.fromEntries(PAY);
+  // «Придёт снова» по умолчанию — через три недели: обычный срок носки покрытия.
+  const NEXT_DAYS = 21;
+  const MAX_PRICES = 8;
+  let prices = [];
+
+  // Поля суммы — одни и те же в визите карточки и в «Сделала». Кнопка услуги
+  // ставит и название, и цену; поправить сумму руками можно всегда.
+  function moneyFields(chipsId, whatId, amountId, payId) {
+    const chips = $(chipsId), what = $(whatId), amount = $(amountId), seg = $(payId);
+    let pay = null;
+    PAY.forEach(([key, text]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.dataset.pay = key; b.textContent = text;
+      // Повторное нажатие снимает выбор: способ оплаты необязателен.
+      b.addEventListener('click', () => { pay = pay === key ? null : key; paint(); });
+      seg.appendChild(b);
+    });
+    function paint() {
+      seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.pay === pay));
+      chips.querySelectorAll('button[data-name]').forEach((b) =>
+        b.classList.toggle('on', b.dataset.name === what.value.trim()));
+    }
+    function buildChips() {
+      chips.innerHTML = '';
+      prices.forEach((p) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.dataset.name = p.name; b.textContent = p.name + ' · ' + rub(p.amount);
+        b.addEventListener('click', () => { what.value = p.name; amount.value = p.amount; paint(); });
+        chips.appendChild(b);
+      });
+      if (!prices.length) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = '+ Завести прайс — сумма будет подставляться сама';
+        b.addEventListener('click', openPrices);
+        chips.appendChild(b);
+      }
+      paint();
+    }
+    what.addEventListener('input', paint);
+    return {
+      fill({ label = '', amount: a = null, payMethod = null } = {}) {
+        what.value = label || '';
+        amount.value = a == null ? '' : a;
+        pay = payMethod || null;
+        buildChips();
+      },
+      refresh: buildChips,
+      read() {
+        const raw = String(amount.value).trim();
+        return { label: what.value.trim(), amount: raw === '' ? null : Number(raw), payMethod: pay };
+      },
+    };
+  }
+  // Сумма пустая — «без суммы», это можно. Отрицательная или не число — нельзя.
+  const badAmount = (a) => a != null && !(Number.isFinite(a) && a >= 0 && a <= 1000000);
+
+  // Что подставить в новый визит: у постоянной клиентки — её прошлую услугу
+  // и сумму (обычно она ходит на одно и то же), иначе — первую строку прайса.
+  function visitDefaults(visits) {
+    const last = (visits || []).find((v) => v.amount != null);
+    if (last) return { label: last.label || '', amount: last.amount, payMethod: last.payMethod };
+    return prices[0] ? { label: prices[0].name, amount: prices[0].amount } : {};
+  }
+
+  // Группа цвета выбранного. У работы витрины — цвет, который ей поставил мастер.
+  // У карты с выбранным дизайном — группа его собственного оттенка (работа №N
+  // сделана в hexes[N]), если она есть в разметке карты; иначе — основной цвет
+  // карты. Группы колоды и кабинета одни и те же.
+  function pickColor(p) {
+    if (p.workUrl) {
+      const w = lastWorks.find((x) => x.url === p.workUrl);
+      return (w && w.color) || '';
+    }
+    const card = cardOf(p.card);
+    if (!card) return '';
+    const colors = (card.colors || []).filter((c) => COLORS.includes(c));
+    const hex = p.design && card.hexes && card.hexes[p.design - 1];
+    if (hex) {
+      const n = parseInt(hex.slice(1), 16);
+      const [h, s, l] = toHsl((n >> 16) & 255, (n >> 8) & 255, n & 255);
+      const g = colorGroup(h, s, l);
+      if (colors.includes(g)) return g;
+    }
+    return colors[0] || '';
+  }
+
+  // --- Итог месяца ---
+  // Границы месяца — по часам мастера, а не сервера: визит в 23:30 последнего
+  // дня должен остаться в своём месяце.
+  async function loadMoney() {
+    const d = new Date();
+    const m0 = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    const m1 = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+    const p0 = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+    const [cur, prev] = await Promise.all([
+      apiJson('/api/master/money?from=' + m0 + '&to=' + m1),
+      apiJson('/api/master/money?from=' + p0 + '&to=' + m0),
+    ]);
+    if (!cur.ok) return;
+    const c = cur.body;
+    $('moneyTitle').textContent = 'Доход за ' + MONTHS[d.getMonth()];
+    $('moneyIncome').textContent = rub(c.income);
+    const parts = [];
+    if (c.visits) parts.push(c.visits + ' ' + plural(c.visits, 'визит', 'визита', 'визитов'));
+    if (c.paidVisits) parts.push('средний чек ' + rub(c.avg));
+    if (prev.ok && prev.body.income) parts.push('в ' + MONTHS_IN[(d.getMonth() + 11) % 12] + ' ' + rub(prev.body.income));
+    $('moneySub').textContent = parts.join(' · ')
+      || 'Пока ни одного визита в этом месяце. Нажмите «Сделала» у выбора клиентки — визит запишется с суммой.';
+    const unpaid = c.visits - c.paidVisits;
+    const hint = !prices.length
+      ? 'Заведите прайс — тогда сумма визита будет подставляться сама.'
+      : (unpaid > 0 ? 'Без суммы: ' + unpaid + ' ' + plural(unpaid, 'визит', 'визита', 'визитов')
+        + (unpaid === 1 ? ' — он не попал в доход.' : ' — они не попали в доход.') : '');
+    $('moneyHint').textContent = hint;
+    $('moneyHint').classList.toggle('hidden', !hint);
+  }
+
+  async function loadPrices() {
+    const r = await apiJson('/api/master/prices');
+    if (r.ok) prices = r.body.prices || [];
+    loadMoney();
+  }
+
+  // --- «Принесла всего» в карточке ---
+  function renderClientMoney(m) {
+    const box = $('ccMoney');
+    if (!m || !m.paidVisits) { box.classList.add('hidden'); box.textContent = ''; return; }
+    const since = new Date(m.firstAt);
+    const parts = [m.paidVisits + ' ' + plural(m.paidVisits, 'визит', 'визита', 'визитов'),
+      'средний чек ' + rub(m.avg),
+      'с ' + MONTHS_GEN[since.getMonth()] + (since.getFullYear() !== new Date().getFullYear() ? ' ' + since.getFullYear() : '')];
+    if (m.year !== m.total) parts.push('за год ' + rub(m.year));
+    box.innerHTML = '';
+    const b = document.createElement('b'); b.textContent = 'Принесла ' + rub(m.total);
+    box.appendChild(b);
+    box.appendChild(document.createTextNode(' · ' + parts.join(' · ')));
+    box.classList.remove('hidden');
+  }
+
+  // --- «Сделала»: визит из выбора ---
+  const visitFields = moneyFields('ccVisitServices', 'ccVisitWhat', 'ccVisitAmount', 'ccVisitPay');
+  const doneFields = moneyFields('doneServices', 'doneWhat', 'doneAmount', 'donePay');
+  let donePick = null, doneClient = null;
+
+  // Кнопка в строке выбора: ещё не записан — «Сделала», записан — сумма.
+  function doneControl(p, clientId) {
+    if (p.visitId) {
+      const s = document.createElement('span'); s.className = 'done-mark';
+      s.textContent = '✓ ' + (p.visitAmount != null ? rub(p.visitAmount) : 'визит');
+      return s;
+    }
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'done-btn'; b.textContent = 'Сделала';
+    // Тап по строке открывает фото на весь экран — кнопка не должна его вызывать.
+    b.addEventListener('click', (e) => { e.stopPropagation(); openDone(p, clientId); });
+    return b;
+  }
+
+  async function openDone(p, clientId) {
+    donePick = p; doneClient = clientId || p.clientId || null;
+    let visits = [];
+    if (doneClient) {
+      const r = await apiJson('/api/master/clients/' + encodeURIComponent(doneClient));
+      if (r.status === 403) { toast('Карточка этой клиентки откроется с Pro'); showProCard(); return; }
+      if (r.ok) visits = r.body.client.visits || [];
+    }
+    const photo = pickPhoto(p);
+    if (photo) $('donePhoto').src = photo; else $('donePhoto').removeAttribute('src');
+    $('donePickT').textContent = pickLabel(p);
+    $('donePickD').textContent = 'Выбрала ' + whenText(p.created_at || p.createdAt);
+    const name = p.clientName || (doneClient && ccId === doneClient ? $('ccName').textContent : '');
+    $('doneTitle').textContent = name ? 'Сделала: ' + name : 'Сделала';
+    // Клиентка не назвалась — имя пишет мастер, иначе визит не к кому привязать.
+    $('doneNameRow').classList.toggle('hidden', !!doneClient);
+    $('doneName').value = '';
+    $('doneDate').value = isoDate(); $('doneDate').max = isoDate();
+    $('doneNext').value = isoDate(Date.now() + NEXT_DAYS * 86400000);
+    $('doneErr').textContent = '';
+    doneFields.fill(visitDefaults(visits));
+    $('doneSheet').classList.remove('hidden');
+    $('doneSheet').querySelector('.sheet-body').scrollTop = 0;
+    if (!doneClient) $('doneName').focus();
+  }
+  function closeDone() { $('doneSheet').classList.add('hidden'); donePick = null; }
+  $('doneClose').addEventListener('click', closeDone);
+  $('doneSheet').addEventListener('click', (e) => { if (e.target === $('doneSheet')) closeDone(); });
+
+  $('doneSave').addEventListener('click', async () => {
+    if (!donePick) return;
+    const f = doneFields.read();
+    if (badAmount(f.amount)) { $('doneErr').textContent = 'Сумма — целое число рублей'; return; }
+    const body = Object.assign({}, f, {
+      doneAt: fromIso($('doneDate').value) || Date.now(),
+      color: pickColor(donePick),
+    });
+    if (!doneClient) {
+      const name = ($('doneName').value || '').trim();
+      if (name.length < 2) { $('doneErr').textContent = 'Напишите имя клиентки'; $('doneName').focus(); return; }
+      body.clientName = name;
+    }
+    $('doneSave').disabled = true;
+    const r = await apiJson('/api/master/picks/' + encodeURIComponent(donePick.id) + '/visit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    $('doneSave').disabled = false;
+    if (r.status === 403) { toast('Карточка этой клиентки откроется с Pro'); showProCard(); return; }
+    if (r.status === 409) { toast('Этот выбор уже записан визитом'); closeDone(); loadPicks(true); return; }
+    if (!r.ok) { $('doneErr').textContent = 'Не удалось записать визит'; return; }
+    const next = fromIso($('doneNext').value);
+    if (next && r.body.clientId) {
+      await api('/api/master/clients/' + encodeURIComponent(r.body.clientId), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nextAt: next }),
+      });
+    }
+    track('visit_done', { from: 'pick', amount: f.amount != null });
+    closeDone();
+    toast('Визит записан' + (f.amount != null ? ' · ' + rub(f.amount) : ''));
+    loadPicks(true); loadClients(true); loadMoney();
+    if (ccId) openClient(ccId);
+  });
+
+  // --- Прайс ---
+  const PRICE_EXAMPLES = [['Гель-лак', 1800], ['Наращивание', 3000], ['Снятие + покрытие', 2200]];
+  function priceRow(p, i) {
+    const row = document.createElement('div'); row.className = 'price-row';
+    const name = document.createElement('input');
+    name.type = 'text'; name.maxLength = 40; name.autocomplete = 'off'; name.value = (p && p.name) || '';
+    name.placeholder = (PRICE_EXAMPLES[i] || ['Услуга'])[0];
+    name.setAttribute('aria-label', 'Услуга');
+    const amount = document.createElement('input');
+    amount.type = 'number'; amount.min = '0'; amount.step = '1'; amount.inputMode = 'numeric';
+    amount.value = p && p.amount != null ? p.amount : '';
+    amount.placeholder = String((PRICE_EXAMPLES[i] || [0, '₽'])[1]);
+    amount.setAttribute('aria-label', 'Цена, ₽');
+    const del = document.createElement('button');
+    del.type = 'button'; del.textContent = '×'; del.title = 'Убрать';
+    del.addEventListener('click', () => { row.remove(); syncPriceAdd(); });
+    row.appendChild(name); row.appendChild(amount); row.appendChild(del);
+    return row;
+  }
+  function syncPriceAdd() {
+    $('pricesAdd').classList.toggle('hidden', $('pricesRows').children.length >= MAX_PRICES);
+  }
+  function openPrices() {
+    const box = $('pricesRows'); box.innerHTML = '';
+    // Пустой прайс — три пустые строки с примерами в подсказке, а не пустой экран.
+    (prices.length ? prices : [null, null, null]).forEach((p, i) => box.appendChild(priceRow(p, i)));
+    syncPriceAdd();
+    $('pricesErr').textContent = '';
+    $('pricesSheet').classList.remove('hidden');
+  }
+  function closePrices() { $('pricesSheet').classList.add('hidden'); }
+  $('pricesBtn').addEventListener('click', openPrices);
+  $('pricesClose').addEventListener('click', closePrices);
+  $('pricesSheet').addEventListener('click', (e) => { if (e.target === $('pricesSheet')) closePrices(); });
+  $('pricesAdd').addEventListener('click', () => {
+    const box = $('pricesRows');
+    if (box.children.length >= MAX_PRICES) return;
+    const row = priceRow(null, box.children.length);
+    box.appendChild(row); syncPriceAdd();
+    row.querySelector('input').focus();
+  });
+  $('pricesSave').addEventListener('click', async () => {
+    const rows = [...$('pricesRows').children].map((row) => {
+      const [n, a] = row.querySelectorAll('input');
+      return { name: n.value.trim(), amount: a.value.trim() };
+    }).filter((p) => p.name || p.amount);
+    if (rows.some((p) => p.name.length < 2 || p.amount === '' || badAmount(Number(p.amount)))) {
+      $('pricesErr').textContent = 'В каждой строке нужны название и цена целым числом рублей';
+      return;
+    }
+    $('pricesSave').disabled = true;
+    const r = await apiJson('/api/master/prices', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prices: rows.map((p) => ({ name: p.name, amount: Number(p.amount) })) }),
+    });
+    $('pricesSave').disabled = false;
+    if (!r.ok) { $('pricesErr').textContent = 'Не удалось сохранить прайс'; return; }
+    prices = r.body.prices || [];
+    track('prices_saved', { n: prices.length });
+    closePrices();
+    toast(prices.length ? 'Прайс сохранён' : 'Прайс очищен');
+    // Открытые формы визита сразу получают новые кнопки услуг.
+    visitFields.refresh(); doneFields.refresh();
+    if (!$('doneSheet').classList.contains('hidden') && !doneFields.read().label && prices[0]) {
+      doneFields.fill({ label: prices[0].name, amount: prices[0].amount });
+    }
+    loadMoney();
+  });
 
   // --- Своя колода мастера ---
   async function refreshDeck(known) {
@@ -1616,11 +1935,11 @@
     });
   }
 
-  async function loadPicks() {
+  async function loadPicks(keepShown) {
     const r = await apiJson('/api/master/picks');
     const picks = r.body.picks || [];
     lastTopTs = picks.length ? picks[0].created_at : 0;
-    renderPicks(picks);
+    renderPicks(picks, keepShown);
   }
   const APP = native ? new URL('../', location.href).href : 'https://mani-magic.ru/app/';
   const deck = () => (typeof CARDS !== 'undefined' && Array.isArray(CARDS)) ? CARDS : null;
@@ -1819,8 +2138,10 @@
 
       const when = document.createElement('span');
       when.className = 'pick-when'; when.textContent = whenText(p.created_at);
+      const side = document.createElement('div'); side.className = 'pick-side';
+      side.appendChild(when); side.appendChild(doneControl(p));
 
-      li.appendChild(main); li.appendChild(when);
+      li.appendChild(main); li.appendChild(side);
       ul.appendChild(li);
     });
   }
@@ -2187,7 +2508,9 @@
   // в приложении, где кнопку к тому же никто не передавал странице, — и «Назад»
   // закрывала приложение с любого экрана (исправлено в MainActivity, 1.9.14).
   {
-    const layers = [['pickPhoto', closePickPhoto], ['sorter', closeSorter], ['album', closeAlbum], ['clientCard', closeClient]];
+    // Порядок — сверху вниз: прайс открывается и поверх «Сделала», а «Сделала» — поверх карточки.
+    const layers = [['pickPhoto', closePickPhoto], ['pricesSheet', closePrices], ['doneSheet', closeDone],
+      ['sorter', closeSorter], ['album', closeAlbum], ['clientCard', closeClient]];
     const topLayer = () => layers.find(([id]) => !$(id).classList.contains('hidden'));
     let pushed = false, ownBack = false;
     function syncBack() {
