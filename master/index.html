@@ -22,7 +22,7 @@
      вернуться к остальному кабинету можно только прокруткой обратно. */
   .tabs{position:sticky;top:0;z-index:50;display:flex;gap:6px;margin:0 0 14px;padding:8px 0;
     background:var(--bg)}
-  .tab{flex:1;position:relative;min-height:42px;padding:9px 6px;border:1px solid var(--line);
+  .tab{flex:1;position:relative;min-width:0;min-height:42px;padding:9px 4px;border:1px solid var(--line);
     border-radius:11px;background:#fff;color:var(--muted);font-size:14px;font-weight:600}
   .tab-on{background:linear-gradient(135deg,var(--pink),var(--pink-d));border-color:var(--pink-d);color:#fff}
   /* Точка на вкладке «Работы»: предупреждение «без цвета» теперь лежит на
@@ -225,6 +225,49 @@
   .price-row{display:grid;grid-template-columns:minmax(0,1fr) 96px 34px;gap:6px;align-items:center;margin-top:6px}
   .price-row button{height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);padding:0}
 
+  /* Остаток выделен крупно, чтобы на телефоне сразу видеть итог; длинные заметки переносятся. */
+  .money-month{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+  .money-month strong{font-size:17px;text-align:center}
+  .money-month button{flex:0 0 auto;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;
+    background:#fff;color:var(--pink-d);font-size:26px;line-height:1}
+  .money-month button:disabled{opacity:.35}
+  .money-balance{margin-bottom:14px}
+  .money-balance span{display:block;color:var(--muted);font-size:13px}
+  .money-balance b{display:block;font-size:32px;line-height:1.2;margin-top:4px;overflow-wrap:anywhere}
+  .money-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .money-totals span{display:block;color:var(--muted);font-size:12px}
+  .money-totals b{display:block;font-size:16px;overflow-wrap:anywhere}
+  .money-profit{color:var(--ok)}
+  .money-profit.loss{color:#c0263c}
+  .money-rows{list-style:none;padding:0;margin:0}
+  .money-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .money-row:last-child{border-bottom:0}
+  .money-row-main{flex:1;min-width:0;overflow-wrap:anywhere;font-size:14px}
+  .money-row-main small{display:block;color:var(--muted);font-size:12px;white-space:pre-wrap}
+  .money-row-sum{flex:0 0 auto;font-size:14px;font-weight:600;white-space:nowrap}
+  .money-row .visit-del{margin-left:0}
+  .expense-row{flex-wrap:wrap}
+  .expense-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;width:100%}
+  .money-record{flex:0 0 auto;border:1px solid var(--pink-d);background:#fff;color:var(--pink-d);
+    border-radius:999px;padding:6px 10px;font-size:12px;font-weight:600}
+  .money-click{width:100%;padding:0;border:0;background:none;color:var(--ink);text-align:left;font:inherit;
+    display:flex;align-items:center;gap:8px}
+  .money-row img{width:42px;height:52px;object-fit:cover;border-radius:7px;flex:0 0 auto}
+  .money-bar{height:5px;border-radius:4px;background:var(--bg);margin-top:6px;overflow:hidden}
+  .money-bar i{display:block;height:100%;background:var(--pink);border-radius:4px}
+  .recurring-row{display:grid;grid-template-columns:minmax(0,1fr) 92px 34px;gap:6px;margin-top:10px;align-items:center}
+  .recurring-row select{width:100%;min-width:0;padding:10px 6px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+  .recurring-row input{min-width:0}
+  .recurring-row .recurring-note{grid-column:1/3}
+  .recurring-row .sheet-x{grid-column:3;grid-row:1/3}
+  .expense-fields{border:0;padding:0;margin:0;min-width:0}
+  .expense-extra{margin-top:12px}
+  .expense-extra summary{color:var(--pink-d);font-size:14px;cursor:pointer;padding:6px 0}
+  .toast.expense-undo{visibility:hidden;bottom:74px;z-index:300;display:flex;align-items:center;gap:5px;max-width:calc(100vw - 32px);white-space:nowrap}
+  .toast.expense-undo.show{visibility:visible;pointer-events:auto}
+  .toast.expense-undo button{border:0;background:none;color:#ffbfd2;font:inherit;font-weight:600;padding:4px 0}
+  .toast.expense-undo button:disabled{opacity:.55}
+
   /* Альбом: тот же тёмный полноэкранный слой, что и разбор — фото на нём
      читается вернее, чем на светлой карточке кабинета. */
   .album{position:fixed;inset:0;z-index:210;background:#14111a;color:#fff;
@@ -348,6 +391,7 @@
       <button class="tab tab-on" data-tab="main" type="button" role="tab">Главное</button>
       <button class="tab" data-tab="works" type="button" role="tab">Работы<span id="tabWorksDot" class="tab-dot hidden"></span></button>
       <button class="tab" data-tab="clients" type="button" role="tab">Клиенты</button>
+      <button class="tab" data-tab="money" type="button" role="tab">Деньги</button>
     </div>
 
     <div class="tab-pane" data-pane="main">
@@ -522,6 +566,7 @@
       <p id="moneyIncome" class="money-big">0 ₽</p>
       <p id="moneySub" class="note" style="margin:0"></p>
       <p id="moneyHint" class="note hidden"></p>
+      <button id="moneyDetails" class="link-btn" type="button">Подробнее</button>
     </div>
 
     <div class="card">
@@ -578,6 +623,52 @@
     </div>
 
     </div><!-- /клиенты -->
+
+    <div class="tab-pane hidden" data-pane="money">
+      <div class="money-month">
+        <button id="moneyPrev" type="button" aria-label="Предыдущий месяц">‹</button>
+        <strong id="moneyMonth"></strong>
+        <button id="moneyNext" type="button" aria-label="Следующий месяц" disabled>›</button>
+      </div>
+      <div class="card" aria-live="polite">
+        <div class="money-balance">
+          <span>Осталось после расходов</span><b id="moneyTabProfit" class="money-profit">0 ₽</b>
+        </div>
+        <div class="money-totals">
+          <div><span>Доход</span><b id="moneyTabIncome">0 ₽</b></div>
+          <div><span>Расходы</span><b id="moneyTabExpenses">0 ₽</b></div>
+        </div>
+        <p id="moneyTabSub" class="note" style="margin-bottom:0">Загружаем месяц…</p>
+        <p id="moneyTabErr" class="err" role="status"></p>
+      </div>
+      <button id="expenseAdd" class="btn" style="margin-bottom:14px" type="button">Записать расход</button>
+      <div class="card" id="moneyRecurringBox">
+        <h2>Повторяющиеся</h2>
+        <ul id="moneyRecurring" class="money-rows"></ul>
+        <button id="recurringBtn" class="link-btn" type="button">Настроить повторяющиеся</button>
+      </div>
+      <div class="card">
+        <h2>Расходы месяца</h2>
+        <ul id="moneyExpenses" class="money-rows"></ul>
+        <p id="moneyExpensesEmpty" class="note">В этом месяце расходов пока нет.</p>
+      </div>
+      <div class="card">
+        <h2>Откуда деньги</h2>
+        <div id="moneySourcesLocked" class="hidden">
+          <p class="note">Какие цвета и клиентки приносят больше всего — в Pro</p>
+          <button id="moneyProBtn" class="btn btn-ghost" type="button">Открыть с Pro</button>
+        </div>
+        <div id="moneySources" class="hidden">
+          <h3 style="font-size:14px">По цветам</h3><ul id="moneyColors" class="money-rows"></ul>
+          <h3 style="font-size:14px">По дизайнам</h3><ul id="moneyCards" class="money-rows"></ul>
+          <h3 style="font-size:14px">Лучшие клиентки</h3><ul id="moneyClients" class="money-rows"></ul>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Расходы по категориям</h2>
+        <ul id="moneyCategories" class="money-rows"></ul>
+      </div>
+    </div><!-- /деньги -->
 
     <button id="logoutBtn" class="btn btn-ghost">Выйти</button>
   </div>
@@ -730,6 +821,45 @@
   </div>
 </div>
 
+<div id="expenseSheet" class="sheet hidden">
+  <div class="sheet-body" role="dialog" aria-labelledby="expenseTitle">
+    <div class="sheet-head">
+      <h2 id="expenseTitle">Записать расход</h2>
+      <button id="expenseClose" class="sheet-x" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <fieldset id="expenseFields" class="expense-fields">
+      <label>Категория</label>
+      <div id="expenseCategories" class="svc-chips" role="group" aria-label="Категория расхода"></div>
+      <label for="expenseAmount">Сумма, ₽</label>
+      <input id="expenseAmount" type="number" min="1" max="1000000" step="1" inputmode="numeric" autocomplete="off">
+      <details id="expenseExtra" class="expense-extra">
+        <summary>Дополнительно</summary>
+        <label for="expenseDate">Когда</label>
+        <input id="expenseDate" type="date">
+        <label for="expenseNote">Заметка</label>
+        <input id="expenseNote" type="text" maxlength="120" placeholder="Необязательно" autocomplete="off">
+        <label class="check"><input id="expenseRepeat" type="checkbox"> Повторять каждый месяц</label>
+      </details>
+    </fieldset>
+    <button id="expenseSave" class="btn" style="margin-top:12px" type="button">Записать</button>
+    <div id="expenseErr" class="err" role="status"></div>
+  </div>
+</div>
+
+<div id="recurringSheet" class="sheet hidden">
+  <div class="sheet-body" role="dialog" aria-labelledby="recurringTitle">
+    <div class="sheet-head">
+      <h2 id="recurringTitle">Повторяющиеся</h2>
+      <button id="recurringClose" class="sheet-x" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <p class="note">До шести платежей. Каждый месяц кабинет предложит записать их одним нажатием.</p>
+    <div id="recurringRows"></div>
+    <button id="recurringAdd" class="btn btn-ghost" style="margin-top:8px" type="button">Добавить</button>
+    <button id="recurringSave" class="btn" style="margin-top:8px" type="button">Сохранить</button>
+    <div id="recurringErr" class="err" role="status"></div>
+  </div>
+</div>
+
 <div id="album" class="album hidden">
   <div class="album-top">
     <span id="albumCount" class="album-count"></span>
@@ -754,6 +884,9 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
+<div id="expenseUndo" class="toast expense-undo" role="status" aria-live="polite" aria-hidden="true">
+  <span id="expenseUndoText">Записано ·</span><button id="expenseUndoBtn" type="button" disabled>Отменить</button>
+</div>
 <!-- Колода берётся из приложения, а не дублируется здесь: одна копия данных на проект.
      Грузится необязательно — если не подтянется, кабинет просто покажет номер карты. -->
 <script src="../data.js"></script>

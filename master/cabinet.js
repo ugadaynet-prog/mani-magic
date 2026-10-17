@@ -20,6 +20,8 @@
   const native = !!window.Capacitor?.isNativePlatform?.();
   let token = localStorage.getItem(TOKEN_KEY) || '';
   let email = '';
+  // Сохранённая вкладка восстанавливается раньше остальных полей кабинета.
+  let moneyReady = false;
 
   const authHeaders = (extra) =>
     Object.assign({}, extra || {}, token ? { Authorization: 'Bearer ' + token } : {});
@@ -122,6 +124,7 @@
     // Возвращаем к началу: иначе, уйдя вниз по длинной витрине и переключив
     // вкладку, мастер попадает в пустоту под коротким содержимым.
     window.scrollTo(0, 0);
+    if (name === 'money' && moneyReady && token) { track('money_tab_open'); loadMoneyTab(); }
   }
   document.querySelectorAll('.tab').forEach((b) =>
     b.addEventListener('click', () => goTab(b.dataset.tab)));
@@ -154,6 +157,7 @@
     });
     if (!await loadProfile()) return; // не запускаем запросы с истёкшей сессией
     loadQR(); loadWorks(); loadPicks(); loadStats(); loadClients(); loadPrices();
+    if (currentTab === 'money') track('money_tab_open');
     loadStatus().then(() => {
       const q = new URLSearchParams(location.search);
       if (q.get('trial') === '1' || q.get('renew') === '1') showProCard();
@@ -1696,6 +1700,7 @@
         + (unpaid === 1 ? ' — он не попал в доход.' : ' — они не попали в доход.') : '');
     $('moneyHint').textContent = hint;
     $('moneyHint').classList.toggle('hidden', !hint);
+    if (currentTab === 'money') loadMoneyTab();
   }
 
   async function loadPrices() {
@@ -1703,6 +1708,366 @@
     if (r.ok) prices = r.body.prices || [];
     loadMoney();
   }
+
+  // --- Вкладка «Деньги» ---
+  const EXPENSE_CATS = [['materials', 'Материалы'], ['rent', 'Аренда'], ['education', 'Обучение'],
+    ['ads', 'Реклама'], ['tools', 'Инструмент'], ['other', 'Прочее']];
+  const EXPENSE_NAMES = Object.fromEntries(EXPENSE_CATS);
+  const EXPENSE_CAT_KEY = 'maniExpenseCategory';
+  const MAX_RECURRING = 6;
+  let moneyMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  let moneyPro = null, moneyRequest = 0, recurring = [];
+  let expenseCategory = 'materials', expenseRepeatId = '', expensePending = null, expenseSaving = false;
+  const recurringBusy = new Set(), expenseRepeatBusy = new Set();
+  let expenseUndoState = null, expenseUndoTimer;
+  const monthKey = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  const expenseAmountBad = (v) => v === '' || !Number.isInteger(Number(v)) || Number(v) < 1 || Number(v) > 1000000;
+  const expenseName = (key) => EXPENSE_NAMES[key] || EXPENSE_NAMES.other;
+  const profitRub = (n) => n < 0 ? '−' + rub(Math.abs(n)) : rub(n);
+  function currentMoneyMonth() { return monthKey(moneyMonth) === monthKey(new Date()); }
+  function moneyHistoryPro() { toast('История старше прошлого месяца — в Pro'); showProCard(); }
+  function shiftMoneyMonth(step) {
+    const next = new Date(moneyMonth.getFullYear(), moneyMonth.getMonth() + step, 1);
+    const now = new Date(), first = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (next > first) return;
+    if (next < new Date(now.getFullYear(), now.getMonth() - 1, 1) && moneyPro !== true) {
+      moneyHistoryPro(); return;
+    }
+    moneyMonth = next; loadMoneyTab();
+  }
+  function moneyEmpty(box, text) {
+    const li = document.createElement('li'); li.className = 'note'; li.textContent = text; box.appendChild(li);
+  }
+  function moneyRow(title, sum, sub) {
+    const li = document.createElement('li'); li.className = 'money-row';
+    const main = document.createElement('div'); main.className = 'money-row-main'; main.textContent = title;
+    if (sub) { const small = document.createElement('small'); small.textContent = sub; main.appendChild(small); }
+    const amount = document.createElement('span'); amount.className = 'money-row-sum'; amount.textContent = rub(sum);
+    li.appendChild(main); li.appendChild(amount);
+    return li;
+  }
+  function hideExpenseUndo(state) {
+    if (state && expenseUndoState !== state) return;
+    clearTimeout(expenseUndoTimer); expenseUndoState = null;
+    $('expenseUndo').classList.remove('show'); $('expenseUndo').setAttribute('aria-hidden', 'true');
+    $('expenseUndoBtn').disabled = true;
+  }
+  function armExpenseUndo(state) {
+    clearTimeout(expenseUndoTimer);
+    expenseUndoTimer = setTimeout(() => hideExpenseUndo(state), 7000);
+  }
+  function showExpenseUndo(id) {
+    const state = { id, busy: false }; expenseUndoState = state;
+    $('expenseUndoText').textContent = 'Записано ·'; $('expenseUndoBtn').disabled = false;
+    $('expenseUndo').classList.add('show'); $('expenseUndo').setAttribute('aria-hidden', 'false');
+    clearTimeout(toastT); $('toast').classList.remove('show'); armExpenseUndo(state);
+  }
+  $('expenseUndoBtn').addEventListener('click', async () => {
+    const state = expenseUndoState;
+    if (!state || state.busy) return;
+    state.busy = true; clearTimeout(expenseUndoTimer); $('expenseUndoBtn').disabled = true;
+    const r = await apiJson('/api/master/expenses/' + encodeURIComponent(state.id), { method: 'DELETE' });
+    if (r.ok || r.status === 404) {
+      // Поздний ответ отменяет свою запись и не закрывает тост следующего расхода.
+      hideExpenseUndo(state); toast('Запись отменена'); loadMoney(); return;
+    }
+    if (expenseUndoState !== state) return;
+    state.busy = false; $('expenseUndoText').textContent = 'Не удалось отменить ·';
+    $('expenseUndoBtn').disabled = false; armExpenseUndo(state);
+  });
+  function releaseExpenseRepeat(id) {
+    expenseRepeatBusy.delete(id);
+    $('moneyExpenses').querySelectorAll('button[data-repeat-expense]').forEach((b) => {
+      if (b.dataset.repeatExpense === id) b.disabled = false;
+    });
+  }
+  function renderExpenseList(expenses) {
+    const box = $('moneyExpenses'); box.innerHTML = '';
+    $('moneyExpensesEmpty').classList.toggle('hidden', expenses.length > 0);
+    expenses.forEach((e) => {
+      const date = new Date(e.spentAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+      const li = moneyRow(expenseName(e.category), e.amount, date + (e.note ? ' · ' + e.note : ''));
+      li.classList.add('expense-row');
+      const actions = document.createElement('div'); actions.className = 'expense-actions';
+      const repeat = document.createElement('button'); repeat.type = 'button'; repeat.className = 'money-record';
+      repeat.textContent = 'Повторить'; repeat.dataset.repeatExpense = e.id; repeat.disabled = expenseRepeatBusy.has(e.id);
+      repeat.addEventListener('click', async () => {
+        if (expenseRepeatBusy.has(e.id)) return;
+        expenseRepeatBusy.add(e.id); repeat.disabled = true;
+        const r = await apiJson('/api/master/expenses', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spentAt: fromIso(isoDate()), amount: e.amount, category: e.category, note: e.note || '' }),
+        });
+        if (!r.ok) { releaseExpenseRepeat(e.id); toast('Не удалось повторить расход'); return; }
+        if (r.body.id) showExpenseUndo(r.body.id); else toast('Расход записан');
+        // Короткая блокировка переживает перерисовку и второе нажатие из двойного тапа.
+        setTimeout(() => releaseExpenseRepeat(e.id), 700);
+        loadMoney();
+      });
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'visit-del';
+      del.textContent = '×'; del.setAttribute('aria-label', 'Удалить расход');
+      del.addEventListener('click', async () => {
+        if (del.disabled || !confirm('Удалить этот расход?')) return;
+        del.disabled = true;
+        const r = await apiJson('/api/master/expenses/' + encodeURIComponent(e.id), { method: 'DELETE' });
+        if (!r.ok) { del.disabled = false; toast('Не удалось удалить расход'); return; }
+        toast('Расход удалён'); loadMoney();
+      });
+      actions.appendChild(repeat); actions.appendChild(del); li.appendChild(actions); box.appendChild(li);
+    });
+  }
+  function renderRecurring(expenses) {
+    $('moneyRecurringBox').classList.toggle('hidden', !currentMoneyMonth());
+    const box = $('moneyRecurring'); box.innerHTML = '';
+    if (!currentMoneyMonth()) return;
+    const written = new Set(expenses.map((e) => e.recKey).filter(Boolean));
+    recurring.filter((r) => !written.has(r.id + ':' + monthKey(moneyMonth))).forEach((p) => {
+      const li = moneyRow(expenseName(p.category), p.amount, p.note);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'money-record';
+      b.textContent = 'Оплатила'; b.disabled = recurringBusy.has(p.id);
+      b.addEventListener('click', async () => {
+        if (recurringBusy.has(p.id)) return;
+        recurringBusy.add(p.id); b.disabled = true;
+        const r = await apiJson('/api/master/expenses', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spentAt: fromIso(isoDate()), amount: p.amount, category: p.category,
+            note: p.note || '', recKey: p.id + ':' + monthKey(new Date()) }),
+        });
+        recurringBusy.delete(p.id);
+        if (!r.ok && r.status !== 409) { b.disabled = false; toast('Не удалось записать расход'); return; }
+        if (r.ok) track('expense_add', { from: 'recurring', rec: true });
+        toast(r.status === 409 ? 'Этот расход уже записан за месяц' : 'Расход записан');
+        loadMoney();
+      });
+      li.appendChild(b); box.appendChild(li);
+    });
+  }
+  function renderMoneySources(m) {
+    const locked = !!m.locked;
+    $('moneySourcesLocked').classList.toggle('hidden', !locked);
+    $('moneySources').classList.toggle('hidden', locked);
+    ['moneyColors', 'moneyCards', 'moneyClients'].forEach((id) => { $(id).innerHTML = ''; });
+    // У бесплатного тарифа разрезы не приходят с сервера и не попадают в разметку.
+    if (locked) return;
+    const colors = m.byColor || [], max = Math.max(1, ...colors.map((c) => c.sum));
+    colors.forEach((c) => {
+      const li = moneyRow(c.color || 'Без цвета', c.sum, c.n + ' ' + plural(c.n, 'визит', 'визита', 'визитов'));
+      const bar = document.createElement('div'); bar.className = 'money-bar';
+      const fill = document.createElement('i'); fill.style.width = Math.max(0, c.sum / max * 100) + '%';
+      bar.appendChild(fill); li.firstChild.appendChild(bar); $('moneyColors').appendChild(li);
+    });
+    (m.byCard || []).forEach((c) => {
+      const label = c.card || c.workUrl ? pickLabel(c) : 'Без дизайна';
+      const detail = [c.card ? 'Карта ' + c.card : '', c.design ? 'Дизайн ' + c.design : '',
+        c.n + ' ' + plural(c.n, 'визит', 'визита', 'визитов')].filter(Boolean).join(' · ');
+      const li = moneyRow(label, c.sum, detail), photo = pickPhoto(c);
+      if (photo) { const img = document.createElement('img'); img.src = photo; img.alt = ''; img.loading = 'lazy'; li.prepend(img); }
+      $('moneyCards').appendChild(li);
+    });
+    (m.topClients || []).forEach((c) => {
+      const li = moneyRow(c.name || 'Клиентка', c.sum, c.n + ' ' + plural(c.n, 'визит', 'визита', 'визитов'));
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'money-click';
+      while (li.firstChild) b.appendChild(li.firstChild);
+      b.addEventListener('click', () => openClient(c.id)); li.appendChild(b); $('moneyClients').appendChild(li);
+    });
+    if (!colors.length) moneyEmpty($('moneyColors'), 'Пока нет визитов с суммой.');
+    if (!(m.byCard || []).length) moneyEmpty($('moneyCards'), 'Пока нет визитов с суммой.');
+    if (!(m.topClients || []).length) moneyEmpty($('moneyClients'), 'Пока нет визитов с суммой.');
+  }
+  async function loadMoneyTab() {
+    const request = ++moneyRequest, d = new Date(moneyMonth), now = new Date();
+    const from = d.getTime(), to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+    const prevFrom = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+    const title = MONTHS[d.getMonth()];
+    $('moneyMonth').textContent = title[0].toUpperCase() + title.slice(1) + ' ' + d.getFullYear();
+    $('moneyNext').disabled = currentMoneyMonth();
+    $('moneyTabErr').textContent = ''; $('moneyTabSub').textContent = 'Загружаем месяц…';
+    ['moneyTabIncome', 'moneyTabExpenses', 'moneyTabProfit'].forEach((id) => { $(id).textContent = '…'; });
+    ['moneyExpenses', 'moneyRecurring', 'moneyCategories', 'moneyColors', 'moneyCards', 'moneyClients'].forEach((id) => { $(id).innerHTML = ''; });
+    $('moneyExpensesEmpty').classList.add('hidden'); $('moneySources').classList.add('hidden');
+    $('moneySourcesLocked').classList.add('hidden');
+    $('moneyRecurringBox').classList.toggle('hidden', !currentMoneyMonth());
+    const canCompare = moneyPro === true || d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    const [summary, list, repeat, prev] = await Promise.all([
+      apiJson('/api/master/money?from=' + from + '&to=' + to),
+      apiJson('/api/master/expenses?from=' + from + '&to=' + to),
+      apiJson('/api/master/recurring'),
+      canCompare ? apiJson('/api/master/money?from=' + prevFrom + '&to=' + from) : Promise.resolve(null),
+    ]);
+    if (request !== moneyRequest) return;
+    if (summary.status === 403 || list.status === 403) {
+      moneyPro = false; moneyMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      moneyHistoryPro(); return;
+    }
+    if (!summary.ok || !list.ok) {
+      $('moneyTabSub').textContent = ''; $('moneyTabErr').textContent = 'Не удалось загрузить месяц. Откройте вкладку ещё раз.'; return;
+    }
+    const m = summary.body, expenses = list.body.expenses || [];
+    moneyPro = !m.locked;
+    if (repeat.ok) recurring = repeat.body.recurring || [];
+    $('moneyTabIncome').textContent = rub(m.income);
+    $('moneyTabExpenses').textContent = rub(m.expenses);
+    $('moneyTabProfit').textContent = profitRub(m.profit);
+    $('moneyTabProfit').classList.toggle('loss', m.profit < 0);
+    const parts = [m.visits + ' ' + plural(m.visits, 'визит', 'визита', 'визитов'), 'средний чек ' + rub(m.avg)];
+    if (prev && prev.ok && (prev.body.visits || prev.body.expenses)) {
+      parts.push('в ' + MONTHS_IN[(d.getMonth() + 11) % 12] + ' оставалось ' + profitRub(prev.body.profit));
+    }
+    $('moneyTabSub').textContent = m.visits || expenses.length ? parts.join(' · ')
+      : 'Доход появится, когда запишете визит. Расход — кнопка ниже.';
+    renderExpenseList(expenses); renderRecurring(expenses); renderMoneySources(m);
+    (m.expensesByCat || []).forEach((c) => {
+      const percent = m.expenses ? Math.round(c.sum / m.expenses * 100) : 0;
+      $('moneyCategories').appendChild(moneyRow(expenseName(c.category), c.sum, percent + ' %'));
+    });
+    if (!(m.expensesByCat || []).length) moneyEmpty($('moneyCategories'), 'Пока нет расходов.');
+    if (!repeat.ok) $('moneyTabErr').textContent = 'Повторяющиеся не загрузились. Откройте вкладку ещё раз.';
+  }
+  $('moneyDetails').addEventListener('click', () => goTab('money'));
+  $('moneyPrev').addEventListener('click', () => shiftMoneyMonth(-1));
+  $('moneyNext').addEventListener('click', () => shiftMoneyMonth(1));
+  $('moneyProBtn').addEventListener('click', showProCard);
+
+  // --- Панель расхода ---
+  function paintExpenseCategories() {
+    $('expenseCategories').querySelectorAll('button').forEach((b) => {
+      const selected = b.dataset.category === expenseCategory;
+      b.classList.toggle('on', selected); b.setAttribute('aria-pressed', String(selected));
+    });
+  }
+  EXPENSE_CATS.forEach(([key, label]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.dataset.category = key;
+    b.addEventListener('click', () => { expenseCategory = key; paintExpenseCategories(); });
+    $('expenseCategories').appendChild(b);
+  });
+  function expenseMaxDate() {
+    const d = new Date(); d.setFullYear(d.getFullYear() + 1); return isoDate(d.getTime());
+  }
+  function openExpense() {
+    if (expenseSaving || $('recurringSave').disabled) { toast('Дождитесь сохранения'); return; }
+    if (!expensePending) {
+      try { expenseCategory = localStorage.getItem(EXPENSE_CAT_KEY) || 'materials'; } catch (e) {}
+      if (!EXPENSE_NAMES[expenseCategory]) expenseCategory = 'materials';
+      $('expenseExtra').open = false;
+      $('expenseAmount').value = ''; $('expenseDate').value = isoDate(); $('expenseDate').max = expenseMaxDate();
+      $('expenseNote').value = ''; $('expenseRepeat').checked = false; $('expenseErr').textContent = '';
+      $('expenseFields').disabled = false; $('expenseSave').textContent = 'Записать'; expenseRepeatId = '';
+      paintExpenseCategories();
+    }
+    $('expenseSheet').classList.remove('hidden'); $('expenseSheet').querySelector('.sheet-body').scrollTop = 0;
+    if (!expensePending) $('expenseAmount').focus();
+  }
+  function closeExpense() { $('expenseSheet').classList.add('hidden'); }
+  $('expenseAdd').addEventListener('click', openExpense);
+  $('expenseClose').addEventListener('click', closeExpense);
+  $('expenseSheet').addEventListener('click', (e) => { if (e.target === $('expenseSheet')) closeExpense(); });
+  $('expenseSave').addEventListener('click', async () => {
+    if (expenseSaving || $('recurringSave').disabled) { toast('Дождитесь сохранения'); return; }
+    const raw = $('expenseAmount').value.trim(), date = $('expenseDate').value, spentAt = fromIso(date);
+    if (!expensePending && expenseAmountBad(raw)) { $('expenseErr').textContent = 'Сумма — целое число от 1 до 1 000 000 ₽'; $('expenseAmount').focus(); return; }
+    if (!expensePending && (!Number.isFinite(spentAt) || !date || date > expenseMaxDate() || isoDate(spentAt) !== date)) {
+      $('expenseErr').textContent = 'Выберите дату не позже чем через год'; return;
+    }
+    expenseSaving = true; $('expenseSave').disabled = true; $('expenseFields').disabled = true; $('expenseErr').textContent = '';
+    let full = false;
+    try {
+      if (!expensePending) {
+        let repeat = $('expenseRepeat').checked;
+        if (repeat) {
+          const current = await apiJson('/api/master/recurring');
+          if (!current.ok) { $('expenseErr').textContent = 'Не удалось загрузить повторяющиеся. Повторите сохранение.'; return; }
+          recurring = current.body.recurring || [];
+          if (recurring.length >= MAX_RECURRING) { repeat = false; full = true; $('expenseRepeat').checked = false; toast('Повторяющихся уже 6'); }
+          else if (!expenseRepeatId) expenseRepeatId = crypto.randomUUID().slice(0, 8);
+        }
+        const repeatId = repeat ? expenseRepeatId : '';
+        const body = { spentAt, amount: Number(raw), category: expenseCategory, note: $('expenseNote').value.trim().slice(0, 120) };
+        if (repeat) body.recKey = repeatId + ':' + monthKey(new Date(spentAt));
+        const r = await apiJson('/api/master/expenses', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        if (!r.ok && !(repeat && r.status === 409)) { $('expenseErr').textContent = 'Не удалось записать расход. Повторите сохранение.'; return; }
+        try { localStorage.setItem(EXPENSE_CAT_KEY, expenseCategory); } catch (e) {}
+        if (r.ok) track('expense_add', { from: 'sheet', rec: repeat });
+        if (repeat) {
+          // Этот же ключ уже отмечает первый месяц: плашка не предложит записать расход второй раз.
+          expensePending = { id: repeatId, category: body.category, amount: body.amount, note: body.note };
+          $('expenseFields').disabled = true; $('expenseSave').textContent = 'Сохранить повторение';
+        }
+      }
+      if (expensePending) {
+        // После сбоя сохраняем только повторение, а не создаём ещё один расход.
+        const current = await apiJson('/api/master/recurring');
+        if (!current.ok) { $('expenseErr').textContent = 'Расход записан. Нажмите «Сохранить повторение», чтобы настроить следующие месяцы.'; loadMoney(); return; }
+        const rows = current.body.recurring || [];
+        if (!rows.some((p) => p.id === expensePending.id)) {
+          if (rows.length >= MAX_RECURRING) {
+            expensePending = null; expenseSaving = false; closeExpense(); toast('Расход записан. Повторяющихся уже 6'); loadMoney(); return;
+          }
+          const saved = await apiJson('/api/master/recurring', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recurring: rows.concat(expensePending) }),
+          });
+          if (!saved.ok) { $('expenseErr').textContent = 'Расход записан. Нажмите «Сохранить повторение», чтобы настроить следующие месяцы.'; loadMoney(); return; }
+          recurring = saved.body.recurring || []; track('recurring_saved', { n: recurring.length });
+        } else recurring = rows;
+      }
+      expensePending = null; expenseSaving = false; closeExpense();
+      toast(full ? 'Расход записан. Повторяющихся уже 6' : 'Расход записан'); loadMoney();
+    } finally { expenseSaving = false; $('expenseSave').disabled = false; $('expenseFields').disabled = !!expensePending; }
+  });
+
+  // --- Настройка повторяющихся ---
+  function recurringRow(p) {
+    const row = document.createElement('div'); row.className = 'recurring-row'; row.dataset.id = p && p.id || '';
+    const category = document.createElement('select'); category.setAttribute('aria-label', 'Категория');
+    const empty = document.createElement('option'); empty.value = ''; empty.textContent = 'Категория'; category.appendChild(empty);
+    EXPENSE_CATS.forEach(([key, label]) => { const option = document.createElement('option'); option.value = key; option.textContent = label; category.appendChild(option); });
+    category.value = p && p.category || '';
+    const amount = document.createElement('input'); amount.type = 'number'; amount.min = '1'; amount.max = '1000000';
+    amount.step = '1'; amount.inputMode = 'numeric'; amount.placeholder = '₽'; amount.value = p && p.amount != null ? p.amount : '';
+    amount.setAttribute('aria-label', 'Сумма, ₽');
+    const note = document.createElement('input'); note.type = 'text'; note.maxLength = 120; note.className = 'recurring-note';
+    note.placeholder = 'Заметка (необязательно)'; note.value = p && p.note || ''; note.setAttribute('aria-label', 'Заметка');
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'sheet-x'; del.textContent = '×';
+    del.setAttribute('aria-label', 'Убрать повторяющийся расход'); del.addEventListener('click', () => { row.remove(); syncRecurringAdd(); });
+    row.appendChild(category); row.appendChild(amount); row.appendChild(note); row.appendChild(del); return row;
+  }
+  function syncRecurringAdd() { $('recurringAdd').classList.toggle('hidden', $('recurringRows').children.length >= MAX_RECURRING); }
+  async function openRecurring() {
+    if (expenseSaving || $('recurringSave').disabled) { toast('Дождитесь сохранения'); return; }
+    $('recurringBtn').disabled = true;
+    const r = await apiJson('/api/master/recurring'); $('recurringBtn').disabled = false;
+    if (!r.ok) { toast('Не удалось загрузить повторяющиеся'); return; }
+    recurring = r.body.recurring || [];
+    const box = $('recurringRows'); box.innerHTML = '';
+    (recurring.length ? recurring : [null]).forEach((p) => box.appendChild(recurringRow(p)));
+    syncRecurringAdd(); $('recurringErr').textContent = ''; $('recurringSheet').classList.remove('hidden');
+  }
+  function closeRecurring() { $('recurringSheet').classList.add('hidden'); }
+  $('recurringBtn').addEventListener('click', openRecurring);
+  $('recurringClose').addEventListener('click', closeRecurring);
+  $('recurringSheet').addEventListener('click', (e) => { if (e.target === $('recurringSheet')) closeRecurring(); });
+  $('recurringAdd').addEventListener('click', () => {
+    const box = $('recurringRows'); if (box.children.length >= MAX_RECURRING) return;
+    const row = recurringRow(null); box.appendChild(row); syncRecurringAdd(); row.querySelector('select').focus();
+  });
+  $('recurringSave').addEventListener('click', async () => {
+    if (expenseSaving || $('recurringSave').disabled) { toast('Дождитесь сохранения'); return; }
+    const rows = [...$('recurringRows').children].map((row) => {
+      const [amount, note] = row.querySelectorAll('input');
+      return { id: row.dataset.id || undefined, category: row.querySelector('select').value, amount: amount.value.trim(), note: note.value.trim().slice(0, 120) };
+    }).filter((p) => p.category && p.amount !== '');
+    if (rows.some((p) => expenseAmountBad(p.amount))) { $('recurringErr').textContent = 'Сумма — целое число от 1 до 1 000 000 ₽'; return; }
+    $('recurringSave').disabled = true; $('recurringErr').textContent = '';
+    const r = await apiJson('/api/master/recurring', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recurring: rows.map((p) => Object.assign({}, p, { amount: Number(p.amount) })) }),
+    });
+    $('recurringSave').disabled = false;
+    if (!r.ok) { $('recurringErr').textContent = 'Не удалось сохранить повторяющиеся'; return; }
+    recurring = r.body.recurring || []; track('recurring_saved', { n: recurring.length });
+    closeRecurring(); toast(recurring.length ? 'Повторяющиеся сохранены' : 'Повторяющиеся очищены'); loadMoneyTab();
+  });
 
   // --- «Принесла всего» в карточке ---
   function renderClientMoney(m) {
@@ -2509,7 +2874,8 @@
   // закрывала приложение с любого экрана (исправлено в MainActivity, 1.9.14).
   {
     // Порядок — сверху вниз: прайс открывается и поверх «Сделала», а «Сделала» — поверх карточки.
-    const layers = [['pickPhoto', closePickPhoto], ['pricesSheet', closePrices], ['doneSheet', closeDone],
+    const layers = [['pickPhoto', closePickPhoto], ['recurringSheet', closeRecurring], ['expenseSheet', closeExpense],
+      ['pricesSheet', closePrices], ['doneSheet', closeDone],
       ['sorter', closeSorter], ['album', closeAlbum], ['clientCard', closeClient]];
     const topLayer = () => layers.find(([id]) => !$(id).classList.contains('hidden'));
     let pushed = false, ownBack = false;
@@ -2556,6 +2922,8 @@
   metricaTag.src = 'https://mc.yandex.ru/metrika/tag.js';
   document.head.appendChild(metricaTag);
   window.ym(METRICA_ID, 'init', { clickmap: true, accurateTrackBounce: true, trackLinks: false, webvisor: false });
+
+  moneyReady = true;
 
   // старт
   if (token) enterDash(); else show('login');
