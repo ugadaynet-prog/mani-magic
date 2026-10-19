@@ -310,6 +310,127 @@
   const promoFromLink = new URLSearchParams(location.search).get('promo')
     || (() => { try { return sessionStorage.getItem(PROMO_KEY) || ''; } catch (e) { return ''; } })();
 
+  // Код школы даёт скидку при оплате, а подарочный promo включает доступ.
+  // Ссылка только заполняет поле: привязка школы требует явного подтверждения.
+  const SCHOOL_KEY = 'maniSchoolFromLink';
+  let schoolFromLink = new URLSearchParams(location.search).get('school')
+    || (() => { try { return sessionStorage.getItem(SCHOOL_KEY) || ''; } catch (e) { return ''; } })();
+  schoolFromLink = schoolFromLink.trim().toUpperCase().slice(0, 64);
+  let schoolOffer = null, currentProStatus = null;
+  $('schoolCode').value = schoolFromLink;
+  $('schoolLoginHint').classList.toggle('hidden', !schoolFromLink);
+  if (native) $('schoolLoginHint').textContent = 'Сначала привяжите код школы в веб-кабинете, затем войдите в приложении тем же email до покупки. Pro через RuStore учтётся в вознаграждении школы; скидка магазина на подписки недоступна.';
+
+  const schoolMoney = (minor) => new Intl.NumberFormat('ru-RU', {
+    style: 'currency', currency: 'RUB', minimumFractionDigits: minor % 100 ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(minor / 100);
+  function schoolPrice(key) {
+    if (native || !schoolOffer || !schoolOffer.prices) return null;
+    const p = schoolOffer.prices[key];
+    if (!p || !Number.isSafeInteger(p.baseMinor) || !Number.isSafeInteger(p.amountMinor)
+      || p.amountMinor < 0 || p.baseMinor < p.amountMinor) return null;
+    return p;
+  }
+
+  function applySchoolPrices() {
+    if (native || !currentProStatus) return;
+    const month = schoolPrice('pro_month'), year = schoolPrice('pro_year');
+    if (!month || !year) return;
+    $('proBtn').textContent = (currentProStatus.isPro ? 'Продлить на год — ' : 'Оформить Pro на год — ') + schoolMoney(year.amountMinor);
+    $('proMonthBtn').textContent = 'На месяц — ' + schoolMoney(month.amountMinor);
+    if (!currentProStatus.isPro) {
+      $('proPrice').textContent = (currentProStatus.trialAvailable ? 'После пробных 30 дней — ' : '')
+        + schoolMoney(month.amountMinor) + ' в месяц или ' + schoolMoney(year.amountMinor)
+        + ' в год. Автосписаний нет: срок закончился — Pro просто выключается.';
+    }
+  }
+
+  function renderSchoolOffer(body) {
+    schoolOffer = body;
+    const p = body && body.partner;
+    const input = $('schoolCode'), button = $('schoolApplyBtn');
+    const description = $('schoolOfferText'), prices = $('schoolPrices'), terms = $('schoolTerms');
+    $('schoolDashboard').href = API + '/partners';
+    $('schoolDashboard').classList.toggle('hidden', !(body && body.partnerAccount));
+    prices.replaceChildren(); prices.classList.add('hidden'); terms.classList.add('hidden');
+    input.readOnly = !!p || native;
+    button.disabled = !!p || native;
+    button.textContent = p ? 'Код школы применён' : 'Применить код школы';
+    if (p) input.value = p.code || p.schoolCode || '';
+    if (native) {
+      description.textContent = 'Код школы привязывает покупку Pro через RuStore к партнёрской программе. RuStore пока не применяет купоны к подпискам, поэтому в магазине оплата будет по цене тарифа; покупка всё равно попадёт в отчёт школы.';
+      if (p) {
+        terms.textContent = 'В аккаунте сохранён код ' + (p.code || p.schoolCode || '') + ' школы «'
+          + (p.schoolName || p.partnerName || p.name || 'Ваша школа') + '». Покупка Pro через RuStore будет учтена в отчёте, но скидка на подписку в магазине не применяется.';
+        terms.classList.remove('hidden');
+      }
+      return;
+    }
+    if (!body) {
+      description.textContent = 'Сейчас не удалось проверить условия школы. Повторите проверку кода. Пока показаны обычные тарифы Pro.';
+      return;
+    }
+    if (!p) {
+      description.textContent = 'Действующий код школы даёт скидку 20% на Pro в веб-кабинете. Примените его до первой оплаты. Пробные 30 дней сохраняются. Школа будет привязана только после нажатия кнопки.';
+      return;
+    }
+    description.textContent = 'Код ' + (p.code || p.schoolCode || '') + ' школы «'
+      + (p.schoolName || p.partnerName || p.name || 'Ваша школа') + '» применён к вашему аккаунту.';
+    const month = schoolPrice('pro_month'), year = schoolPrice('pro_year');
+    if (!month || !year) {
+      terms.textContent = 'Не удалось получить актуальные цены. Обновите кабинет перед оплатой.';
+      terms.classList.remove('hidden');
+      return;
+    }
+    [['Месяц', month], ['Год', year]].forEach(([label, price]) => {
+      const row = document.createElement('div'); row.className = 'school-price-line';
+      row.append(document.createTextNode(label + ': '));
+      if (price.amountMinor < price.baseMinor) {
+        const before = document.createElement('s'); before.textContent = schoolMoney(price.baseMinor); row.append(before);
+      }
+      const amount = document.createElement('strong'); amount.textContent = schoolMoney(price.amountMinor); row.append(amount);
+      prices.append(row);
+    });
+    prices.classList.remove('hidden');
+    const discount = Math.max(Number(month.discountPercent ?? month.discountBps / 100) || 0,
+      Number(year.discountPercent ?? year.discountBps / 100) || 0);
+    const end = Number(p.termEndsAt);
+    const period = Number.isFinite(end) && end > 0
+      ? 'Ваш период — до ' + new Date(end).toLocaleDateString('ru-RU') + '. '
+      : 'Период начнётся с первой оплаты. ';
+    terms.textContent = (discount > 0 ? 'Ваша скидка — ' + discount + '%. ' : 'Скидка школы сейчас не действует. ')
+      + 'Скидка и вознаграждение действуют первые 12 месяцев с первой оплаченной подписки Pro в веб-кабинете. '
+      + period + 'Школа получает 40% фактически оплаченной суммы. Пробные 30 дней бесплатны, автосписаний нет. Покупки Pro через RuStore тоже учитываются; магазинные купоны на подписки не действуют.';
+    terms.classList.remove('hidden');
+    try { sessionStorage.removeItem(SCHOOL_KEY); } catch (e) {}
+  }
+
+  $('schoolApplyBtn').addEventListener('click', async () => {
+    if (native) return;
+    const code = $('schoolCode').value.trim().toUpperCase();
+    $('schoolErr').textContent = '';
+    if (!code) { $('schoolErr').textContent = 'Введите код вашей школы'; $('schoolCode').focus(); return; }
+    $('schoolApplyBtn').disabled = true;
+    const r = await apiJson('/api/master/partner', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+    });
+    if (r.ok && r.body.partner) {
+      renderSchoolOffer(r.body); applySchoolPrices();
+      toast('Код школы применён. Цены обновлены');
+    } else {
+      $('schoolErr').textContent = {
+        invalid_code: 'Код школы не найден. Проверьте написание.',
+        partner_inactive: 'Этот код школы сейчас не действует.',
+        already_paid: 'Код школы можно применить только до первой оплаты Pro.',
+        attribution_locked: 'К вашему аккаунту уже привязана другая школа. Изменить её нельзя.',
+        self_referral: 'Школа не может получать вознаграждение за оплату своего аккаунта.',
+        payment_pending: 'У вас уже открыта оплата Pro. Завершите или отмените её перед применением кода школы.',
+      }[r.body.error] || 'Не удалось применить код. Проверьте связь и повторите попытку.';
+      $('schoolApplyBtn').disabled = false;
+    }
+  });
+
   // Что даёт Pro — одной строкой, словами мастера. Стоит там, где решают, платить
   // ли: раньше рядом с кнопкой было только «Оформите Pro», без цены и без пользы.
   const PRO_GIVES = 'С Pro клиентке по вашему QR открыты все 49 карт с примерами работ, '
@@ -323,8 +444,12 @@
   };
 
   async function loadStatus() {
-    const r = await apiJson('/api/master/status');
+    const [r, schoolResponse] = await Promise.all([
+      apiJson('/api/master/status'), apiJson('/api/master/partner'),
+    ]);
     const s = r.body || {};
+    currentProStatus = s;
+    renderSchoolOffer(schoolResponse.ok ? schoolResponse.body : null);
     const pill = $('proPill'), text = $('proText'), btn = $('proBtn'), monthBtn = $('proMonthBtn');
     const trialBtn = $('trialBtn'), price = $('proPrice'), phoneBox = $('proPhoneBox'), promoBox = $('promoBox');
     if (s.isPro) {
@@ -363,6 +488,7 @@
       $('deckBox').classList.add('hidden');
       if (promoFromLink && !$('promoCode').value) $('promoCode').value = promoFromLink;
     }
+    applySchoolPrices();
   }
 
   // --- Колода мастера ---
@@ -2907,13 +3033,15 @@
   function track(event, params) {
     try { window.ym(METRICA_ID, 'reachGoal', event, params); } catch (e) {}
   }
-  if (new URLSearchParams(location.search).has('promo')) {
+  if (new URLSearchParams(location.search).has('promo') || new URLSearchParams(location.search).has('school')) {
     const clean = new URL(location.href);
     clean.searchParams.delete('promo');
+    clean.searchParams.delete('school');
     try {
-      sessionStorage.setItem(PROMO_KEY, promoFromLink);
-      history.replaceState(history.state, '', clean.pathname + clean.search + clean.hash);
+      if (promoFromLink) sessionStorage.setItem(PROMO_KEY, promoFromLink);
+      if (schoolFromLink) sessionStorage.setItem(SCHOOL_KEY, schoolFromLink);
     } catch (e) {}
+    try { history.replaceState(history.state, '', clean.pathname + clean.search + clean.hash); } catch (e) {}
   }
   window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
   window.ym.l = +new Date();

@@ -58,6 +58,14 @@
   .hidden{display:none}
   .err{color:#c0263c;font-size:13px;margin-top:8px}
   .note{color:var(--muted);font-size:12px;margin-top:8px}
+  .school-offer{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .school-offer h3{font-size:14px;margin:0 0 6px}
+  .school-offer p{margin:8px 0;font-size:13px;overflow-wrap:anywhere}
+  .school-offer .note{font-size:12px}
+  .school-prices{padding:9px 11px;border-radius:10px;background:#f7f2f5}
+  .school-prices s{color:var(--muted);margin-right:5px}
+  .school-price-line+ .school-price-line{margin-top:4px}
+  .school-dashboard{display:inline-block;margin-top:10px;color:var(--pink-d);font-size:13px}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
   .pill.on{background:#e7f6ee;color:var(--ok)}
   .pill.off{background:#f3eef1;color:var(--muted)}
@@ -369,6 +377,7 @@
         </label>
         <button id="reqBtn" class="btn" style="margin-top:14px" disabled>Получить код</button>
         <p id="trialHint" class="note hidden" style="margin-top:10px">Войдите по почте — пробный месяц Pro включается в кабинете одной кнопкой, без карты.</p>
+        <p id="schoolLoginHint" class="note hidden" data-testid="school-login-hint">После входа подтвердите код школы, чтобы увидеть свои условия Pro.</p>
       </div>
       <div id="step2" class="hidden">
         <label>Код из письма</label>
@@ -407,8 +416,19 @@
       <button id="proBtn" class="btn hidden" style="margin-top:12px" type="button">Оформить Pro на год — 2 490 ₽</button>
       <button id="proMonthBtn" class="btn btn-ghost hidden" style="margin-top:8px" type="button">На месяц — 399 ₽</button>
       <div id="proErr" class="err"></div>
+      <section id="schoolOffer" class="school-offer" aria-labelledby="schoolOfferTitle" data-testid="school-offer">
+        <h3 id="schoolOfferTitle">Код школы</h3>
+        <p id="schoolOfferText" class="note" data-testid="school-offer-text">Если школа дала вам код, примените его до первой оплаты Pro в веб-кабинете. Пробные 30 дней сохраняются.</p>
+        <label for="schoolCode">Код от вашей школы</label>
+        <input id="schoolCode" type="text" maxlength="64" placeholder="Например, NAILS20" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase" data-testid="school-code">
+        <button id="schoolApplyBtn" class="btn btn-ghost" style="margin-top:8px" type="button" data-testid="school-apply">Применить код школы</button>
+        <div id="schoolPrices" class="school-prices hidden" data-testid="school-prices"></div>
+        <p id="schoolTerms" class="note hidden" data-testid="school-terms"></p>
+        <div id="schoolErr" class="err" role="status" aria-live="polite" data-testid="school-error"></div>
+        <a id="schoolDashboard" class="school-dashboard hidden" href="https://api.mani-magic.ru/partners" data-testid="school-dashboard-link">Открыть кабинет школы</a>
+      </section>
       <div id="promoBox" class="hidden" style="margin-top:14px">
-        <label>Есть промокод?</label>
+        <label>Подарочный код MANI Magic</label>
         <input id="promoCode" type="text" placeholder="Код от MANI Magic" style="text-transform:uppercase">
         <button id="promoBtn" class="btn" style="margin-top:8px">Активировать код</button>
         <div id="promoErr" class="err"></div>

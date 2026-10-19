@@ -832,7 +832,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     plugin.purchaseProduct({ productId: selectedPlanKey })
       .then((result) => api('/api/rustore/grant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(getMasterToken() ? { 'Authorization': 'Bearer ' + getMasterToken() } : {}) },
         body: JSON.stringify({
           deviceId: deviceId, planKey: selectedPlanKey,
           purchaseId: result.purchaseId, invoiceId: result.invoiceId, sandbox: !!result.sandbox,
