@@ -319,7 +319,6 @@
   let schoolOffer = null, currentProStatus = null;
   $('schoolCode').value = schoolFromLink;
   $('schoolLoginHint').classList.toggle('hidden', !schoolFromLink);
-  if (native) $('schoolLoginHint').textContent = 'Сначала привяжите код школы в веб-кабинете, затем войдите в приложении тем же email до покупки. Pro через RuStore учтётся в вознаграждении школы; скидка магазина на подписки недоступна.';
 
   const schoolMoney = (minor) => new Intl.NumberFormat('ru-RU', {
     style: 'currency', currency: 'RUB', minimumFractionDigits: minor % 100 ? 2 : 0,
@@ -354,17 +353,20 @@
     $('schoolDashboard').href = API + '/partners';
     $('schoolDashboard').classList.toggle('hidden', !(body && body.partnerAccount));
     prices.replaceChildren(); prices.classList.add('hidden'); terms.classList.add('hidden');
-    input.readOnly = !!p || native;
-    button.disabled = !!p || native;
+    input.readOnly = !!p;
+    button.disabled = !!p;
     button.textContent = p ? 'Код школы применён' : 'Применить код школы';
     if (p) input.value = p.code || p.schoolCode || '';
+    // В приложении код привязывается так же, но веб-цены со скидкой здесь не показываем:
+    // Pro в RuStore — разовая покупка по цене магазина, скидка школы на неё не действует.
     if (native) {
-      description.textContent = 'Код школы привязывает покупку Pro через RuStore к партнёрской программе. RuStore пока не применяет купоны к подпискам, поэтому в магазине оплата будет по цене тарифа; покупка всё равно попадёт в отчёт школы.';
-      if (p) {
-        terms.textContent = 'В аккаунте сохранён код ' + (p.code || p.schoolCode || '') + ' школы «'
-          + (p.schoolName || p.partnerName || p.name || 'Ваша школа') + '». Покупка Pro через RuStore будет учтена в отчёте, но скидка на подписку в магазине не применяется.';
-        terms.classList.remove('hidden');
-      }
+      description.textContent = !body ? 'Сейчас не удалось проверить код школы. Обновите кабинет и повторите попытку.'
+        : p ? 'Код ' + (p.code || p.schoolCode || '') + ' школы «' + (p.schoolName || p.partnerName || p.name || 'Ваша школа') + '» сохранён в вашем аккаунте.'
+        : 'Если школа дала вам код, введите его до первой покупки Pro. Пробные 30 дней сохраняются.';
+      terms.textContent = 'В приложении Pro — разовая покупка по цене RuStore: скидка школы на неё не действует, '
+        + 'но покупка засчитается вашей школе' + (p ? ' в первые 12 месяцев с первой оплаты' : '') + ', если перед оплатой вы вошли в этот аккаунт.';
+      terms.classList.remove('hidden');
+      if (p) { try { sessionStorage.removeItem(SCHOOL_KEY); } catch (e) {} }
       return;
     }
     if (!body) {
@@ -400,14 +402,13 @@
       ? 'Ваш период — до ' + new Date(end).toLocaleDateString('ru-RU') + '. '
       : 'Период начнётся с первой оплаты. ';
     terms.textContent = (discount > 0 ? 'Ваша скидка — ' + discount + '%. ' : 'Скидка школы сейчас не действует. ')
-      + 'Скидка и вознаграждение действуют первые 12 месяцев с первой оплаченной подписки Pro в веб-кабинете. '
-      + period + 'Школа получает 40% фактически оплаченной суммы. Пробные 30 дней бесплатны, автосписаний нет. Покупки Pro через RuStore тоже учитываются; магазинные купоны на подписки не действуют.';
+      + 'Скидка и вознаграждение действуют первые 12 месяцев с первой оплаты Pro — на сайте или в приложении. '
+      + period + 'Школа получает 40% фактически оплаченной суммы. Пробные 30 дней бесплатны, автосписаний нет. В приложении из RuStore Pro продаётся по цене магазина, без скидки, но покупка тоже засчитывается школе.';
     terms.classList.remove('hidden');
     try { sessionStorage.removeItem(SCHOOL_KEY); } catch (e) {}
   }
 
   $('schoolApplyBtn').addEventListener('click', async () => {
-    if (native) return;
     const code = $('schoolCode').value.trim().toUpperCase();
     $('schoolErr').textContent = '';
     if (!code) { $('schoolErr').textContent = 'Введите код вашей школы'; $('schoolCode').focus(); return; }
@@ -417,7 +418,7 @@
     });
     if (r.ok && r.body.partner) {
       renderSchoolOffer(r.body); applySchoolPrices();
-      toast('Код школы применён. Цены обновлены');
+      toast(native ? 'Код школы сохранён' : 'Код школы применён. Цены обновлены');
     } else {
       $('schoolErr').textContent = {
         invalid_code: 'Код школы не найден. Проверьте написание.',

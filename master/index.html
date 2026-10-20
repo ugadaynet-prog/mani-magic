@@ -66,6 +66,7 @@
   .school-prices s{color:var(--muted);margin-right:5px}
   .school-price-line+ .school-price-line{margin-top:4px}
   .school-dashboard{display:inline-block;margin-top:10px;color:var(--pink-d);font-size:13px}
+  .school-dashboard.hidden{display:none}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
   .pill.on{background:#e7f6ee;color:var(--ok)}
   .pill.off{background:#f3eef1;color:var(--muted)}
@@ -418,7 +419,7 @@
       <div id="proErr" class="err"></div>
       <section id="schoolOffer" class="school-offer" aria-labelledby="schoolOfferTitle" data-testid="school-offer">
         <h3 id="schoolOfferTitle">Код школы</h3>
-        <p id="schoolOfferText" class="note" data-testid="school-offer-text">Если школа дала вам код, примените его до первой оплаты Pro в веб-кабинете. Пробные 30 дней сохраняются.</p>
+        <p id="schoolOfferText" class="note" data-testid="school-offer-text">Если школа дала вам код, примените его до первой оплаты Pro. Пробные 30 дней сохраняются.</p>
         <label for="schoolCode">Код от вашей школы</label>
         <input id="schoolCode" type="text" maxlength="64" placeholder="Например, NAILS20" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase" data-testid="school-code">
         <button id="schoolApplyBtn" class="btn btn-ghost" style="margin-top:8px" type="button" data-testid="school-apply">Применить код школы</button>
