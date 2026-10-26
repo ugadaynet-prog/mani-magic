@@ -1409,6 +1409,25 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   margin-left: 8px;
 }
 
+/* Ближайший оттенок бренда-партнёра под подписью работы */
+.work-shade {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  text-align: center;
+  margin: -6px 0 0;
+}
+.work-shade.hidden { display: none; }
+.work-shade i {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
 .work-zoomhint {
   color: rgba(255, 255, 255, 0.45);
   font-size: 12px;

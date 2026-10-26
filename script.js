@@ -101,6 +101,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const workPrev = document.getElementById('workPrev');
   const workNext = document.getElementById('workNext');
   const workCaption = document.getElementById('workCaption');
+  const workShade = document.getElementById('workShade');
   const workDots = document.getElementById('workDots');
   const workWant = document.getElementById('workWant');
   const workFav = document.getElementById('workFav');
@@ -1713,6 +1714,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   let isAnimating = false;
   let currentWorks = [];
   let currentWorkIndices = [];
+  // Оттенки работ карты: дизайн №N сделан в цвете hexes[N-1]. У работ мастера
+  // своих оттенков нет — там пусто, и подсказки бренда не будет.
+  let currentWorkHexes = [];
   let designsLocked = false;   // дизайны выпавшей карты закрыты замком (см. drawCard)
   let workPos = 0;
   function currentDesignNumber() { return (currentWorkIndices[workPos] ?? workPos) + 1; }
@@ -2936,6 +2940,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       : allWorks.map((_, i) => i);
     currentWorks = currentWorkIndices.map((i) => allWorks[i]);
     currentLabels = currentWorkIndices.map((i) => allLabels[i] || '');
+    currentWorkHexes = own ? [] : (Array.isArray(data.hexes) ? data.hexes : []);
     if (currentWorks.length > 0) {
       workBtn.classList.remove('hidden');
     } else {
@@ -3145,6 +3150,16 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     const label = currentLabels[i] || ('Дизайн ' + currentDesignNumberFor(i));
     workCaption.innerHTML = label +
       '<span class="work-counter">' + currentDesignNumberFor(i) + ' · ' + (i + 1) + ' / ' + currentWorks.length + '</span>';
+    const shade = window.ManiBrands && ManiBrands.hintFor(currentWorkHexes[currentDesignNumberFor(i) - 1]);
+    if (workShade) {
+      workShade.textContent = '';
+      workShade.classList.toggle('hidden', !shade);
+      if (shade) {
+        const dot = document.createElement('i');
+        dot.style.background = shade.hex;
+        workShade.append(dot, 'Ближайший оттенок: ' + shade.label);
+      }
+    }
     workPrev.disabled = (i === 0);
     workNext.disabled = (i === currentWorks.length - 1);
     // Раньше здесь стояло likedDesign = i + 1 — то есть выбором считалось просто
