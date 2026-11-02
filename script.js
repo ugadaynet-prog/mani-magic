@@ -311,6 +311,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const EMAIL_KEY = 'maniMagicEmail';       // email для чека — запоминаем, чтобы не вводить каждый раз
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let accessPass = null;                    // JWT-пропуск активной подписки
+  let accessFree = false;                   // доступ дан бесплатным месяцем, а не покупкой
   let selectedPlanKey = isNativeApp() && new URLSearchParams(location.search).get('buy') === 'pro' ? 'pro_year' : 'full_forever';
 
   function api(path, opts) {
@@ -368,7 +369,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // открывается на сутки. Отказ (нет Pro / лимит) — не ошибка, просто остаются
   // бесплатные карты.
   function requestGuestPass() {
-    if (!masterMode() || !deviceId || isPaid()) return Promise.resolve();
+    // В бесплатный месяц колода и так открыта, но пропуск всё равно берём: он
+    // связывает клиента с мастером и считается в его воронке.
+    if (!masterMode() || !deviceId || (isPaid() && !accessFree)) return Promise.resolve();
     return api('/api/m/' + encodeURIComponent(masterSlug) + '/guest-pass', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -383,6 +386,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (!serverOn() || !deviceId) return Promise.resolve();
     return api('/api/access?deviceId=' + encodeURIComponent(deviceId))
       .then((a) => {
+        accessFree = !!a.free;
         if (a.plan === 'full' || a.plan === 'pro') {
           plan = a.plan;
           accessPass = a.pass || null;
@@ -3406,7 +3410,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     redeemDeckPass()
       .then(refreshAccess)
       .then(requestGuestPass)
-      .then(() => (isPaid() ? null : refreshAccess()))
+      .then(() => (isPaid() && !accessFree ? null : refreshAccess()))
       .then(resumePendingPayment);
   }
 

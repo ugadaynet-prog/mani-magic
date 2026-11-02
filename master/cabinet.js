@@ -458,12 +458,15 @@
       const left = Math.max(0, Math.ceil((s.expiresAt - Date.now()) / DAY_MS));
       // Продлить предлагаем, когда это уместно: на пробном — всегда, иначе — за
       // неделю до конца. Досрочная оплата дни не сжигает: сервер прибавляет срок.
-      const renew = !!s.trial || left <= 7;
-      pill.className = 'pill on'; pill.textContent = s.trial ? 'пробный' : 'активна';
-      text.textContent = (s.trial ? 'Пробный месяц до ' : 'Действует до ')
-        + new Date(s.expiresAt).toLocaleDateString('ru-RU')
-        + (left <= 7 ? ' — осталось ' + left + ' ' + daysWord(left) + '.' : '.')
-        + (renew ? ' Продлить можно заранее — оставшиеся дни сохранятся.' : '');
+      // Бесплатный месяц для всех: ни продления, ни цен — платить нечего.
+      const renew = !s.free && (!!s.trial || left <= 7);
+      pill.className = 'pill on'; pill.textContent = s.free ? 'бесплатно' : s.trial ? 'пробный' : 'активна';
+      text.textContent = s.free
+        ? 'Сейчас Pro бесплатный для всех мастеров — платить ничего не нужно.'
+        : (s.trial ? 'Пробный месяц до ' : 'Действует до ')
+          + new Date(s.expiresAt).toLocaleDateString('ru-RU')
+          + (left <= 7 ? ' — осталось ' + left + ' ' + daysWord(left) + '.' : '.')
+          + (renew ? ' Продлить можно заранее — оставшиеся дни сохранятся.' : '');
       btn.textContent = 'Продлить на год — 2 490 ₽';
       btn.classList.toggle('hidden', !renew); btn.classList.remove('btn-ghost');
       monthBtn.classList.toggle('hidden', !renew);
