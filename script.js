@@ -1391,12 +1391,18 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // приложении. Пока картинки ещё и в бандле — если сервер не ответил, тихо
   // показываем карту из бандла, ничего не ломая.
   let drawSeq = 0;                    // номер последнего вытягивания (защита от гонок)
-  const serverMediaCache = {};        // index -> {front, works} | false
+  const serverMediaCache = {};        // index -> {front, works, at} | false
+  // Сервер подписывает ссылки на 5 минут (signedUrlTtlSec). Раньше кэш жил до
+  // перезапуска: карта, выпавшая повторно через 5+ минут тряски, брала старые
+  // ссылки, сервер отвечал 403 — и вместо фото работ была битая картинка.
+  // Берём из кэша только то, что получено меньше 4 минут назад.
+  const SERVER_MEDIA_FRESH_MS = 4 * 60 * 1000;
 
   async function serverCardMedia(index) {
     if (!serverOn() || !isPaid() || !accessPass) return null;
     if (FREE_CARDS.indexOf(index) !== -1) return null;      // бесплатные — из бандла
-    if (serverMediaCache[index]) return serverMediaCache[index];
+    const cached = serverMediaCache[index];
+    if (cached && Date.now() - cached.at < SERVER_MEDIA_FRESH_MS) return cached;
     if (serverMediaCache[index] === false) return null;
     const n = index + 1;
     try {
@@ -1415,6 +1421,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
         // берём столько работ, сколько реально есть у карты (сервер отдаёт до 5)
         works: (Array.isArray(d.works) ? d.works : []).slice(0, bundleWorks).map((w) => SERVER_URL + w),
         workMeta: Array.isArray(CARDS[index].workMeta) ? CARDS[index].workMeta : [],
+        at: Date.now(),
       };
       serverMediaCache[index] = media;
       return media;
@@ -1717,6 +1724,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   let isFlipped = false;
   let isAnimating = false;
   let currentWorks = [];
+  // Те же работы из бандла — запасной вариант, если серверная ссылка не открылась
+  // (истекла, пока окно примеров было открыто, или сервер недоступен).
+  let currentBundleWorks = [];
   let currentWorkIndices = [];
   // Оттенки работ карты: дизайн №N сделан в цвете hexes[N-1]. У работ мастера
   // своих оттенков нет — там пусто, и подсказки бренда не будет.
@@ -2943,6 +2953,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       ? ManiFit.matchingIndices({ works: allWorks, workMeta: allMeta, workLabels: allLabels }, activeFit)
       : allWorks.map((_, i) => i);
     currentWorks = currentWorkIndices.map((i) => allWorks[i]);
+    currentBundleWorks = currentWorks.slice();
     currentLabels = currentWorkIndices.map((i) => allLabels[i] || '');
     currentWorkHexes = own ? [] : (Array.isArray(data.hexes) ? data.hexes : []);
     if (currentWorks.length > 0) {
@@ -2974,6 +2985,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           ? ManiFit.matchingIndices({ works: media.works, workMeta: mediaMeta, workLabels: allLabels }, activeFit)
           : media.works.map((_, i) => i);
         currentWorks = currentWorkIndices.map((i) => media.works[i]);
+        currentBundleWorks = currentWorkIndices.map((i) => allWorks[i]);
         currentLabels = currentWorkIndices.map((i) => allLabels[i] || '');
         workBtn.classList.toggle('hidden', currentWorks.length === 0);
       }
@@ -3150,6 +3162,10 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     if (i < 0 || i >= currentWorks.length) return;
     workPos = i;
     resetZoom();
+    const fallback = currentBundleWorks[i];
+    workImg.onerror = (fallback && fallback !== currentWorks[i])
+      ? () => { workImg.onerror = null; if (workPos === i) workImg.src = fallback; }
+      : null;
     workImg.src = currentWorks[i];
     const label = currentLabels[i] || ('Дизайн ' + currentDesignNumberFor(i));
     workCaption.innerHTML = label +
