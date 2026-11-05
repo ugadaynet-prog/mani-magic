@@ -307,12 +307,15 @@
     const ta = $('clientText');
     ta.value = url ? CLIENT_TEXT + '\n' + url : '';
     ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px';   // весь текст виден без прокрутки внутри поля
-    const tgText = encodeURIComponent(CLIENT_TEXT);
-    $('shareTg').href = url ? 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + tgText : '#';
-    $('shareWa').href = url ? 'https://wa.me/?text=' + encodeURIComponent($('clientText').value) : '#';
-    // системное меню «Поделиться» есть на телефонах: там мастер выберет любой мессенджер
-    $('shareSys').classList.toggle('hidden', !(url && navigator.share));
+    // На телефонах «Поделиться» открывает системное меню со всеми мессенджерами. Там, где его
+    // нет (компьютер, старый браузер), кнопка скрыта, а «Скопировать текст» становится главной.
+    const canShare = !!(shareApi() || navigator.share);
+    $('shareBtn').classList.toggle('hidden', !canShare);
+    $('copyTextBtn').classList.toggle('btn-ghost', canShare);
   }
+  // В WebView приложения RuStore нет navigator.share: системное меню открывает плагин Capacitor
+  // (так же устроено «Поделиться картой» в самом приложении).
+  const shareApi = () => window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
   // clipboard API нужен безопасный контекст; во встроенном WebView его может не быть —
   // тогда выделяем поле и копируем старым способом.
   // Если копирование не разрешено совсем, выделяем само поле: дальше «Копировать» в меню телефона.
@@ -336,9 +339,40 @@
   }
   $('copyBtn').addEventListener('click', () => copyText($('qrLink').value, 'Ссылка скопирована', $('qrLink')));
   $('copyTextBtn').addEventListener('click', () => copyText($('clientText').value, 'Текст скопирован — отправьте его клиентке', $('clientText')));
-  $('shareSys').addEventListener('click', () => {
-    const url = $('qrLink').value; if (!url || !navigator.share) return;
-    navigator.share({ text: CLIENT_TEXT, url }).catch(() => {});
+  // Одна кнопка «Поделиться»: текст со ссылкой целиком, как «отправить подруге».
+  // Ссылка внутри text, а не в url: часть мессенджеров отбрасывает отдельное поле url.
+  $('shareBtn').addEventListener('click', () => {
+    const text = $('clientText').value; if (!text) return;
+    const plugin = shareApi();
+    if (native && plugin) { plugin.share({ title: 'MANI Magic', text }).catch(() => {}); return; }
+    if (navigator.share) { navigator.share({ title: 'MANI Magic', text }).catch(() => {}); return; }
+    copyText(text, 'Текст скопирован — отправьте его клиентке', $('clientText'));
+  });
+
+  // --- Карточка для стола ---
+  // QR и название студии на листе А5: мастер печатает, ставит на стол или зеркало, клиентка
+  // наводит камеру сама. Печать — штатная печать браузера (@media print в index.html).
+  $('deskBtn').addEventListener('click', () => {
+    const svg = $('qrBox').innerHTML;
+    if (!svg) { toast('QR ещё загружается — повторите через секунду'); return; }
+    $('dcQr').innerHTML = svg;
+    $('dcStudio').textContent = $('studioName').value.trim();
+    $('dcStudio').classList.toggle('hidden', !$('dcStudio').textContent);
+    const accent = $('accent').value;
+    $('deskCard').style.setProperty('--dc-accent', /^#[0-9a-f]{6}$/i.test(accent) ? accent : '#d6336c');
+    $('deskOverlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  });
+  $('deskClose').addEventListener('click', () => {
+    $('deskOverlay').classList.add('hidden'); document.body.style.overflow = '';
+  });
+  $('deskPrint').addEventListener('click', () => {
+    // в WebView приложения печати может не быть — подсказываем запасной путь
+    if (typeof window.print !== 'function' || native) {
+      toast('В приложении печать недоступна: откройте кабинет на сайте mani-magic.ru/master/');
+      if (native) return;
+    }
+    window.print();
   });
 
   // --- Pro ---

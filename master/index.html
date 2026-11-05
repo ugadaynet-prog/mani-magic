@@ -76,8 +76,27 @@
   .linkbox{display:flex;gap:8px;width:100%}
   .linkbox input{flex:1;font-size:12px}
   #clientText{width:100%;resize:none;font:inherit;font-size:15px;line-height:1.4;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
-  .share-row{display:flex;gap:8px;margin-top:8px}
-  .share-row .btn{flex:1;text-align:center;text-decoration:none;padding:10px 8px}
+  /* Карточка для стола: на экране — предпросмотр поверх кабинета, на печати — только сама карточка (А5) */
+  #deskOverlay{position:fixed;inset:0;z-index:60;background:#f4f0f2;overflow:auto;padding:16px}
+  .desk-bar{max-width:420px;margin:0 auto 12px;display:flex;gap:8px}
+  .desk-bar .btn{flex:1}
+  #deskCard{container-type:inline-size;width:100%;max-width:420px;margin:0 auto;aspect-ratio:148/210;background:#fff;border-radius:16px;
+    box-shadow:0 6px 24px rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+    padding:9cqw 8cqw 7cqw;text-align:center;color:#23242e;position:relative;overflow:hidden}
+  #deskCard .dc-bar{position:absolute;left:0;right:0;top:0;height:3cqw;background:var(--dc-accent,#d6336c)}
+  #deskCard .dc-studio{font-size:6.4cqw;font-weight:700;line-height:1.15;margin-top:3cqw;word-break:break-word}
+  #deskCard .dc-title{font-size:8.4cqw;font-weight:700;line-height:1.12}
+  #deskCard .dc-qr svg{width:58cqw;height:58cqw;display:block;margin:0 auto}
+  #deskCard .dc-how{font-size:4.2cqw;line-height:1.35;color:#555}
+  #deskCard .dc-brand{font-size:3.2cqw;color:#999;letter-spacing:.04em}
+  @media print{
+    @page{size:A5 portrait;margin:0}
+    body>*:not(#deskOverlay){display:none!important}
+    #deskOverlay{position:static;background:#fff;padding:0;overflow:visible}
+    .desk-bar{display:none}
+    #deskCard{max-width:none;width:148mm;height:210mm;aspect-ratio:auto;margin:0;border-radius:0;box-shadow:none}
+    #deskCard .dc-bar,#deskCard *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
   .works{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
   .work{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f3eef1}
   .work img{width:100%;height:100%;object-fit:cover}
@@ -416,19 +435,19 @@
       <p class="note" style="margin-top:0">Перед визитом клиентка выбирает цвет и дизайн по вашей ссылке и нажимает «Показать мастеру». Выбор придёт вам уведомлением и появится на вкладке «Клиенты».</p>
       <label for="clientText">Готовый текст — скопируйте и отправьте в мессенджер</label>
       <textarea id="clientText" rows="5" readonly></textarea>
-      <button id="copyTextBtn" class="btn" style="margin-top:8px" type="button">Скопировать текст</button>
-      <div class="share-row">
-        <a id="shareTg" class="btn btn-ghost" target="_blank" rel="noopener">Telegram</a>
-        <a id="shareWa" class="btn btn-ghost" target="_blank" rel="noopener">WhatsApp</a>
-        <button id="shareSys" class="btn btn-ghost hidden" type="button">Другое…</button>
-      </div>
+      <!-- Одна кнопка: системное меню «Поделиться» само покажет все мессенджеры
+           телефона (Telegram, WhatsApp, MAX, Viber, «Сообщения»…), как «отправить подруге». -->
+      <button id="shareBtn" class="btn" style="margin-top:8px" type="button">Поделиться</button>
+      <button id="copyTextBtn" class="btn btn-ghost" style="margin-top:8px" type="button">Скопировать текст</button>
       <div class="qr" style="margin-top:16px">
         <div id="qrBox"></div>
-        <p class="note" style="text-align:center;margin-top:0">Или покажите этот QR в кабинете: клиентка наводит камеру, и приложение открывается под вашу студию.</p>
+        <p class="note" style="text-align:center;margin-top:0">Или покажите этот QR: клиентка наводит камеру, и приложение открывается под вашу студию.</p>
         <div class="linkbox">
           <input id="qrLink" type="text" readonly>
           <button id="copyBtn" class="btn btn-ghost" style="width:auto;padding:10px 14px" type="button">Копировать</button>
         </div>
+        <button id="deskBtn" class="btn btn-ghost" style="margin-top:4px" type="button">Карточка для стола — распечатать</button>
+        <p class="note" style="text-align:center;margin:0">Поставьте карточку на стол или зеркало: клиентка сама наведёт камеру, пока вы работаете, и ничего отправлять не нужно.</p>
       </div>
     </div>
 
@@ -925,6 +944,21 @@
 </div>
 <!-- Колода берётся из приложения, а не дублируется здесь: одна копия данных на проект.
      Грузится необязательно — если не подтянется, кабинет просто покажет номер карты. -->
+<!-- Карточка для стола (печать). Заполняется из cabinet.js: название студии, цвет и QR мастера. -->
+<div id="deskOverlay" class="hidden" role="dialog" aria-label="Карточка для стола">
+  <div class="desk-bar">
+    <button id="deskPrint" class="btn" type="button">Распечатать</button>
+    <button id="deskClose" class="btn btn-ghost" type="button">Закрыть</button>
+  </div>
+  <div id="deskCard">
+    <div class="dc-bar"></div>
+    <div class="dc-studio" id="dcStudio"></div>
+    <div class="dc-title">Выберите цвет маникюра заранее</div>
+    <div class="dc-qr" id="dcQr"></div>
+    <div class="dc-how">Наведите камеру телефона на QR-код — откроется колода цветов. Выберите понравившийся и нажмите «Показать мастеру».</div>
+    <div class="dc-brand">MANI Magic</div>
+  </div>
+</div>
 <script src="../data.js"></script>
 <script src="cabinet.js"></script>
 </body>
