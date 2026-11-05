@@ -293,12 +293,52 @@
   async function loadQR() {
     const l = await apiJson('/api/master/link');
     $('qrLink').value = (l.ok && l.body.url) ? l.body.url : '';
+    fillClientText();
     const r = await api('/api/master/qr.svg');
     $('qrBox').innerHTML = r.ok ? await r.text() : '';
   }
-  $('copyBtn').addEventListener('click', () => {
-    const v = $('qrLink').value; if (!v) return;
-    if (navigator.clipboard) navigator.clipboard.writeText(v).then(() => toast('Ссылка скопирована')).catch(() => {});
+
+  // Готовое сообщение клиентке: мастер копирует его и отправляет в мессенджер.
+  // Ссылка стоит в конце отдельной строкой — мессенджеры превращают её в кнопку.
+  const CLIENT_TEXT = 'Привет! Выбери цвет и дизайн маникюра заранее по ссылке. '
+    + 'Листай карты, выбери понравившуюся и нажми «Показать мастеру» — я увижу твой выбор и подготовлюсь к визиту 💅';
+  function fillClientText() {
+    const url = $('qrLink').value;
+    const ta = $('clientText');
+    ta.value = url ? CLIENT_TEXT + '\n' + url : '';
+    ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px';   // весь текст виден без прокрутки внутри поля
+    const tgText = encodeURIComponent(CLIENT_TEXT);
+    $('shareTg').href = url ? 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + tgText : '#';
+    $('shareWa').href = url ? 'https://wa.me/?text=' + encodeURIComponent($('clientText').value) : '#';
+    // системное меню «Поделиться» есть на телефонах: там мастер выберет любой мессенджер
+    $('shareSys').classList.toggle('hidden', !(url && navigator.share));
+  }
+  // clipboard API нужен безопасный контекст; во встроенном WebView его может не быть —
+  // тогда выделяем поле и копируем старым способом.
+  // Если копирование не разрешено совсем, выделяем само поле: дальше «Копировать» в меню телефона.
+  function copyText(v, msg, field) {
+    if (!v) return;
+    const done = () => toast(msg);
+    const manual = () => {
+      field.focus(); field.select(); field.setSelectionRange(0, v.length);
+      toast('Текст выделен — нажмите «Копировать» в меню');
+    };
+    const legacy = () => {
+      const t = document.createElement('textarea');
+      t.value = v; t.style.cssText = 'position:fixed;opacity:0;top:0';
+      document.body.appendChild(t); t.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      t.remove();
+      if (ok) done(); else manual();
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(v).then(done).catch(legacy); else legacy();
+  }
+  $('copyBtn').addEventListener('click', () => copyText($('qrLink').value, 'Ссылка скопирована', $('qrLink')));
+  $('copyTextBtn').addEventListener('click', () => copyText($('clientText').value, 'Текст скопирован — отправьте его клиентке', $('clientText')));
+  $('shareSys').addEventListener('click', () => {
+    const url = $('qrLink').value; if (!url || !navigator.share) return;
+    navigator.share({ text: CLIENT_TEXT, url }).catch(() => {});
   });
 
   // --- Pro ---
@@ -454,6 +494,8 @@
     renderSchoolOffer(schoolResponse.ok ? schoolResponse.body : null);
     const pill = $('proPill'), text = $('proText'), btn = $('proBtn'), monthBtn = $('proMonthBtn');
     const trialBtn = $('trialBtn'), price = $('proPrice'), phoneBox = $('proPhoneBox'), promoBox = $('promoBox');
+    // Бесплатный месяц: платить и применять коды школы незачем, блок Pro остаётся одной строкой.
+    $('schoolOffer').classList.toggle('hidden', !!s.free);
     if (s.isPro) {
       const left = Math.max(0, Math.ceil((s.expiresAt - Date.now()) / DAY_MS));
       // Продлить предлагаем, когда это уместно: на пробном — всегда, иначе — за

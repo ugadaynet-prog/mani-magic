@@ -75,6 +75,9 @@
   #qrBox svg{width:220px;height:220px;background:#fff;border-radius:12px;display:block}
   .linkbox{display:flex;gap:8px;width:100%}
   .linkbox input{flex:1;font-size:12px}
+  #clientText{width:100%;resize:none;font:inherit;font-size:15px;line-height:1.4;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
+  .share-row{display:flex;gap:8px;margin-top:8px}
+  .share-row .btn{flex:1;text-align:center;text-decoration:none;padding:10px 8px}
   .works{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
   .work{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f3eef1}
   .work img{width:100%;height:100%;object-fit:cover}
@@ -405,6 +408,30 @@
     </div>
 
     <div class="tab-pane" data-pane="main">
+    <!-- Первое, что видит мастер: как отправить ссылку клиентке перед визитом.
+         Цепочка «QR → выбор клиентки → визит» — единственное, что мы меряем в ноябре
+         (стратегия, запись от 02.11.2026), поэтому она стоит выше подписки и профиля. -->
+    <div class="card" id="startCard">
+      <h2>Отправьте ссылку клиентке</h2>
+      <p class="note" style="margin-top:0">Перед визитом клиентка выбирает цвет и дизайн по вашей ссылке и нажимает «Показать мастеру». Выбор придёт вам уведомлением и появится на вкладке «Клиенты».</p>
+      <label for="clientText">Готовый текст — скопируйте и отправьте в мессенджер</label>
+      <textarea id="clientText" rows="5" readonly></textarea>
+      <button id="copyTextBtn" class="btn" style="margin-top:8px" type="button">Скопировать текст</button>
+      <div class="share-row">
+        <a id="shareTg" class="btn btn-ghost" target="_blank" rel="noopener">Telegram</a>
+        <a id="shareWa" class="btn btn-ghost" target="_blank" rel="noopener">WhatsApp</a>
+        <button id="shareSys" class="btn btn-ghost hidden" type="button">Другое…</button>
+      </div>
+      <div class="qr" style="margin-top:16px">
+        <div id="qrBox"></div>
+        <p class="note" style="text-align:center;margin-top:0">Или покажите этот QR в кабинете: клиентка наводит камеру, и приложение открывается под вашу студию.</p>
+        <div class="linkbox">
+          <input id="qrLink" type="text" readonly>
+          <button id="copyBtn" class="btn btn-ghost" style="width:auto;padding:10px 14px" type="button">Копировать</button>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="proCard">
       <h2>Подписка Pro <span id="proPill" class="pill off">проверяю…</span></h2>
       <p id="proText" class="note"></p>
@@ -449,18 +476,6 @@
       <div id="codeBox" class="hidden" style="margin-top:10px">
         <div id="codeVal" style="font-size:26px;font-weight:700;letter-spacing:.08em;text-align:center;padding:12px;border-radius:12px;background:rgba(0,0,0,.05)"></div>
         <p class="note" style="text-align:center;margin:8px 0 0">Действует 15 минут, вводится один раз</p>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Ваш QR для клиентов</h2>
-      <div class="qr">
-        <div id="qrBox"></div>
-        <p class="note" style="text-align:center;margin-top:0">Клиент наводит камеру — приложение открывается под вашу студию, а вы видите, что он выбрал. Пока у вас активен Pro, клиенту колода открыта целиком на сутки.</p>
-        <div class="linkbox">
-          <input id="qrLink" type="text" readonly>
-          <button id="copyBtn" class="btn btn-ghost" style="width:auto;padding:10px 14px">Копировать</button>
-        </div>
       </div>
     </div>
 
