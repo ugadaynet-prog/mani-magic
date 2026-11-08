@@ -104,6 +104,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const workShade = document.getElementById('workShade');
   const workDots = document.getElementById('workDots');
   const workWant = document.getElementById('workWant');
+  const workTryColor = document.getElementById('workTryColor');
   const workFav = document.getElementById('workFav');
   const workShare = document.getElementById('workShare');
 
@@ -1026,6 +1027,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     masterInited = true;
     api('/api/m/' + encodeURIComponent(masterSlug))
       .then((r) => {
+        // Владелец мог загрузить свою колоду, пока шёл публичный запрос.
+        // Публичный ответ не содержит неопубликованных работ и не должен их затереть.
+        if (isOwnMaster) { refreshMasterBar(); return; }
         const m = r.master || {};
         const abs = (u) => (/^https?:/.test(u) ? u : SERVER_URL + u);
         masterWorks = (Array.isArray(m.works) ? m.works : []).map(abs);
@@ -1035,12 +1039,6 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
           .filter((c) => c && c.color && Array.isArray(c.works) && c.works.length)
           .map((c) => ({ color: c.color, works: c.works.map(abs), workMeta: c.workMeta || [] }));
         renderDeckSwitch();
-        // Флаг мог перевернуться, пока шёл этот запрос: /api/access отвечает
-        // независимо, и у мастера он ставит isOwnMaster уже после того, как мы
-        // сюда зашли. Тогда клиентскую плашку рисовать нельзя — у мастера своя,
-        // с выходом в кабинет. Именно из-за этого сверху появлялась то «Ваша
-        // колода», то «Мастер · Работы» — что успело раньше.
-        if (isOwnMaster) { refreshMasterBar(); return; }
         renderMasterBar(m);
         track('master_open', { slug: masterSlug });
       })
@@ -1181,22 +1179,105 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     track('master_works_open', { slug: masterSlug, count: masterWorks.length });
   }
   function closeMasterWorks() { document.getElementById('masterWorksOverlay').classList.add('hidden'); }
+  const mwLightbox = document.getElementById('mwLightbox');
+  const mwBig = document.getElementById('mwBig');
+  const mwTryColor = document.getElementById('mwTryColor');
+  const mwColorHint = document.getElementById('mwColorHint');
+  const mwManualTry = document.getElementById('mwManualTry');
+  const hasMwColorControls = !!(mwTryColor && mwColorHint && mwManualTry);
+  let mwColorMode = false, mwColorBusy = false, mwColorRequest = 0;
+
+  function tryonMaster() { return masterMode() ? masterSlug : ''; }
+
+  function setMwColorMode(active, message = '') {
+    ++mwColorRequest;
+    mwColorMode = active;
+    mwColorBusy = false;
+    mwLightbox.classList.toggle('mw-color-mode', active);
+    if (!hasMwColorControls) return;
+    mwTryColor.setAttribute('aria-pressed', String(active));
+    mwColorHint.textContent = message;
+    mwColorHint.classList.toggle('hidden', !message);
+    mwManualTry.classList.toggle('hidden', !message);
+  }
+
+  function readableShowcasePhoto() {
+    const src = mwBig.currentSrc || mwBig.src;
+    if (new URL(src, location.href).origin === location.origin && mwBig.complete && mwBig.naturalWidth) {
+      return Promise.resolve(mwBig);
+    }
+    // Не переводим саму витрину в CORS-режим: фото без разрешения должно
+    // оставаться видимым, даже когда прочитать цвет с холста нельзя.
+    return new Promise((resolve, reject) => {
+      const photo = new Image();
+      photo.crossOrigin = 'anonymous';
+      photo.onload = () => resolve(photo);
+      photo.onerror = reject;
+      photo.src = src;
+    });
+  }
+
   function openLightbox(url) {
-    document.getElementById('mwBig').src = url;
-    document.getElementById('mwLightbox').classList.remove('hidden');
-    // Кнопку показываем только клиентке по QR: мастеру выбирать у себя нечего,
-    // а вне режима мастера витрины нет вовсе.
+    setMwColorMode(false);
+    mwBig.src = url;
+    mwLightbox.classList.remove('hidden');
+    // «Показать мастеру» нужно только клиентке по QR, как и раньше.
     const w = document.getElementById('mwWant');
     if (w) {
       const canPick = masterMode() && !isOwnMaster;
       w.classList.toggle('hidden', !canPick);
       w.dataset.url = url;
     }
+    mwTryColor?.classList.toggle('hidden', !hasMwColorControls || !window.ManiTryonLink?.href);
+    if (!hasMwColorControls) return;
+    const query = new URLSearchParams();
+    const slug = tryonMaster();
+    if (slug) query.set('master', slug);
+    mwManualTry.href = 'tryon/index.html' + (slug ? '?' + query.toString() : '');
   }
   function closeLightbox() {
-    document.getElementById('mwLightbox').classList.add('hidden');
-    document.getElementById('mwBig').src = '';
+    setMwColorMode(false);
+    mwLightbox.classList.add('hidden');
+    mwBig.removeAttribute('src');
   }
+
+  mwTryColor?.addEventListener('click', () => {
+    if (!hasMwColorControls) return;
+    if (mwColorMode) setMwColorMode(false);
+    else setMwColorMode(true, 'Коснитесь нужного цвета на фото');
+  });
+  mwBig.addEventListener('click', async (e) => {
+    if (!mwColorMode) { closeLightbox(); return; }
+    if (mwColorBusy) return;
+    const rect = mwBig.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    const request = mwColorRequest;
+    mwColorBusy = true;
+    mwColorHint.textContent = 'Считываем цвет…';
+    try {
+      const photo = await readableShowcasePhoto();
+      if (request !== mwColorRequest) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const ctx = canvas.getContext('2d');
+      const px = Math.min(photo.naturalWidth - 1, Math.floor(x * photo.naturalWidth));
+      const py = Math.min(photo.naturalHeight - 1, Math.floor(y * photo.naturalHeight));
+      ctx.drawImage(photo, px, py, 1, 1, 0, 0, 1, 1);
+      const [r, g, b, alpha] = ctx.getImageData(0, 0, 1, 1).data;
+      if (!alpha) { mwColorHint.textContent = 'Коснитесь другой точки на фото'; return; }
+      const hex = '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
+      const href = window.ManiTryonLink.href(hex, { master: tryonMaster() });
+      if (!href) throw new Error('Нет ссылки на примерку');
+      location.assign(href);
+    } catch (e) {
+      if (request === mwColorRequest) setMwColorMode(false, 'Не удалось считать цвет с фото.');
+    } finally {
+      if (request === mwColorRequest) mwColorBusy = false;
+    }
+  });
 
   // Выбор работы из витрины. Взаимно исключается с выбором дизайна карты: клиентка
   // показывает мастеру ОДНУ работу, а не две сразу из разных мест.
@@ -1218,7 +1299,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   document.getElementById('masterWorksOverlay').addEventListener('click', (e) => {
     if (e.target.id === 'masterWorksOverlay') closeMasterWorks();
   });
-  document.getElementById('mwLightbox').addEventListener('click', closeLightbox);
+  mwLightbox.addEventListener('click', (e) => {
+    if (e.target === mwLightbox || e.target.classList?.contains('mw-media')) closeLightbox();
+  });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!document.getElementById('mwLightbox').classList.contains('hidden')) closeLightbox();
@@ -1317,7 +1400,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     ['workOverlay', () => closeWork()],
     ['masterWorksOverlay', () => closeMasterWorks()],
     ['moreSheet', () => closeMore()],
-    ['paywallOverlay', null], ['catalogOverlay', null], ['favOverlay', null],
+    ['paywallOverlay', null], ['catalogOverlay', () => closeCatalog()], ['favOverlay', null],
     ['selOverlay', null], ['filterOverlay', null], ['qrOverlay', null],
   ];
   const isOpen = (id) => {
@@ -2255,13 +2338,35 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   // после смены цвета сетка оставалась старой. Из-за этого фильтр выглядел
   // общим, а работал только на тряску: выбрал «Красные» — а в каталоге всё
   // вперемешку.
+  // Ноябрьская полка — палитры из основной колоды: винная, охра, кофе и графит.
+  const seasonalCards = [19, 39, 42, 46, 49].map((n) => n - 1);
+  const catalogCollection = document.getElementById('catalogCollection');
+  const catalogCollectionTitle = document.getElementById('catalogCollectionTitle');
+  const catalogCollectionBack = document.getElementById('catalogCollectionBack');
+  let catalogSeasonal = false;
   let catalogBuilt = null;
+
+  function showCatalogCollection(show) {
+    catalogSeasonal = show;
+    renderCatalog();
+    catalogOverlay.scrollTop = 0;
+    (show ? catalogCollectionBack : catalogCollection)?.focus();
+  }
+
+  function closeCatalog() {
+    if (catalogSeasonal) showCatalogCollection(false);
+    else catalogOverlay.classList.add('hidden');
+  }
+
   function renderCatalog() {
-    const key = plan + '|' + (activeFilter || 'all') + '|' + activeFit.length + '|' + activeFit.shape;
+    const key = plan + '|' + catalogSeasonal + '|' + (activeFilter || 'all') + '|' + activeFit.length + '|' + activeFit.shape;
     if (catalogBuilt === key) return;
     catalogGrid.innerHTML = '';
+    catalogOverlay.classList.toggle('catalog-collection-active', catalogSeasonal);
+    catalogCollection?.classList.toggle('hidden', catalogSeasonal);
+    catalogCollectionBack?.classList.toggle('hidden', !catalogSeasonal);
 
-    const fitMode = window.ManiFit
+    const fitMode = !catalogSeasonal && window.ManiFit
       && (activeFit.length !== ManiFit.ANY || activeFit.shape !== ManiFit.ANY);
 
     // При активном подборе показываем сами дизайны, а не целые карты. Иначе
@@ -2337,7 +2442,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     // стоит первым в разметке, потом — где групп меньше (значит, карта ближе к
     // чистому цвету). Разметка уже выверена в data.js, свою эвристику по hex
     // не выдумываем.
-    const shown = activeFilter
+    const shown = catalogSeasonal ? seasonalCards : activeFilter
       ? CARDS.map((_, i) => i)
           .filter((i) => (CARDS[i].colors || []).indexOf(activeFilter) !== -1)
           .sort((a, b) => {
@@ -2345,25 +2450,28 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
             return A.indexOf(activeFilter) - B.indexOf(activeFilter) || A.length - B.length || a - b;
           })
       : CARDS.map((_, i) => i);
-    const fitShown = shown.filter((i) => !window.ManiFit || ManiFit.cardMatches(CARDS[i], activeFit));
-    shown.splice(0, shown.length, ...fitShown);
+    if (!catalogSeasonal) {
+      const fitShown = shown.filter((i) => !window.ManiFit || ManiFit.cardMatches(CARDS[i], activeFit));
+      shown.splice(0, shown.length, ...fitShown);
+    }
 
     shown.forEach((idx) => {
       const card = CARDS[idx];
-      const item = document.createElement('div');
+      const item = document.createElement(catalogSeasonal ? 'button' : 'div');
       item.className = 'fav-item';
+      if (catalogSeasonal) item.type = 'button';
       const locked = !isFree(idx);
       if (locked) item.classList.add('locked');
 
       const img = document.createElement('img');
       img.src = card.front;
       img.alt = 'Карта ' + (idx + 1) + (locked ? ' (примеры работ — в полной колоде)' : '');
-      img.addEventListener('click', () => {
+      (catalogSeasonal ? item : img).addEventListener('click', () => {
         // Закрытая карта открывается, как любая: цвет и послание видны всем,
         // а замок стоит на её дизайнах — там, где он понятен.
         if (locked) track('locked_card_tap', { card: idx + 1 });
         catalogOverlay.classList.add('hidden');
-        drawSource = 'catalog';
+        drawSource = catalogSeasonal ? 'seasonal' : 'catalog';
         drawCard(idx);
       });
       item.appendChild(img);
@@ -2378,7 +2486,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
 
     // Заголовок называет то, что видно сейчас, иначе «Все карты» над десятью
     // красными читается как ошибка.
-    catalogTitle.textContent = activeFilter || 'Все карты';
+    catalogTitle.textContent = catalogSeasonal ? (catalogCollectionTitle?.textContent || 'Поздняя осень') : (activeFilter || 'Все карты');
 
     // Счётчик тоже считаем внутри выбранного цвета: «открыто 15 из 49» над
     // одиннадцатью красными было бы неправдой.
@@ -2471,9 +2579,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     renderCatalog();
     catalogOverlay.classList.remove('hidden');
   });
-  catalogClose.addEventListener('click', () => catalogOverlay.classList.add('hidden'));
+  catalogCollection?.addEventListener('click', () => showCatalogCollection(true));
+  catalogCollectionBack?.addEventListener('click', () => showCatalogCollection(false));
+  catalogClose.addEventListener('click', closeCatalog);
   catalogOverlay.addEventListener('click', (e) => {
-    if (e.target === catalogOverlay) catalogOverlay.classList.add('hidden');
+    if (e.target === catalogOverlay) closeCatalog();
   });
 
   // --- QR-код приложения (мастер показывает клиенту) ---
@@ -2861,12 +2971,11 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     return deckBag.pop();
   }
 
-  function drawCard(forcedIndex, fromHistory) {
+  function drawCard(forcedIndex, fromHistory, exactWorkLink = false) {
     const forced = (typeof forcedIndex === 'number');
     const currentDrawSource = drawSource;
-    // защита от «дребезга» нужна только для случайной тряски;
-    // явный выбор (избранное, ссылка ?card=N) должен срабатывать всегда
-    if (isAnimating && !forced) return;
+    // Переключение колоды должно сразу менять работы, даже во время анимации карты дня.
+    if (isAnimating && !forced && currentDrawSource !== 'deck_switch') return;
     isAnimating = true;
 
     dayBadge.classList.add('hidden');   // любое вытягивание снимает бейдж «Карта дня»
@@ -2949,7 +3058,9 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       : (Array.isArray(data.workLabels) ? data.workLabels : []);
     const allMeta = own ? (Array.isArray(own.workMeta) ? own.workMeta : [])
       : (Array.isArray(data.workMeta) ? data.workMeta : []);
-    currentWorkIndices = window.ManiFit
+    // Фильтр пользователя не должен подменять конкретную работу из ссылки.
+    const fitWorks = window.ManiFit && !exactWorkLink;
+    currentWorkIndices = fitWorks
       ? ManiFit.matchingIndices({ works: allWorks, workMeta: allMeta, workLabels: allLabels }, activeFit)
       : allWorks.map((_, i) => i);
     currentWorks = currentWorkIndices.map((i) => allWorks[i]);
@@ -2981,7 +3092,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       // подменять нельзя: иначе на платных картах снова показывались бы наши.
       if (media.works.length && !useMasterDeck) {
         const mediaMeta = Array.isArray(media.workMeta) ? media.workMeta : allMeta;
-        currentWorkIndices = window.ManiFit
+        currentWorkIndices = fitWorks
           ? ManiFit.matchingIndices({ works: media.works, workMeta: mediaMeta, workLabels: allLabels }, activeFit)
           : media.works.map((_, i) => i);
         currentWorks = currentWorkIndices.map((i) => media.works[i]);
@@ -2999,7 +3110,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     setHint('Нажмите на карту, чтобы увидеть послание');
 
     window.setTimeout(() => {
-      isAnimating = false;
+      if (drawToken === drawSeq) isAnimating = false;
     }, 550);
   }
 
@@ -3158,19 +3269,46 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
     applyZoom();
   });
 
-  function showWork(i) {
+  const workLoadError = document.getElementById('workLoadError');
+  function showWork(i, retry = false) {
     if (i < 0 || i >= currentWorks.length) return;
     workPos = i;
     resetZoom();
+    workLoadError?.classList.add('hidden');
+    workImg.classList.remove('hidden');
+    let src = currentWorks[i];
     const fallback = currentBundleWorks[i];
-    workImg.onerror = (fallback && fallback !== currentWorks[i])
-      ? () => { workImg.onerror = null; if (workPos === i) workImg.src = fallback; }
-      : null;
-    workImg.src = currentWorks[i];
+    if (workLoadError && isOwnMaster && useMasterDeck && src.startsWith(SERVER_URL + '/uploads/masters/')) {
+      if (retry) {
+        // WebView может закэшировать 404; для повтора нужен новый запрос к тому же фото.
+        const url = new URL(src);
+        url.searchParams.set('retry', String(Date.now()));
+        src = url.href;
+      }
+      workImg.onerror = () => {
+        if (workOverlay.classList.contains('hidden') || workPos !== i || workImg.src !== src
+            || !workImg.complete || workImg.naturalWidth) return;
+        workImg.classList.add('hidden');
+        workLoadError.classList.remove('hidden');
+      };
+    } else {
+      workImg.onerror = (fallback && fallback !== src)
+        ? () => { workImg.onerror = null; if (workPos === i) workImg.src = fallback; }
+        : null;
+    }
+    workImg.src = src;
     const label = currentLabels[i] || ('Дизайн ' + currentDesignNumberFor(i));
     workCaption.innerHTML = label +
       '<span class="work-counter">' + currentDesignNumberFor(i) + ' · ' + (i + 1) + ' / ' + currentWorks.length + '</span>';
-    const shade = window.ManiBrands && ManiBrands.hintFor(currentWorkHexes[currentDesignNumberFor(i) - 1]);
+    const hex = currentWorkHexes[currentDesignNumberFor(i) - 1];
+    const shade = window.ManiBrands && ManiBrands.hintFor(hex);
+    if (workTryColor) {
+      const href = !designsLocked && /^#?[0-9a-f]{6}$/i.test(hex)
+        ? window.ManiTryonLink?.href(hex, { master: tryonMaster() }) : '';
+      if (href) workTryColor.href = href;
+      else workTryColor.removeAttribute('href');
+      workTryColor.classList.toggle('hidden', !href);
+    }
     if (workShade) {
       workShade.textContent = '';
       workShade.classList.toggle('hidden', !shade);
@@ -3221,6 +3359,12 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   if (workShare) {
     workShare.addEventListener('click', (e) => { e.stopPropagation(); shareWork(); });
   }
+  if (workTryColor) {
+    workTryColor.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (designsLocked || workOverlay.classList.contains('hidden')) e.preventDefault();
+    });
+  }
 
   function openWork() {
     if (workBtn.classList.contains('hidden') || currentWorks.length === 0) return;
@@ -3246,6 +3390,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   workBtn.addEventListener('click', openWork);
   workNext.addEventListener('click', nextWork);
   workPrev.addEventListener('click', prevWork);
+  document.getElementById('workRetry')?.addEventListener('click', () => showWork(workPos, true));
   workOverlay.addEventListener('click', (e) => {
     if (e.target === workOverlay) closeWork();
   });
@@ -3388,15 +3533,14 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
   const cardParam = parseInt(params.get('card'), 10);
   const selection = parseSelection(params.get('cards'));
   if (cardParam >= 1 && cardParam <= CARDS.length) {
-    drawSource = 'link';
-    drawCard(cardParam - 1);
-    // ?work=M — ссылка на конкретный пример, а не на карту: сразу открываем
-    // галерею на нём, иначе получатель ищет его среди пяти работ сам.
-    const workParam = parseInt(params.get('work'), 10);
+    // ?work=M открывает именно присланный дизайн, даже если фильтр получательницы
+    // исключил бы его при обычном подборе. Настройки фильтра остаются на месте.
+    const workParam = Number(params.get('work'));
     const works = CARDS[cardParam - 1].works || [];
-    if (workParam >= 1 && workParam <= works.length) {
-      setTimeout(() => { openWork(); showWork(workParam - 1); }, 0);
-    }
+    const exactWorkLink = Number.isInteger(workParam) && workParam >= 1 && workParam <= works.length;
+    drawSource = 'link';
+    drawCard(cardParam - 1, false, exactWorkLink);
+    if (exactWorkLink) setTimeout(() => { openWork(); showWork(workParam - 1); }, 0);
   } else if (selection.length > 0) {
     // пришли по ссылке-подборке: показываем её, за ней открыта первая карта
     drawSource = 'link_selection';

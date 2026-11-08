@@ -268,6 +268,16 @@
         <span id="fitLabel">Форма и длина</span>
       </button>
     </div>
+    <button id="catalogCollection" class="catalog-collection" type="button" aria-controls="catalogGrid">
+      <span class="catalog-collection-cover" aria-hidden="true"></span>
+      <span class="catalog-collection-copy">
+        <span>Подборка ноября</span>
+        <strong id="catalogCollectionTitle">Поздняя осень</strong>
+        <span>Винные, карамельные и графитовые палитры</span>
+      </span>
+      <span class="catalog-collection-arrow" aria-hidden="true">›</span>
+    </button>
+    <button id="catalogCollectionBack" class="catalog-collection-back hidden" type="button" aria-controls="catalogGrid">‹ К списку карт</button>
     <button id="lockBanner" class="lock-banner hidden">
       <span id="lockBannerText">Примеры работ открыты у 15 из 49 карт</span>
       <span class="lock-banner-cta">Открыть все</span>
@@ -377,6 +387,10 @@
     <button id="workPrev" class="work-nav work-prev" aria-label="Предыдущее">&#8249;</button>
     <div class="work-stage">
       <img id="workImg" class="work-img" src="" alt="Пример готовой работы">
+      <div id="workLoadError" class="work-load-error hidden">
+        <p role="status">Фото не загрузилось</p>
+        <button id="workRetry" class="work-want" type="button">Повторить</button>
+      </div>
       <!-- Прямо на фото и теми же местами, что на карте: слева поделиться,
            справа сердечко. Обе — личные действия клиентки и работают всегда,
            в отличие от «Показать мастеру» внизу. -->
@@ -396,7 +410,10 @@
       <p id="workShade" class="work-shade hidden"></p>
       <!-- Явный выбор дизайна. До этого мастеру уходило то фото, на котором
            клиентка случайно остановилась при листании, — выбором это не было. -->
-      <button id="workWant" class="work-want hidden" type="button">Показать мастеру</button>
+      <div class="work-actions">
+        <a id="workTryColor" class="work-want work-try hidden">Примерить цвет</a>
+        <button id="workWant" class="work-want hidden" type="button">Показать мастеру</button>
+      </div>
       <p class="work-zoomhint">Щипок или двойной тап — увеличить · свайп вниз — закрыть</p>
       <div id="workDots" class="work-dots"></div>
     </div>
@@ -409,10 +426,15 @@
     <div id="mwGrid" class="mw-grid"></div>
   </div>
   <div id="mwLightbox" class="mw-lightbox hidden">
-    <img id="mwBig" alt="Работа мастера">
+    <div class="mw-media"><img id="mwBig" alt="Работа мастера"></div>
+    <p id="mwColorHint" class="mw-color-hint hidden" role="status"></p>
     <!-- Выбор работы из витрины мастера. У неё нет ни карты, ни номера дизайна:
          это собственное фото мастера, поэтому уходит её адрес. -->
-    <button id="mwWant" class="work-want mw-want hidden" type="button">Показать мастеру</button>
+    <div class="work-actions">
+      <button id="mwTryColor" class="work-want work-try hidden" type="button" aria-pressed="false">Примерить цвет</button>
+      <button id="mwWant" class="work-want hidden" type="button">Показать мастеру</button>
+    </div>
+    <a id="mwManualTry" class="mw-manual-try hidden" href="tryon/index.html">Выбрать цвет вручную</a>
   </div>
 
   <div id="experienceRoot"></div>
@@ -422,6 +444,7 @@
   <script src="data.js"></script>
   <script src="palettes.js"></script>
   <script src="brands.js"></script>
+  <script src="tryon-link.js"></script>
   <script src="script.js"></script>
   <script src="experience.js"></script>
 </body>

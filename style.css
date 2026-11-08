@@ -869,23 +869,32 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   z-index: 80;
   background: rgba(0, 0, 0, 0.92);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
+  gap: 8px;
+  padding: calc(20px + var(--sat)) 12px calc(20px + var(--sab));
   animation: fadeIn 0.2s ease;
 }
-.mw-lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
-/* Кнопка выбора работы из витрины. Лайтбокс — центрирующий флекс, поэтому кнопку
-   ставим абсолютно у нижнего края: иначе она встала бы рядом с фото и сжала его.
-   Отступ снизу учитывает панель навигации телефона. */
-.mw-want {
-  position: absolute;
-  left: 50%;
-  bottom: calc(24px + var(--sab));
-  transform: translateX(-50%);
-  margin: 0;
-  z-index: 1;
+.mw-media {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+.mw-lightbox img { display: block; max-width: 100%; max-height: 100%; border-radius: 8px; }
+.mw-color-mode img { cursor: crosshair; }
+.mw-color-hint { margin: 0; color: #fff; font-size: 14px; text-align: center; }
+.mw-manual-try {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  color: #ffd2df;
+  font-size: 14px;
+  text-align: center;
+}
+.mw-manual-try.hidden { display: none; }
 
 .pw-badge {
   position: absolute;
@@ -1387,6 +1396,10 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
 /* во время щипка/перетаскивания — без сглаживания, чтобы шло за пальцем */
 .work-img.gesture { transition: none; }
 
+.work-load-error { color: #fff; text-align: center; }
+.work-load-error p { margin: 0 0 12px; }
+.work-load-error .work-want { min-height: 44px; }
+
 .work-meta {
   display: flex;
   flex-direction: column;
@@ -1500,6 +1513,10 @@ body.has-master-accent #pickBtn { background: var(--master-accent); }
   background: linear-gradient(135deg, #e63950, #b5203a);
   border-color: #b5203a;
 }
+.work-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.work-actions .work-want { margin: 0; padding-inline: 12px; text-align: center; }
+.work-try { text-decoration: none; }
+.work-try[aria-pressed="true"] { border-color: #ffd2df; background: rgba(255, 210, 223, 0.2); }
 
 /* Сохранить работу и поделиться ею — прямо на фото, теми же местами и тем же
    видом, что на карте: клиентка уже знает эти две кнопки оттуда. Внизу под

@@ -1013,6 +1013,49 @@
   // Смотреть работы крупно нужно в «Альбоме», он ниже.
   const WORKS_STEP = 9;
   let worksShown = WORKS_STEP;
+  const workPhotoSources = new Map(), workThumbnails = new Map();
+  let workPhotoRetry = 0;
+
+  function workPhotoSrc(w) {
+    const original = abs(w.url);
+    return workPhotoSources.get(original) || original;
+  }
+
+  function workPhotoView(img, warning, retry, onReady) {
+    const retryLabel = retry.textContent;
+    return (src, retrying = false) => {
+      // Отдельный img на запрос: ответ прошлого кадра не должен менять новый.
+      const next = img.cloneNode(false);
+      next.removeAttribute('src');
+      img.replaceWith(next);
+      img = next;
+      function paint(state) {
+        if (img !== next) return;
+        const ready = state === 'ready', show = state === 'error' || state === 'retry';
+        img.classList.toggle('work-photo-pending', !ready);
+        warning.classList.toggle('hidden', !show);
+        retry.classList.toggle('hidden', !show);
+        retry.disabled = state !== 'error';
+        retry.textContent = state === 'retry' ? 'Загрузка…' : retryLabel;
+        if (onReady) onReady(ready);
+      }
+      next.onload = () => paint('ready');
+      next.onerror = () => paint('error');
+      paint(retrying ? 'retry' : 'loading');
+      next.src = src;
+    };
+  }
+
+  function retryWorkPhoto(w) {
+    const original = abs(w.url), fresh = new URL(original, location.href);
+    // Обходим кеш ошибки, но сохраняем прежний путь и запись работы на сервере.
+    fresh.searchParams.set('_photo_retry', Date.now() + '-' + (++workPhotoRetry));
+    workPhotoSources.set(original, fresh.href);
+    workThumbnails.get(w.id)?.(fresh.href, true);
+    if (!$('album').classList.contains('hidden') && lastWorks[albumPos]?.id === w.id) {
+      albumPhotoView(fresh.href, true);
+    }
+  }
 
   async function loadWorks(keepShown) {
     const r = await apiJson('/api/master/photos');
@@ -1029,19 +1072,30 @@
         [2, 3, 4].includes(left % 10) && ![12, 13, 14].includes(left % 100) ? 'работы' : 'работ';
       more.textContent = 'Показать остальные — ещё ' + left + ' ' + word;
     }
-    const box = $('works'); box.innerHTML = '';
+    const box = $('works'); box.innerHTML = ''; workThumbnails.clear();
     works.slice(0, worksShown).forEach((w, i) => {
       const d = document.createElement('div'); d.className = 'work';
-      const img = document.createElement('img'); img.src = abs(w.url); img.alt = 'работа'; img.loading = 'lazy';
-      const b = document.createElement('button'); b.textContent = '×'; b.title = 'Удалить';
+      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'work-open';
+      preview.setAttribute('aria-label', 'Открыть работу ' + (i + 1) + ' в альбоме');
+      const img = document.createElement('img'); img.alt = ''; img.loading = 'lazy';
+      const warning = document.createElement('span'); warning.className = 'work-photo-error hidden';
+      warning.textContent = 'Фото не загрузилось';
+      const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'work-retry hidden';
+      retry.textContent = 'Повторить'; retry.setAttribute('aria-label', 'Повторить загрузку фото работы ' + (i + 1));
+      retry.addEventListener('click', () => retryWorkPhoto(w));
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'work-delete';
+      b.textContent = '×'; b.title = 'Удалить';
       b.addEventListener('click', async () => { await api('/api/master/photos/' + w.id, { method: 'DELETE' }); loadWorks(true); refreshDeck(); });
 
       // На миниатюре оставляем только фото и удаление: параметры разметки
       // редактируются в альбоме, где работу можно рассмотреть крупно.
       d.classList.toggle('nocolor', !w.color);
 
-      img.addEventListener('click', () => openAlbum(i));
-      d.appendChild(img); d.appendChild(b); box.appendChild(d);
+      preview.addEventListener('click', () => openAlbum(i));
+      preview.appendChild(img); d.append(preview, warning, retry, b); box.appendChild(d);
+      const load = workPhotoView(img, warning, retry);
+      workThumbnails.set(w.id, load);
+      load(workPhotoSrc(w));
     });
     paintNoColor();
     refreshDeck(works);
@@ -1143,7 +1197,7 @@
       row.classList.toggle('hidden', !plain.length);
     };
     img.onerror = () => { $('sorterHint').textContent = 'Фото не загрузилось'; };
-    img.src = abs(w.url);
+    img.src = workPhotoSrc(w);
   }
 
   // Лупа. Ноготь на снимке — несколько пикселей, палец закрывает и его, и
@@ -1335,10 +1389,15 @@
     albumPos = (albumPos + d + lastWorks.length) % lastWorks.length;
     showAlbumItem();
   }
+  const albumRetry = $('albumRetry');
+  // Старый HTML из кеша по-прежнему открывает альбом без кнопки повтора.
+  const albumPhotoView = albumRetry && $('albumPhotoError')
+    ? workPhotoView($('albumImg'), $('albumPhotoError'), albumRetry, (ready) => { $('albumSuggest').disabled = !ready; })
+    : (src) => { $('albumImg').src = src; };
   function showAlbumItem() {
     const w = lastWorks[albumPos];
     if (!w) { closeAlbum(); return; }
-    $('albumImg').src = abs(w.url);
+    albumPhotoView(workPhotoSrc(w));
     $('albumCount').textContent = (albumPos + 1) + ' из ' + lastWorks.length;
     $('albumCap').textContent = w.color || 'без цвета — в колоду не попадёт';
     fillAlbumSelect('albumColor', [['', 'Не указан'], ...COLORS.map((c) => [c, SHORT[c] || c])], w.color);
@@ -1347,7 +1406,7 @@
     $('albumStatus').textContent = '';
     // Соседний кадр в кеш: иначе при листании белый экран на полсекунды.
     const next = lastWorks[(albumPos + 1) % lastWorks.length];
-    if (next) new Image().src = abs(next.url);
+    if (next && next !== w) new Image().src = workPhotoSrc(next);
   }
 
   async function saveAlbumMeta() {
@@ -1390,6 +1449,10 @@
   $('albumClose').addEventListener('click', closeAlbum);
   $('albumPrev').addEventListener('click', () => albumStep(-1));
   $('albumNext').addEventListener('click', () => albumStep(1));
+  albumRetry?.addEventListener('click', () => {
+    const w = lastWorks[albumPos];
+    if (w) retryWorkPhoto(w);
+  });
   $('albumColor').addEventListener('change', saveAlbumMeta);
   $('albumLength').addEventListener('change', saveAlbumMeta);
   $('albumShape').addEventListener('change', saveAlbumMeta);

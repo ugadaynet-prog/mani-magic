@@ -100,7 +100,15 @@
   .works{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
   .work{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f3eef1}
   .work img{width:100%;height:100%;object-fit:cover}
-  .work button{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;padding:0}
+  .work-open{display:block;width:100%;height:100%;padding:0;border:0;background:none}
+  .work-delete{position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:1;padding:0}
+  .work-photo-pending{opacity:0}
+  .work-photo-error{position:absolute;inset:26px 4px 28px;display:grid;place-items:center;pointer-events:none;
+    color:#655861;text-align:center;font-size:11px;line-height:1.2;overflow-wrap:anywhere}
+  .work-photo-error.hidden{display:none}
+  .work-retry{position:absolute;inset:auto 4px 3px;min-height:24px;padding:2px 3px;border:1px solid var(--line);
+    border-radius:7px;background:#fff;color:var(--pink-d);font-size:11px;font-weight:600}
+  .work-retry:disabled,.album-retry:disabled,.album-suggest:disabled{opacity:.55}
   .picks{list-style:none;padding:0;margin:8px 0 0}
   .picks li{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
   .picks li:last-child{border-bottom:none}
@@ -311,6 +319,11 @@
   .album-stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center}
   .album-stage img{max-width:100%;max-height:100%;border-radius:14px;display:block;
     box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  .album-photo-error{position:absolute;inset:0 48px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:10px;text-align:center;color:#e7e2ee;font-size:14px;pointer-events:none}
+  .album-photo-error.hidden{display:none}
+  .album-retry{min-height:42px;padding:8px 12px;border:1px solid rgba(255,255,255,.28);border-radius:8px;
+    background:#302936;color:#fff;font-size:13px;font-weight:600;pointer-events:auto}
   .album-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;
     border:none;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:26px;line-height:1;padding:0}
   .album-prev{left:0} .album-next{right:0}
@@ -923,6 +936,10 @@
   <div class="album-layout">
     <div id="albumStage" class="album-stage">
       <img id="albumImg" alt="Работа">
+      <div id="albumPhotoError" class="album-photo-error hidden">
+        <span role="status">Фото не загрузилось</span>
+        <button id="albumRetry" class="album-retry" type="button">Повторить загрузку</button>
+      </div>
       <button id="albumPrev" class="album-nav album-prev" type="button" aria-label="Предыдущая">&lsaquo;</button>
       <button id="albumNext" class="album-nav album-next" type="button" aria-label="Следующая">&rsaquo;</button>
     </div>

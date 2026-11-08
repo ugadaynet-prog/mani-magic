@@ -77,6 +77,25 @@ button:disabled { opacity: .45; cursor: default; }
 .catalog-tools { display: flex; gap: 8px; margin: -4px 0 18px; flex-wrap: wrap; }
 .catalog-tools #filterBtn, .catalog-tools #fitBtn { width: auto; min-height: 44px; border-radius: 8px; padding: 8px 14px; max-width: 100%; }
 .catalog-tools #fitBtn.active { background: var(--surface); border: 1px solid var(--accent); color: var(--accent); }
+.catalog-collection {
+  display: flex; flex: 0 0 auto; align-items: center; gap: 12px; width: 100%;
+  margin: 0 0 16px; padding: 12px; border: 1px solid var(--border-soft);
+  border-radius: 8px; background: var(--surface); color: var(--paper); text-align: left; cursor: pointer;
+}
+.catalog-collection-cover {
+  width: 36px; height: 52px; flex: 0 0 auto; border-radius: 6px;
+  background: linear-gradient(145deg, #7f241f 0 33%, #c4892d 33% 66%, #494c55 66%);
+}
+.catalog-collection-copy { display: grid; flex: 1; min-width: 0; gap: 3px; }
+.catalog-collection-copy span { color: var(--muted); font-size: 12px; line-height: 1.3; }
+.catalog-collection-copy strong { font-size: 17px; font-weight: 600; }
+.catalog-collection-arrow { color: var(--muted); font-size: 24px; line-height: 1; }
+.catalog-collection-back {
+  flex: 0 0 auto; align-self: flex-start; min-height: 44px; margin: -8px 0 14px; padding: 0 12px;
+  border: 1px solid var(--border-soft); border-radius: 8px; background: var(--surface); color: var(--paper); cursor: pointer;
+}
+.catalog-collection-active .catalog-tools, .catalog-collection-active .catalog-fit-tools { display: none; }
+.catalog-collection-active button.fav-item { padding: 0; border: 0; border-radius: 8px; background: transparent; }
 #fitOverlay { z-index: 80; }
 .fit-note { color: var(--muted); line-height: 1.5; margin: -8px 0 20px; }
 .fit-form { display: grid; gap: 22px; }
