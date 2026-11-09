@@ -1,6 +1,5 @@
 'use strict';
 (() => {
-  const publicApp = 'https://mani-magic.ru/app/';
   const finishes = ['glossy', 'matte', 'jelly', 'sheer'];
   const hex = value => typeof value === 'string' && /^#?[\da-f]{6}$/i.test(value)
     ? '#' + value.replace(/^#/, '').toLowerCase() : '';
@@ -24,8 +23,9 @@
 
   window.ManiTryonLink = Object.freeze({ href, read });
 
-  const share = document.getElementById('shareShadeBtn');
-  if (!share) return;
+  const showMaster = document.getElementById('showMasterBtn') || document.getElementById('shareShadeBtn');
+  if (!showMaster) return;
+  showMaster.textContent = 'Показать мастеру';
   const $ = id => document.getElementById(id);
   const colorInput = $('colorInput');
   const incoming = read(location.search);
@@ -43,50 +43,42 @@
     badge.classList.remove('hidden');
   }
 
-  const fallback = $('shadeLinkFallback');
-  const linkField = $('shadeLinkValue');
   const status = $('shadeLinkStatus');
-  function resetShareFeedback() {
-    fallback.classList.add('hidden');
+  function resetFeedback() {
     status.textContent = '';
     if (incoming.color) $('incomingShade').classList.toggle('hidden', colorInput.value !== incoming.color);
   }
-  colorInput.addEventListener('input', resetShareFeedback);
-  $('palette').addEventListener('click', resetShareFeedback);
-  $('finishPicker')?.addEventListener('click', resetShareFeedback);
-  function showFallback(url) {
-    fallback.classList.remove('hidden');
-    linkField.value = url;
-    linkField.focus();
-    linkField.select();
-  }
+  colorInput.addEventListener('input', resetFeedback);
+  $('palette').addEventListener('click', resetFeedback);
+  $('finishPicker')?.addEventListener('click', resetFeedback);
 
-  share.addEventListener('click', async () => {
-    const coating = document.querySelector('button[data-finish][aria-pressed="true"]')?.dataset.finish;
-    // Ссылка содержит только оттенок и финиш, поэтому её можно переслать отдельно от фото и витрины.
-    const route = href(colorInput.value, { finish: coating });
-    if (!route) return;
+  showMaster.addEventListener('click', async () => {
+    let master = incoming.master;
+    try { master ||= slug(localStorage.getItem('maniMasterSlug')); } catch (e) {}
+    if (!master) {
+      status.textContent = 'Откройте приложение по ссылке или QR-коду мастера, чтобы отправить выбор.';
+      return;
+    }
+    const color = hex(colorInput.value);
+    const coating = finish(document.querySelector('button[data-finish][aria-pressed="true"]')?.dataset.finish) || 'glossy';
+    if (!color) return;
     const native = window.Capacitor?.isNativePlatform?.();
     const localPreview = !native && location.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(location.hostname);
-    const base = localPreview ? new URL('../', location.href) : publicApp;
-    const url = new URL(route, base).href;
-    const title = 'MANI Magic', text = 'Примерь этот оттенок на своём фото';
-    resetShareFeedback();
-    share.disabled = true;
+    const api = localPreview ? location.origin : 'https://api.mani-magic.ru';
+    showMaster.disabled = true;
+    status.textContent = 'Отправляем оттенок и финиш…';
     try {
-      const nativeShare = native && window.Capacitor?.Plugins?.Share;
-      if (nativeShare?.share) { await nativeShare.share({ title, text, url }); return; }
-      if (navigator.share && (!navigator.canShare || navigator.canShare({ url }))) {
-        await navigator.share({ title, text, url });
-        return;
-      }
-      if (!navigator.clipboard?.writeText) { showFallback(url); return; }
-      await navigator.clipboard.writeText(url);
-      status.textContent = 'Ссылка скопирована';
-    } catch (error) {
-      if (error.name !== 'AbortError') showFallback(url);
+      const response = await fetch(api + '/api/m/' + encodeURIComponent(master) + '/pick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tryon: { color, finish: coating } }),
+      });
+      if (!response.ok || !(await response.json()).ok) throw Error('pick_failed');
+      status.textContent = 'Мастер получит оттенок и финиш. Фото не отправлено.';
+    } catch {
+      status.textContent = 'Не удалось отправить выбор. Проверьте связь и попробуйте ещё раз.';
     } finally {
-      share.disabled = false;
+      showMaster.disabled = false;
     }
   });
 })();

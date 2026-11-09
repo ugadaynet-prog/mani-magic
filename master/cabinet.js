@@ -2724,12 +2724,21 @@
       // workUrl приходит от API относительным (/uploads/…) — на основном домене
       // без abs() он бы вёл в никуда. Остальные пути уже абсолютные, через APP.
       const photo = pickPhoto(p);
-      const img = document.createElement('img');
-      img.className = 'pick-thumb';
-      img.loading = 'lazy';
-      img.alt = p.workUrl ? 'Выбранная работа' : ('Карта ' + p.card);
-      if (photo) img.src = photo;
-      li.appendChild(img);
+      const shade = !p.card && !p.workUrl && /^Примерка: (#[0-9A-F]{6}) · /.exec(p.designLabel || '');
+      if (shade) {
+        const chip = document.createElement('span');
+        chip.className = 'pick-thumb';
+        chip.style.backgroundColor = shade[1];
+        chip.setAttribute('aria-hidden', 'true');
+        li.appendChild(chip);
+      } else {
+        const img = document.createElement('img');
+        img.className = 'pick-thumb';
+        img.loading = 'lazy';
+        img.alt = p.workUrl ? 'Выбранная работа' : ('Карта ' + p.card);
+        if (photo) img.src = photo;
+        li.appendChild(img);
+      }
 
       const main = document.createElement('div'); main.className = 'pick-main';
 
@@ -2747,7 +2756,7 @@
 
       const sub = document.createElement('div'); sub.className = 'pick-sub';
       // У выбора из витрины карты нет вовсе — иначе тут выводилось бы «Карта null».
-      sub.textContent = p.workUrl
+      sub.textContent = shade ? 'Оттенок и финиш из примерки' : p.workUrl
         ? 'Из витрины студии · клиент выбрал вашу работу'
         : (p.design
           ? 'Карта ' + p.card + ' · дизайн ' + p.design + ' из 5'

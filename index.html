@@ -247,10 +247,20 @@
     <button id="favClose" class="work-close" aria-label="Закрыть">&times;</button>
     <h2 class="fav-title">Понравилось</h2>
     <div id="favGrid" class="fav-grid"></div>
+    <section id="favTryons" class="fav-tryons hidden" aria-labelledby="favTryonTitle">
+      <h3 id="favTryonTitle">Мои примерки</h3>
+      <div id="favTryonGrid" class="fav-grid"></div>
+      <p id="favTryonStatus" role="status"></p>
+    </section>
     <button id="shareSelBtn" class="sel-share-btn hidden">Помоги выбрать</button>
     <p id="favEmpty" class="fav-empty hidden">Пока пусто.<br>Нажмите &#10084; на карте, которая понравилась.</p>
   </div>
 
+  <dialog id="favTryonPreview" class="fav-tryon-preview" aria-label="Сохранённая примерка">
+    <button type="button" class="work-close" aria-label="Закрыть примерку">×</button>
+    <img alt="Результат примерки">
+    <p></p>
+  </dialog>
   <div id="selOverlay" class="fav-overlay hidden">
     <button id="selClose" class="work-close" aria-label="Закрыть">&times;</button>
     <h2 class="fav-title">Подборка</h2>
@@ -445,6 +455,7 @@
   <script src="palettes.js"></script>
   <script src="brands.js"></script>
   <script src="tryon-link.js"></script>
+  <script src="tryon-favorites.js"></script>
   <script src="script.js"></script>
   <script src="experience.js"></script>
 </body>

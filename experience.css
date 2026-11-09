@@ -96,6 +96,14 @@ button:disabled { opacity: .45; cursor: default; }
 }
 .catalog-collection-active .catalog-tools, .catalog-collection-active .catalog-fit-tools { display: none; }
 .catalog-collection-active button.fav-item { padding: 0; border: 0; border-radius: 8px; background: transparent; }
+.fav-tryons { width: 100%; margin: 20px 0 12px; }
+.fav-tryon-open { width:100%; padding:0; border:0; background:none; color:inherit; text-align:left; }
+.fav-tryon-open img { display:block; width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:8px; }
+.fav-tryon-open span { display:block; padding:6px 2px; font-size:12px; }
+.fav-tryon-preview { position:fixed; width:min(94vw,560px); max-height:90dvh; padding:14px; border:0; border-radius:12px; background:var(--surface); color:var(--paper); text-align:center; }
+.fav-tryon-preview::backdrop { background:#000c; }
+.fav-tryon-preview img { display:block; width:100%; max-height:75dvh; object-fit:contain; }
+.fav-tryon-preview .work-close { position:absolute; top:12px; right:12px; }
 #fitOverlay { z-index: 80; }
 .fit-note { color: var(--muted); line-height: 1.5; margin: -8px 0 20px; }
 .fit-form { display: grid; gap: 22px; }

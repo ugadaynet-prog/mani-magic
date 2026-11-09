@@ -1637,6 +1637,7 @@ if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNat
       item.appendChild(rm);
       favGrid.appendChild(item);
     });
+    window.ManiTryonFavorites?.render?.(favorites.length > 0);
   }
 
   likeBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(); });
