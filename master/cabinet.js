@@ -351,7 +351,8 @@
 
   // --- Карточка для стола ---
   // QR и название студии на листе А5: мастер печатает, ставит на стол или зеркало, клиентка
-  // наводит камеру сама. Печать — штатная печать браузера (@media print в index.html).
+  // наводит камеру сама. В браузере доступна печать, на телефоне можно отправить готовый файл.
+  if (native) $('deskBtn').textContent = 'QR-карточка для стола';
   $('deskBtn').addEventListener('click', () => {
     const svg = $('qrBox').innerHTML;
     if (!svg) { toast('QR ещё загружается — повторите через секунду'); return; }
@@ -366,13 +367,85 @@
   $('deskClose').addEventListener('click', () => {
     $('deskOverlay').classList.add('hidden'); document.body.style.overflow = '';
   });
+  $('deskPrint').classList.toggle('hidden', native || typeof window.print !== 'function');
+  $('deskShareFile')?.classList.toggle('btn-ghost', !native);
   $('deskPrint').addEventListener('click', () => {
-    // в WebView приложения печати может не быть — подсказываем запасной путь
-    if (typeof window.print !== 'function' || native) {
-      toast('В приложении печать недоступна: откройте кабинет на сайте mani-magic.ru/master/');
-      if (native) return;
+    if (!native && typeof window.print === 'function') window.print();
+  });
+
+  // A5 при 300 dpi: картинку можно открыть и распечатать без входа в кабинет.
+  async function makeDeskImage() {
+    const svg = $('dcQr').querySelector('svg')?.cloneNode(true);
+    if (!svg) throw Error('missing_qr');
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.setAttribute('width', '940');
+    svg.setAttribute('height', '940');
+    const svgUrl = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
+    const image = new Image();
+    try {
+      await new Promise((resolve, reject) => {
+        image.onload = resolve; image.onerror = reject; image.src = svgUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = 1748; canvas.height = 2480;
+      const ctx = canvas.getContext('2d'), center = canvas.width / 2;
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = $('deskCard').style.getPropertyValue('--dc-accent') || '#d6336c';
+      ctx.fillRect(0, 0, canvas.width, 30);
+      ctx.fillStyle = '#23242e'; ctx.textAlign = 'center';
+      ctx.font = 'bold 64px sans-serif';
+      ctx.fillText($('dcStudio').textContent, center, 240, 1450);
+      ctx.font = 'bold 96px sans-serif';
+      ctx.fillText('Выберите цвет', center, 445);
+      ctx.fillText('маникюра заранее', center, 560);
+      ctx.drawImage(image, center - 470, 710, 940, 940);
+      ctx.font = '50px sans-serif';
+      ctx.fillText('Наведите камеру на QR-код,', center, 1820);
+      ctx.fillText('чтобы открыть колоду цветов', center, 1900);
+      ctx.fillText('и показать выбор мастеру.', center, 1980);
+      ctx.fillStyle = '#555'; ctx.font = '42px sans-serif';
+      ctx.fillText('MANI Magic', center, 2310);
+      return canvas;
+    } finally {
+      URL.revokeObjectURL(svgUrl);
     }
-    window.print();
+  }
+
+  $('deskShareFile')?.addEventListener('click', async () => {
+    const button = $('deskShareFile');
+    if (button.disabled) return;
+    button.disabled = true;
+    const name = 'MANI-Magic-QR.png';
+    try {
+      const canvas = await makeDeskImage();
+      const plugin = shareApi(), files = window.Capacitor?.Plugins?.Filesystem;
+      if (native && plugin?.share && files?.writeFile) {
+        const stored = await files.writeFile({
+          path: 'MANI-Magic-QR-' + Date.now() + '.png',
+          directory: 'CACHE', data: canvas.toDataURL('image/png').split(',')[1],
+        });
+        await plugin.share({ title: 'QR-карточка MANI Magic', files: [stored.uri] });
+        return;
+      }
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw Error('empty_card');
+      const file = new File([blob], name, { type: 'image/png' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: 'QR-карточка MANI Magic', files: [file] });
+        return;
+      }
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = name;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      toast('Карточка сохранена в загрузки');
+    } catch (error) {
+      if (error?.name !== 'AbortError' && error?.message !== 'Share canceled') {
+        toast('Не удалось передать файл. Попробуйте ещё раз');
+      }
+    } finally {
+      button.disabled = false;
+    }
   });
 
   // --- Pro ---
